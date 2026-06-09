@@ -1,0 +1,30 @@
+{
+  "get_current_time": {
+    "command": "python",
+    "args": [
+      "./mcp_server_time.py"
+    ],
+    "transport": "stdio"
+  },
+  "document-export": {
+    "command": "python",
+    "args": [
+      "./mcp_server_export.py"
+    ],
+    "transport": "stdio"
+  },
+  "rag-server": {
+    "command": "python",
+    "args": [
+      "-m",
+      "src.mcp_server.server"
+    ],
+    "cwd": "../rag-server",
+    "transport": "stdio"
+  },
+  "amap-maps": {
+    "command": "mcp-amap",
+    "args": [],
+    "transport": "stdio"
+  }
+}

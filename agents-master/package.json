@@ -1,0 +1,8 @@
+{
+  "name": "agents-master-mcp-deps",
+  "private": true,
+  "description": "MCP stdio 依赖（高德地图等），供 resolve_mcp_config 解析本地可执行文件",
+  "dependencies": {
+    "@amap/amap-maps-mcp-server": "^0.1.0"
+  }
+}

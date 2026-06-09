@@ -1,0 +1,26 @@
+---
+description: Git 提交前安全检查与仓库约定
+alwaysApply: true
+---
+
+# GitHub 安全与提交规范
+
+## 禁止提交
+
+- `.env`、含真实 `api_key` 的 `settings.yaml`
+- `data/`、`logs/`、`cache/`、`.venv/`、`node_modules/`
+- 任何含 API Key、Token、密码的配置文件
+
+## 提交前检查
+
+提交前确认 `git diff` 中无密钥；`config.json` 的 MCP `env` 块不应含明文 Key（应走 `.env`）。
+
+## Commit message
+
+- 用中文或 conventional commits，说明 **why** 而非仅罗列文件名
+- 小步提交：功能、修复、文档分开
+
+## 推送
+
+- 仅在用户明确要求时 `git commit` / `git push`
+- 默认推送到私有仓库 `contextbridge-agent`

@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Environment variables
+.env
+
+# macOS
+.DS_Store
+
+# Data
+data/
+
+# Node (MCP amap-maps 等)
+node_modules/
+package-lock.json

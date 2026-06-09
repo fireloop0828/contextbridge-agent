@@ -1,0 +1,43 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+wheels/
+.venv/
+venv/
+
+# Node (MCP amap-maps 等)
+node_modules/
+package-lock.json
+
+# 环境变量与本地密钥（只提交 .env.example / *.example.yaml）
+.env
+.env.local
+.env.*.local
+
+# 本地运行时数据
+agents-master/data/
+rag-server/data/
+rag-server/cache/
+rag-server/logs/
+*.log
+traces.jsonl
+
+# RAG 本地配置（含 API Key，用 example 模板复制）
+rag-server/config/settings.yaml
+rag-server/config/settings.yaml.bak
+rag-server/config/settings.yaml.qa_backup
+rag-server/config/test_credentials.yaml
+
+# IDE / 工具缓存
+.idea/
+.vscode/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.ipynb_checkpoints/
