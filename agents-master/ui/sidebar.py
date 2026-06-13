@@ -10,12 +10,11 @@ import streamlit as st
 import travel_mode as tm
 import timing_log as tlog
 from session_store import (
-    USER_PREF_FIELDS,
     apply_snapshot,
     archive_current_session,
     clear_persisted_latest,
     describe_latest_for_restore,
-    format_memory_panel_markdown,
+    format_session_state_markdown,
     has_restorable_latest,
     init_session_store_state,
     list_archives,
@@ -25,6 +24,7 @@ from session_store import (
     start_blank_session,
 )
 from ui import get_app_module
+from ui.display_labels import format_mcp_server_label
 
 MODE_LABEL_GENERAL = "通用模式"
 MODE_LABEL_TRAVEL = "旅行规划"
@@ -368,19 +368,36 @@ def _render_mcp_tools() -> None:
             st.error("不是有效的 MCP 工具配置。")
         else:
             for tool_name in list(pending_config.keys()):
+                display_name = format_mcp_server_label(tool_name)
                 col1, col2 = st.columns([7, 2])
-                col1.markdown(f"- **{tool_name}**")
+                with col1:
+                    st.markdown(f"- **{display_name}**")
+                    if display_name != tool_name:
+                        st.caption(f"标识：{tool_name}")
                 if col2.button("删除", key=f"delete_{tool_name}"):
                     del st.session_state.pending_mcp_config[tool_name]
                     if main.reconnect_agent(
-                        spinner_label=f"正在移除工具「{tool_name}」并重新连接…"
+                        spinner_label=f"正在移除工具「{display_name}」并重新连接…"
                     ):
-                        st.success(f"✅ 已删除并停用工具「{tool_name}」。")
+                        st.success(f"✅ 已删除并停用工具「{display_name}」。")
                         st.rerun()
                     else:
                         st.error(
-                            f"❌ 已从配置移除「{tool_name}」，但重连 MCP 失败。"
+                            f"❌ 已从配置移除「{display_name}」，但重连 MCP 失败。"
                         )
+
+            mcp_tools = st.session_state.get("mcp_tools") or []
+            if mcp_tools:
+                with st.expander(
+                    f"工具能力明细（{len(mcp_tools)} 个）", expanded=False
+                ):
+                    for tool in mcp_tools:
+                        raw_name = getattr(tool, "name", None) or str(tool)
+                        label = tlog.get_tool_display_label(raw_name)
+                        if label != raw_name:
+                            st.markdown(f"- **{label}** · `{raw_name}`")
+                        else:
+                            st.markdown(f"- `{raw_name}`")
 
 
 def _apply_pending_restore_rebuild() -> None:
@@ -427,38 +444,32 @@ def _render_session_restore_banner() -> None:
 
 
 def _render_memory_panel() -> None:
-    """P1：展示 Agent 当前可验证的结构化记忆。"""
+    """记忆面板：长期画像、本轮旅行进度（可选）、已归档对话。"""
     st.subheader("🧠 记忆面板")
-    with st.expander("当前 Agent 记得什么", expanded=False):
-        st.markdown(format_memory_panel_markdown())
-        st.caption(
-            "此处为结构化事实（intake、工具摘要、偏好），"
-            "不是完整聊天逐字稿；完整气泡仅在本页会话内展示。"
-        )
 
-    prefs = st.session_state.get("user_preferences") or {}
-    with st.expander("默认偏好（跨会话保留）", expanded=False):
-        st.caption("新建/恢复行程时，若 intake 对应字段为空，将自动填入以下默认值。")
-        updated: dict[str, str] = {}
-        labels = {
-            "default_budget": "默认预算档",
-            "default_transport": "默认交通方式",
-            "default_companions": "默认同行类型",
-        }
-        for field in USER_PREF_FIELDS:
-            updated[field] = st.text_input(
-                labels.get(field, field),
-                value=str(prefs.get(field) or ""),
-                key=f"user_pref_{field}",
+    with st.expander("跨会话记忆（画像 + 会话摘要）", expanded=False):
+        try:
+            from memory_recall import format_long_term_memory_markdown
+
+            st.markdown(format_long_term_memory_markdown())
+            st.caption(
+                "归档或生成攻略后自动更新；偏好也可在对话中说「请记住…」。"
+                "历史整段备份见下方「已归档对话」。"
             )
-        if st.button("保存偏好", key="save_user_preferences", use_container_width=True):
-            st.session_state.user_preferences = updated
-            save_latest_autosave()
-            st.success("✅ 偏好已保存。")
+        except Exception as exc:
+            st.caption(f"长期记忆暂不可用：{exc}")
+
+    if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL:
+        with st.expander("本轮旅行进度", expanded=False):
+            st.markdown(format_session_state_markdown())
+            st.caption(
+                "仅 **当前页** 的行程需求、阶段与工具摘要；"
+                "不是聊天气泡全文，也不是跨会话长期记忆。"
+            )
 
     archives = list_archives(limit=5)
     if archives:
-        with st.expander(f"已归档会话（{len(archives)}）", expanded=False):
+        with st.expander(f"已归档对话（{len(archives)}）", expanded=False):
             for idx, item in enumerate(archives):
                 label = item.get("label") or os.path.basename(item["path"])
                 saved = (item.get("saved_at") or "")[:19]
@@ -478,29 +489,43 @@ def _render_memory_panel() -> None:
                         st.rerun()
 
 
+_NEW_CHAT_HELP = (
+    "将当前会话归档（保留行程需求、工具摘要、"
+    "导出指针与最近聊天气泡），然后打开空白页。可在记忆面板下恢复会话。"
+    "适合「大理行程告一段落，开始规划桂林」。"
+)
+_RESET_CHAT_HELP = (
+    "不归档，直接清空当前页聊天、Agent checkpoint 与旅行进度；"
+    "磁盘上的 latest.json 快照一并删除。适合排错或彻底重来。"
+)
+
+
 def _render_conversation_actions() -> None:
     st.subheader("🔄 对话操作")
 
-    st.caption(
-        "**新对话**：将当前会话**归档**到 `data/sessions/archives/`（保留 intake、"
-        "工具摘要、导出指针与最近聊天气泡），然后打开空白页。"
-        "适合「大理行程告一段落，开始规划桂林」。"
-    )
-    if st.button("新对话（归档当前）", use_container_width=True, type="secondary"):
+    if st.button(
+        "新对话（归档当前）",
+        use_container_width=True,
+        type="secondary",
+        help=_NEW_CHAT_HELP,
+    ):
         path = archive_current_session()
         start_blank_session(keep_preferences=True)
         if path:
-            st.toast(f"已归档：{os.path.basename(path)}", icon="📦")
+            st.toast(
+                "已成功归档，可从【记忆面板 → 已归档对话】中恢复",
+                icon="📦",
+            )
         else:
             st.toast("当前无内容可归档，已打开空白页", icon="📄")
         st.rerun()
 
-    st.caption(
-        "**重置对话**：**不归档**，直接清空当前页聊天、Agent checkpoint 与旅行进度；"
-        "磁盘上的 `latest.json` 快照一并删除。"
-        "适合排错或彻底重来。"
-    )
-    if st.button("重置对话（不保留）", use_container_width=True, type="primary"):
+    if st.button(
+        "重置对话（不保留）",
+        use_container_width=True,
+        type="primary",
+        help=_RESET_CHAT_HELP,
+    ):
         clear_persisted_latest()
         start_blank_session(keep_preferences=True)
         st.success("✅ 对话已重置。")

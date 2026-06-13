@@ -138,6 +138,12 @@ def archive_current_session(*, label: str = "") -> str | None:
     safe = datetime.now().strftime("%Y%m%d-%H%M%S")
     path = os.path.join(ARCHIVES_DIR, f"{safe}.json")
     _write_json(path, payload)
+    try:
+        from memory_pipeline import run_memory_pipeline
+
+        run_memory_pipeline(payload, trigger="archive", archive_path=path)
+    except Exception:
+        pass
     clear_persisted_latest()
     return path
 
@@ -264,33 +270,34 @@ def start_blank_session(*, keep_preferences: bool = True) -> None:
         st.session_state.user_preferences = empty_user_preferences()
 
 
-def format_memory_panel_markdown() -> str:
-    """侧边栏记忆面板 Markdown。"""
+def format_session_state_markdown() -> str:
+    """侧边栏「本轮会话状态」：仅展示当前页结构化 state（非长期记忆、非聊天气泡全文）。"""
     import streamlit as st
 
     from travel_tool_memory import format_tool_memory_for_context
 
-    lines: list[str] = []
-    prefs = st.session_state.get("user_preferences") or empty_user_preferences()
-    pref_parts = [f"{k}={v}" for k, v in prefs.items() if v]
-    if pref_parts:
-        lines.append("**默认偏好**：" + "；".join(pref_parts))
-    else:
-        lines.append("**默认偏好**：（未设置）")
+    app_mode = st.session_state.get("app_mode", tm.APP_MODE_GENERAL)
+    history = st.session_state.get("history") or []
+    user_turns = sum(1 for m in history if m.get("role") == "user")
 
-    if st.session_state.get("app_mode") != tm.APP_MODE_TRAVEL:
-        lines.append("**模式**：通用对话（结构化 intake / 工具记忆仅在旅行模式展示）")
-        return "\n\n".join(lines)
+    if app_mode != tm.APP_MODE_TRAVEL:
+        return (
+            f"**模式**：通用对话\n\n"
+            f"**本轮**：约 {user_turns} 轮用户发言\n\n"
+            "通用模式没有行程需求 / 工具摘要等结构化块。"
+            "跨会话画像与摘要见上方「记忆外显」。"
+        )
 
+    lines: list[str] = [f"**本轮**：约 {user_turns} 轮用户发言"]
     intake = st.session_state.get("travel_intake") or tm.empty_intake()
     phase = st.session_state.get("travel_phase", tm.PHASE_INTAKE_1)
-    lines.append(f"**阶段**：`{phase}`")
+    lines.append(f"**阶段**：{tm.format_phase_zh(phase)}")
     filled = [
         f"{tm.INTAKE_FIELD_LABELS.get(k, k)}={intake.get(k)}"
         for k in tm.INTAKE_FIELDS
         if tm.is_field_filled(intake.get(k))
     ]
-    lines.append("**Intake**：" + ("；".join(filled) if filled else "（尚无）"))
+    lines.append("**行程需求**：" + ("；".join(filled) if filled else "（尚无）"))
     missing = tm.compute_missing_fields(intake)
     if missing:
         lines.append("**仍缺**：" + tm.format_missing_fields_zh(missing))
@@ -307,6 +314,11 @@ def format_memory_panel_markdown() -> str:
     return "\n\n".join(lines)
 
 
+def format_memory_panel_markdown() -> str:
+    """兼容旧引用。"""
+    return format_session_state_markdown()
+
+
 def describe_latest_for_restore() -> str:
     data = load_latest_snapshot()
     if not data:
@@ -316,9 +328,10 @@ def describe_latest_for_restore() -> str:
     dest = (intake.get("destination") or "").strip()
     phase = travel.get("phase", "")
     saved = (data.get("saved_at") or "")[:19]
+    phase_zh = tm.format_phase_zh(phase) if phase else ""
     if dest:
-        return f"{dest} · {phase or '旅行'} · 保存于 {saved}"
+        return f"{dest} · {phase_zh or '旅行'} · 保存于 {saved}"
     if data.get("app_mode") == tm.APP_MODE_TRAVEL:
-        return f"旅行规划 · {phase or '进行中'} · 保存于 {saved}"
+        return f"旅行规划 · {phase_zh or '进行中'} · 保存于 {saved}"
     turns = len(data.get("history") or [])
     return f"通用对话 · {turns} 条消息 · 保存于 {saved}"

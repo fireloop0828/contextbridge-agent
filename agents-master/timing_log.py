@@ -30,6 +30,11 @@ _RAG_TOOL_NAMES = frozenset(
 )
 
 
+def get_tool_display_label(tool_name: str) -> str:
+    """MCP 工具函数名 → 侧边栏等 UI 用的中文简述。"""
+    return _TOOL_PURPOSES.get(tool_name or "", tool_name or "未知工具")
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
 

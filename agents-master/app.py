@@ -9,6 +9,9 @@ import traceback
 
 if platform.system() == "Windows":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+else:
+    # Streamlit 会 uvloop.install()，nest_asyncio 无法 patch uvloop.Loop
+    asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
 
 # 应用 nest_asyncio：允许在已运行的事件循环中嵌套调用异步代码
 nest_asyncio.apply()
@@ -149,6 +152,9 @@ tm.init_travel_state()
 from session_store import init_session_store_state
 
 init_session_store_state()
+from memory_store import sync_profile_preferences_to_session
+
+sync_profile_preferences_to_session()
 tlog.init_timing_history()
 
 # --- 函数定义 ---

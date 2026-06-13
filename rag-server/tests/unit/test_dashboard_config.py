@@ -75,7 +75,7 @@ class TestConfigService:
         mock_load.return_value = _fake_settings()
         svc = ConfigService()
         cards = svc.get_component_cards()
-        llm = next(c for c in cards if c.name == "LLM")
+        llm = next(c for c in cards if "LLM" in c.name)
         assert llm.provider == "azure_openai"
         assert llm.model == "gpt-4o"
 
@@ -84,8 +84,8 @@ class TestConfigService:
         mock_load.return_value = _fake_settings()
         svc = ConfigService()
         cards = svc.get_component_cards()
-        emb = next(c for c in cards if c.name == "Embedding")
-        assert emb.extra["dimensions"] == 1536
+        emb = next(c for c in cards if "Embedding" in c.name)
+        assert emb.extra["维度"] == 1536
 
     @patch("src.observability.dashboard.services.config_service.load_settings")
     def test_rerank_disabled(self, mock_load) -> None:
@@ -94,15 +94,15 @@ class TestConfigService:
         mock_load.return_value = settings
         svc = ConfigService()
         cards = svc.get_component_cards()
-        reranker = next(c for c in cards if c.name == "Reranker")
-        assert reranker.provider == "disabled"
+        reranker = next(c for c in cards if "Reranker" in c.name)
+        assert reranker.provider == "已禁用"
 
     @patch("src.observability.dashboard.services.config_service.load_settings")
     def test_vision_llm_card_present(self, mock_load) -> None:
         mock_load.return_value = _fake_settings()
         svc = ConfigService()
         cards = svc.get_component_cards()
-        vision = [c for c in cards if c.name == "Vision LLM"]
+        vision = [c for c in cards if c.name == "视觉大模型"]
         assert len(vision) == 1
 
     @patch("src.observability.dashboard.services.config_service.load_settings")
@@ -110,8 +110,8 @@ class TestConfigService:
         mock_load.return_value = _fake_settings()
         svc = ConfigService()
         cards = svc.get_component_cards()
-        ingestion = next(c for c in cards if c.name == "Ingestion")
-        assert ingestion.extra["chunk_size"] == 1000
+        ingestion = next(c for c in cards if c.name == "文档摄取")
+        assert ingestion.extra["分块大小"] == 1000
 
     @patch("src.observability.dashboard.services.config_service.load_settings")
     def test_reload_clears_cache(self, mock_load) -> None:

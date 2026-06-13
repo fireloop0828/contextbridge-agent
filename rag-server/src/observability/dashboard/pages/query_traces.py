@@ -18,21 +18,29 @@ from src.observability.dashboard.services.trace_service import TraceService
 
 logger = logging.getLogger(__name__)
 
+_STAGE_LABELS = {
+    "query_processing": "查询处理",
+    "dense_retrieval": "稠密检索",
+    "sparse_retrieval": "稀疏检索",
+    "fusion": "融合",
+    "rerank": "重排序",
+}
+
 
 def render() -> None:
     """Render the Query Traces page."""
-    st.header("🔎 Query Traces")
+    st.header("🔎 查询追踪")
 
     svc = TraceService()
     traces = svc.list_traces(trace_type="query")
 
     if not traces:
-        st.info("No query traces recorded yet. Run a query first!")
+        st.info("尚无查询追踪记录。请先执行一次查询。")
         return
 
     # ── Keyword filter ─────────────────────────────────────────────
     keyword = st.text_input(
-        "Search by query keyword",
+        "按关键词搜索",
         value="",
         key="qt_keyword",
     )
@@ -45,7 +53,7 @@ def render() -> None:
             or kw in str(t.get("stages", [])).lower()
         ]
 
-    st.subheader(f"📋 Query History ({len(traces)})")
+    st.subheader(f"📋 查询历史 ({len(traces)})")
 
     for idx, trace in enumerate(traces):
         trace_id = trace.get("trace_id", "unknown")
@@ -66,15 +74,15 @@ def render() -> None:
 
         with st.expander(expander_title, expanded=(idx == 0)):
             # ── 1. Query overview ──────────────────────────────
-            st.markdown("#### 💬 Query")
+            st.markdown("#### 💬 查询")
             col_q, col_meta = st.columns([3, 1])
             with col_q:
                 st.markdown(f"> {query_text}")
             with col_meta:
                 source_emoji = "🤖" if source == "mcp" else "📡"
-                st.markdown(f"**Source:** {source_emoji} `{source}`")
-                st.markdown(f"**Top-K:** `{meta.get('top_k', '—')}`")
-                st.markdown(f"**Collection:** `{meta.get('collection', '—')}`")
+                st.markdown(f"**来源：** {source_emoji} `{source}`")
+                st.markdown(f"**Top-K：** `{meta.get('top_k', '—')}`")
+                st.markdown(f"**集合：** `{meta.get('collection', '—')}`")
 
             st.divider()
 
@@ -94,15 +102,15 @@ def render() -> None:
 
             rc1, rc2, rc3, rc4, rc5 = st.columns(5)
             with rc1:
-                st.metric("Dense Hits", dense_count)
+                st.metric("稠密命中", dense_count)
             with rc2:
-                st.metric("Sparse Hits", sparse_count)
+                st.metric("稀疏命中", sparse_count)
             with rc3:
-                st.metric("Fused", fusion_count or (dense_count + sparse_count))
+                st.metric("融合结果", fusion_count or (dense_count + sparse_count))
             with rc4:
-                st.metric("After Rerank", rerank_count if rerank_d else "—")
+                st.metric("重排后", rerank_count if rerank_d else "—")
             with rc5:
-                st.metric("Total Time", total_label)
+                st.metric("总耗时", total_label)
 
             # ── Diagnostic hints ───────────────────────────────
             _render_diagnostics(
@@ -116,13 +124,16 @@ def render() -> None:
             main_stage_names = ("query_processing", "dense_retrieval", "sparse_retrieval", "fusion", "rerank")
             main_timings = [t for t in timings if t["stage_name"] in main_stage_names]
             if main_timings:
-                st.markdown("#### ⏱️ Stage Timings")
-                chart_data = {t["stage_name"]: t["elapsed_ms"] for t in main_timings}
+                st.markdown("#### ⏱️ 各阶段耗时")
+                chart_data = {
+                    _STAGE_LABELS.get(t["stage_name"], t["stage_name"]): t["elapsed_ms"]
+                    for t in main_timings
+                }
                 st.bar_chart(chart_data, horizontal=True)
                 st.table([
                     {
-                        "Stage": t["stage_name"],
-                        "Elapsed (ms)": round(t["elapsed_ms"], 2),
+                        "阶段": _STAGE_LABELS.get(t["stage_name"], t["stage_name"]),
+                        "耗时 (ms)": round(t["elapsed_ms"], 2),
                     }
                     for t in main_timings
                 ])
@@ -130,19 +141,19 @@ def render() -> None:
             st.divider()
 
             # ── 4. Per-stage detail tabs ───────────────────────
-            st.markdown("#### 🔍 Stage Details")
+            st.markdown("#### 🔍 阶段详情")
 
             tab_defs = []
             if "query_processing" in stages_by_name:
-                tab_defs.append(("🔤 Query Processing", "query_processing"))
+                tab_defs.append(("🔤 查询处理", "query_processing"))
             if "dense_retrieval" in stages_by_name:
-                tab_defs.append(("🟦 Dense Retrieval", "dense_retrieval"))
+                tab_defs.append(("🟦 稠密检索", "dense_retrieval"))
             if "sparse_retrieval" in stages_by_name:
-                tab_defs.append(("🟨 Sparse Retrieval", "sparse_retrieval"))
+                tab_defs.append(("🟨 稀疏检索", "sparse_retrieval"))
             if "fusion" in stages_by_name:
-                tab_defs.append(("🟩 Fusion (RRF)", "fusion"))
+                tab_defs.append(("🟩 融合 (RRF)", "fusion"))
             if "rerank" in stages_by_name:
-                tab_defs.append(("🟪 Rerank", "rerank"))
+                tab_defs.append(("🟪 重排序", "rerank"))
 
             if tab_defs:
                 tabs = st.tabs([label for label, _ in tab_defs])
@@ -157,15 +168,15 @@ def render() -> None:
                         if key == "query_processing":
                             _render_query_processing_stage(data)
                         elif key == "dense_retrieval":
-                            _render_retrieval_stage(data, "Dense", trace_idx=idx)
+                            _render_retrieval_stage(data, "稠密", trace_idx=idx)
                         elif key == "sparse_retrieval":
-                            _render_retrieval_stage(data, "Sparse", trace_idx=idx)
+                            _render_retrieval_stage(data, "稀疏", trace_idx=idx)
                         elif key == "fusion":
                             _render_fusion_stage(data, trace_idx=idx)
                         elif key == "rerank":
                             _render_rerank_stage(data, trace_idx=idx)
             else:
-                st.info("No stage details available.")
+                st.info("暂无阶段详情。")
 
             # ── 5. Ragas Evaluate button ───────────────────────
             _render_evaluate_button(trace, idx)
@@ -186,31 +197,31 @@ def _render_diagnostics(
     # Dense errors
     dense_err = dense_d.get("error", "")
     if dense_err:
-        hints.append(("error", f"**Dense Retrieval failed:** {dense_err}"))
+        hints.append(("error", f"**稠密检索失败：** {dense_err}"))
     elif dense_count == 0 and "dense_retrieval" in stages_by_name:
-        hints.append(("warning", "Dense Retrieval returned **0 results**. Check if the collection has indexed data."))
+        hints.append(("warning", "稠密检索返回 **0 条结果**。请检查集合中是否已有索引数据。"))
 
     # Sparse errors / empty
     sparse_err = sparse_d.get("error", "")
     if sparse_err:
-        hints.append(("error", f"**Sparse Retrieval failed:** {sparse_err}"))
+        hints.append(("error", f"**稀疏检索失败：** {sparse_err}"))
     elif sparse_count == 0 and "sparse_retrieval" in stages_by_name:
         hints.append((
             "warning",
-            "Sparse (BM25) Retrieval returned **0 results**. "
-            "BM25 index may be empty or not yet built for this collection.",
+            "稀疏 (BM25) 检索返回 **0 条结果**。"
+            "BM25 索引可能为空，或尚未为该集合构建。",
         ))
 
     # Fusion missing
     if "fusion" not in stages_by_name:
         if dense_count > 0 and sparse_count > 0:
-            hints.append(("info", "Fusion stage was not recorded even though both retrievers returned results."))
+            hints.append(("info", "两路检索均有结果，但未记录融合阶段。"))
         elif dense_count == 0 or sparse_count == 0:
-            only_source = "Dense" if dense_count > 0 else ("Sparse" if sparse_count > 0 else "neither")
+            only_source = "稠密" if dense_count > 0 else ("稀疏" if sparse_count > 0 else "均无")
             hints.append((
                 "info",
-                f"**Fusion (RRF) skipped:** only {only_source} retrieval returned results. "
-                "Fusion requires both Dense and Sparse results to merge.",
+                f"**融合 (RRF) 已跳过：** 仅 {only_source} 检索返回了结果。"
+                "融合需要稠密与稀疏两路结果同时存在。",
             ))
 
     # Rerank missing
@@ -218,16 +229,16 @@ def _render_diagnostics(
         if dense_count > 0 or sparse_count > 0:
             hints.append((
                 "info",
-                "**Rerank skipped:** reranker is not enabled or not configured. "
-                "Enable `reranker` in settings.yaml to apply LLM-based reranking.",
+                "**重排序已跳过：** 重排序器未启用或未配置。"
+                "可在 settings.yaml 中启用 `reranker` 以应用基于 LLM 的重排序。",
             ))
 
     # All results empty
     if dense_count == 0 and sparse_count == 0:
         hints.append((
             "warning",
-            "**No results found.** The collection may be empty, or the query "
-            "doesn't match any indexed content. Try ingesting data first.",
+            "**未找到任何结果。** 集合可能为空，或查询与已索引内容不匹配。"
+            "请先摄取数据后再试。",
         ))
 
     # Render hints
@@ -253,7 +264,7 @@ def _render_evaluate_button(trace: Dict[str, Any], idx: int) -> None:
         return
 
     st.divider()
-    st.markdown("#### 📏 Ragas Evaluation")
+    st.markdown("#### 📏 Ragas 评估")
     st.caption(
         "RAGAS 需要 **Query + Retrieved Context + Answer** 三要素来评估。"
         "日志中仅包含 Query 和检索到的上下文，请在下方输入实际回答后再运行评估。"
@@ -262,7 +273,7 @@ def _render_evaluate_button(trace: Dict[str, Any], idx: int) -> None:
     # Answer input box — user provides the actual generated answer
     answer_key = f"eval_answer_{idx}"
     user_answer = st.text_area(
-        "✏️ Generated Answer (回答)",
+        "✏️ 生成的回答",
         value=st.session_state.get(answer_key, ""),
         height=120,
         key=answer_key,
@@ -278,9 +289,9 @@ def _render_evaluate_button(trace: Dict[str, Any], idx: int) -> None:
     col_btn, col_info = st.columns([1, 3])
     with col_btn:
         clicked = st.button(
-            "📏 Ragas Evaluate",
+            "📏 运行 Ragas 评估",
             key=f"eval_trace_{idx}",
-            help="Re-run this query and score with Ragas (LLM-as-Judge)",
+            help="重新执行此查询并使用 Ragas (LLM-as-Judge) 评分",
             disabled=not user_answer.strip(),
         )
     with col_info:
@@ -288,8 +299,8 @@ def _render_evaluate_button(trace: Dict[str, Any], idx: int) -> None:
             st.warning("⚠️ 请先在上方输入回答内容，再运行 Ragas 评估。")
         else:
             st.caption(
-                "Uses Ragas to score faithfulness, answer relevancy, "
-                "and context precision. Calls LLM — may take a few seconds."
+                "使用 Ragas 评估 faithfulness、answer relevancy 和 context precision。"
+                "会调用 LLM，可能需要数秒。"
             )
 
     # Show previous result from session state
@@ -298,7 +309,7 @@ def _render_evaluate_button(trace: Dict[str, Any], idx: int) -> None:
         _display_eval_metrics(st.session_state[result_key])
 
     if clicked:
-        with st.spinner("Running Ragas evaluation…"):
+        with st.spinner("正在运行 Ragas 评估…"):
             result = _evaluate_single_trace(query, meta, user_answer=user_answer.strip())
         st.session_state[result_key] = result
         _display_eval_metrics(result)
@@ -336,7 +347,7 @@ def _evaluate_single_trace(
         chunks = _retrieve_chunks(settings, query, top_k, collection)
 
         if not chunks:
-            return {"error": "No chunks retrieved — is data indexed?"}
+            return {"error": "未检索到任何分块 — 数据是否已索引？"}
 
         # Use user-provided answer; fall back to chunk concatenation only
         # as a last resort (produces less meaningful RAGAS scores).
@@ -365,7 +376,7 @@ def _evaluate_single_trace(
         return {"metrics": metrics, "answer_used": answer}
 
     except ImportError as exc:
-        return {"error": f"Ragas not installed: {exc}"}
+        return {"error": f"Ragas 未安装：{exc}"}
     except Exception as exc:
         logger.exception("Ragas evaluation failed")
         return {"error": str(exc)}
@@ -434,15 +445,15 @@ def _retrieve_chunks(
 def _display_eval_metrics(result: Dict[str, Any]) -> None:
     """Display evaluation result (metrics or error)."""
     if "error" in result:
-        st.error(f"❌ Evaluation failed: {result['error']}")
+        st.error(f"❌ 评估失败：{result['error']}")
         return
 
     metrics = result.get("metrics", {})
     if not metrics:
-        st.warning("No metrics returned.")
+        st.warning("未返回任何指标。")
         return
 
-    st.markdown("**📏 Ragas Scores**")
+    st.markdown("**📏 Ragas 评分**")
     cols = st.columns(min(len(metrics), 4))
     for i, (name, value) in enumerate(sorted(metrics.items())):
         with cols[i % len(cols)]:
@@ -478,77 +489,77 @@ def _render_query_processing_stage(data: Dict[str, Any]) -> None:
     """Render Query Processing stage: original query → keywords."""
     c1, c2 = st.columns(2)
     with c1:
-        st.markdown("**Original Query**")
+        st.markdown("**原始查询**")
         st.info(data.get("original_query", "—"))
     with c2:
-        st.markdown("**Method**")
+        st.markdown("**方法**")
         st.code(data.get("method", "—"))
 
     keywords = data.get("keywords", [])
     if keywords:
-        st.markdown("**Extracted Keywords**")
+        st.markdown("**提取的关键词**")
         st.markdown(" · ".join(f"`{kw}`" for kw in keywords))
     else:
-        st.warning("No keywords extracted.")
+        st.warning("未提取到关键词。")
 
 
 def _render_retrieval_stage(data: Dict[str, Any], label: str, *, trace_idx: int = 0) -> None:
     """Render Dense or Sparse retrieval stage: method, counts, chunk list."""
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.metric("Method", data.get("method", "—"))
+        st.metric("方法", data.get("method", "—"))
     with c2:
         extra = data.get("provider", data.get("keyword_count", "—"))
-        extra_label = "Provider" if "provider" in data else "Keywords"
+        extra_label = "提供商" if "provider" in data else "关键词数"
         st.metric(extra_label, extra)
     with c3:
-        st.metric("Results", data.get("result_count", 0))
+        st.metric("结果数", data.get("result_count", 0))
 
-    st.markdown(f"**Top-K requested:** `{data.get('top_k', '—')}`")
+    st.markdown(f"**请求的 Top-K：** `{data.get('top_k', '—')}`")
 
     chunks = data.get("chunks", [])
     if chunks:
         _render_chunk_list(chunks, prefix=f"{label.lower().replace(' ', '_')}_chunk_{trace_idx}")
     else:
-        st.info(f"No {label.lower()} results returned.")
+        st.info(f"{label} 检索未返回结果。")
 
 
 def _render_fusion_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None:
     """Render Fusion (RRF) stage: input lists, fused result count, chunk list."""
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.metric("Method", data.get("method", "rrf"))
+        st.metric("方法", data.get("method", "rrf"))
     with c2:
-        st.metric("Input Lists", data.get("input_lists", "—"))
+        st.metric("输入列表数", data.get("input_lists", "—"))
     with c3:
-        st.metric("Fused Results", data.get("result_count", 0))
+        st.metric("融合结果数", data.get("result_count", 0))
 
-    st.markdown(f"**Top-K:** `{data.get('top_k', '—')}`")
+    st.markdown(f"**Top-K：** `{data.get('top_k', '—')}`")
 
     chunks = data.get("chunks", [])
     if chunks:
         _render_chunk_list(chunks, prefix=f"fusion_chunk_{trace_idx}")
     else:
-        st.info("No fusion results.")
+        st.info("无融合结果。")
 
 
 def _render_rerank_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None:
     """Render Rerank stage: method, input/output counts, reranked chunk list."""
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.metric("Method", data.get("method", "—"))
+        st.metric("方法", data.get("method", "—"))
     with c2:
-        st.metric("Provider", data.get("provider", "—"))
+        st.metric("提供商", data.get("provider", "—"))
     with c3:
-        st.metric("Input", data.get("input_count", "—"))
+        st.metric("输入数", data.get("input_count", "—"))
     with c4:
-        st.metric("Output", data.get("output_count", "—"))
+        st.metric("输出数", data.get("output_count", "—"))
 
     chunks = data.get("chunks", [])
     if chunks:
         _render_chunk_list(chunks, prefix=f"rerank_chunk_{trace_idx}")
     else:
-        st.info("No reranked results.")
+        st.info("无重排序结果。")
 
 
 def _render_chunk_list(chunks: List[Dict[str, Any]], prefix: str = "chunk") -> None:
@@ -568,17 +579,17 @@ def _render_chunk_list(chunks: List[Dict[str, Any]], prefix: str = "chunk") -> N
         else:
             score_bar = "🔴"
 
-        header = f"{score_bar} **#{ci + 1}** — Score: `{score:.4f}`"
+        header = f"{score_bar} **#{ci + 1}** — 分数：`{score:.4f}`"
         if title:
             header += f" — {title}"
 
         with st.expander(header, expanded=False):
             cols = st.columns([2, 3])
             with cols[0]:
-                st.caption(f"Chunk ID: `{chunk_id}`")
+                st.caption(f"分块 ID：`{chunk_id}`")
             with cols[1]:
                 if source:
-                    st.caption(f"Source: `{source}`")
+                    st.caption(f"来源：`{source}`")
             # Show chunk text (scrollable)
             if text:
                 st.text_area(
@@ -589,7 +600,7 @@ def _render_chunk_list(chunks: List[Dict[str, Any]], prefix: str = "chunk") -> N
                     label_visibility="collapsed",
                 )
             else:
-                st.caption("_No text available_")
+                st.caption("_无可用文本_")
 
 
 def _find_stage(timings, name):

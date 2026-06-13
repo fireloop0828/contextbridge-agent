@@ -45,29 +45,29 @@ def _safe_collection_stats() -> Dict[str, Any]:
 
 def render() -> None:
     """Render the Overview page."""
-    st.header("📊 System Overview")
+    st.header("📊 系统总览")
 
     # ── Component configuration cards ──────────────────────────────
-    st.subheader("🔧 Component Configuration")
+    st.subheader("🔧 组件配置")
 
     try:
         config_service = ConfigService()
         cards = config_service.get_component_cards()
     except Exception as exc:
-        st.error(f"Failed to load configuration: {exc}")
+        st.error(f"加载配置失败：{exc}")
         return
 
     cols = st.columns(min(len(cards), 3))
     for idx, card in enumerate(cards):
         with cols[idx % len(cols)]:
             st.markdown(f"**{card.name}**")
-            st.caption(f"Provider: `{card.provider}`  \nModel: `{card.model}`")
-            with st.expander("Details"):
+            st.caption(f"提供商：`{card.provider}`  \n模型：`{card.model}`")
+            with st.expander("详细信息"):
                 for k, v in card.extra.items():
-                    st.text(f"{k}: {v}")
+                    st.text(f"{k}：{v}")
 
     # ── Collection statistics ──────────────────────────────────────
-    st.subheader("📁 Collection Statistics")
+    st.subheader("📁 集合统计")
 
     stats = _safe_collection_stats()
     if stats:
@@ -77,23 +77,23 @@ def render() -> None:
                 count = info.get("chunk_count", "?")
                 st.metric(label=name, value=count)
                 if count == 0 or count == "?":
-                    st.caption("⚠️ Empty")
+                    st.caption("⚠️ 空集合")
     else:
         st.warning(
-            "**No collections found or ChromaDB unavailable.** "
-            "Go to the Ingestion Manager page to upload and ingest documents."
+            "**未找到集合或 ChromaDB 不可用。** "
+            "请前往「摄取管理」页面上传并摄取文档。"
         )
 
     # ── Trace file statistics ──────────────────────────────────────
-    st.subheader("📈 Trace Statistics")
+    st.subheader("📈 追踪统计")
 
     from src.core.settings import resolve_path
     traces_path = resolve_path("logs/traces.jsonl")
     if traces_path.exists():
         line_count = sum(1 for _ in traces_path.open(encoding="utf-8"))
         if line_count > 0:
-            st.metric("Total traces", line_count)
+            st.metric("追踪记录总数", line_count)
         else:
-            st.info("No traces recorded yet. Run a query or ingestion first.")
+            st.info("尚无追踪记录。请先执行一次查询或文档摄取。")
     else:
-        st.info("No traces recorded yet. Run a query or ingestion first.")
+        st.info("尚无追踪记录。请先执行一次查询或文档摄取。")

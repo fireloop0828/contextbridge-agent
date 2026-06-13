@@ -16,6 +16,14 @@ PHASE_INTAKE_2 = "intake_2"
 PHASE_GENERATING = "generating"
 PHASE_REVISION = "revision"
 
+PHASE_LABELS: dict[str, str] = {
+    PHASE_POI_SELECTION: "必玩景点推荐",
+    PHASE_INTAKE_1: "需求采集（第一轮）",
+    PHASE_INTAKE_2: "需求采集（补充轮）",
+    PHASE_GENERATING: "攻略生成中",
+    PHASE_REVISION: "攻略修改",
+}
+
 INTAKE_FIELDS = (
     "destination",
     "dates",
@@ -143,6 +151,10 @@ def compute_missing_fields(intake: dict[str, Any]) -> list[str]:
 
 def format_missing_fields_zh(missing: list[str]) -> str:
     return "、".join(INTAKE_FIELD_LABELS.get(f, f) for f in missing)
+
+
+def format_phase_zh(phase: str) -> str:
+    return PHASE_LABELS.get(phase, phase)
 
 
 def user_wants_skip_intake(text: str) -> bool:

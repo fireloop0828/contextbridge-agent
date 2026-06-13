@@ -1,317 +1,352 @@
-# Agent 对话记忆系统现状与优化
+# Agent 对话记忆系统
 
-> 文档版本：v3.1（含长期记忆方案讨论稿）  
+> 文档版本：**v4.1**  
 > 更新日期：2026-06-09  
-> 范围：`agents-master` 全 Agent（通用 + 旅行）  
-> **「记忆」定义：** 用户使用界面时的提问、AI 回复、工具调用记录及从中提炼的状态（不含 RAG 知识库、System Prompt，见附录）。
+> 范围：`agents-master` 全 Agent（通用 + 旅行）
+
+**「记忆」定义：** 使用界面时产生的提问、回复、工具记录及从中提炼的状态。  
+**不含：** RAG 知识库、System Prompt、MCP 工具定义（见 [附录 A](#附录-a-不属于对话记忆)）。
 
 ---
 
 ## 目录
 
-- [1. 现状结论](#1-现状结论)
-- [2. 短期记忆与界面历史](#2-短期记忆与界面历史)
-- [3. 快照：存什么、何时存、多少、多久](#3-快照存什么何时存多少多久)
-- [4. 一轮对话里记忆如何变化](#4-一轮对话里记忆如何变化)
-- [5. 通用模式 vs 旅行模式](#5-通用模式-vs-旅行模式)
-- [6. 用户操作对记忆的影响](#6-用户操作对记忆的影响)
-- [7. 长期记忆方案（讨论稿）](#7-长期记忆方案讨论稿)
-- [8. 待确认事项](#8-待确认事项)
-- [9. 修订记录](#9-修订记录)
-- [附录](#附录与对话记忆弱相关的部分)
+1. [30 秒看懂](#1-30-秒看懂)
+2. [四层记忆架构](#2-四层记忆架构)
+3. [何时写入 / 何时读出](#3-何时写入--何时读出)
+4. [存储一览](#4-存储一览)
+5. [一轮对话全流程](#5-一轮对话全流程)
+6. [L4 向量召回 vs RAG](#6-l4-向量召回-vs-rag)
+7. [长期记忆（L4）](#7-长期记忆l4)
+8. [设计与演进建议（技术 / 面试）](#8-设计与演进建议技术--面试)
+9. [代码与数据路径](#9-代码与数据路径)
+
+- [附录 A：不属于对话记忆](#附录-a-不属于对话记忆)
+- [附录 B：修订记录](#附录-b-修订记录)
 
 ---
 
-## 1. 现状结论
-
-| 层次 | 实现 | 持久 | AI 能否用 |
-|------|------|------|-----------|
-| **短期记忆** | LangGraph checkpoint + `thread_id` | ❌ 刷新/换 thread 即失 | ✅ 同 thread 内 |
-| **界面历史** | `st.session_state.history` | ❌；快照可恢复部分 | ❌ 不进 LLM |
-| **快照** | `data/sessions/latest.json` + archives | ✅ 磁盘 | 恢复后间接（写回 state） |
-| **长期记忆（目标）** | **未实现** | — | — |
-
-**一句话：** 目前实质只有 **短期 checkpoint**；快照是 **可恢复的使用记录**，不是「值得长期记住的重要信息」的筛选与沉淀。§7 讨论在短期之上补 **通用长期记忆层**。
-
----
-
-## 2. 短期记忆与界面历史
-
-### 2.1 界面记忆（给人看）
-
-- **位置：** `st.session_state.history`
-- **内容：** `user` / `assistant` / `assistant_tool`（工具折叠块）
-- **写入：** `ui/chat.py` 每轮成功后 append
-- **给 AI：** **否** — 每轮只发当前一条 `HumanMessage`
-
-### 2.2 推理记忆（给 AI 用）
-
-- **位置：** `MemorySaver` + `thread_id`（`app.py` → `process_query`）
-- **内容：** 同 thread 内累积 user / assistant / tool 消息
-- **旅行模式：** 用户句可能被 `[TRAVEL_CONTEXT]` 包装，与界面原文不一致
-
-### 2.3 从对话提炼的状态（旅行已有，通用无）
-
-| 数据 | 模式 | 用途 |
-|------|------|------|
-| `travel_intake` | 旅行 | 结构化需求 → 下轮注入 |
-| `travel_tool_memory` | 旅行 | 工具回合摘要 → 下轮注入 |
-| `user_preferences` | 通用+旅行 | 默认预算/交通/同行 |
-| 导出 md | 通用+旅行 | 成品交付物 |
-
----
-
-## 3. 快照：存什么、何时存、多少、多久
-
-> 快照 ≠ 长期记忆；是 **整段会话的状态_dump**，用于刷新恢复与归档。
-
-### 3.1 存什么（`session_store.collect_snapshot`）
-
-**通用字段：**
-
-| 字段 | 内容 |
-|------|------|
-| `saved_at` / `app_mode` / `thread_id` | 元数据 |
-| `history` | 最近聊天记录（见 §3.3 条数限制） |
-| `exported_files` | 本页导出 md 列表 |
-| `user_preferences` | 默认预算 / 交通 / 同行 |
-
-**旅行模式额外 `travel` 块：**
-
-`phase`、`intake`（九字段）、`tool_memory`（工具摘要）、`last_travel_plan_md`、`last_export_path`、`rag_collections_cache`、POI 确认状态等。
-
-**不存：** API Key、checkpoint 内完整 tool JSON、timing 明细。
-
-### 3.2 何时存
-
-| 时机 | 目标文件 |
-|------|----------|
-| 每轮对话成功 | `data/sessions/latest.json`（覆盖） |
-| 保存用户偏好 | 同上 |
-| 「新对话（归档）」 | `archives/YYYYMMDD-HHMMSS.json`，并删 latest |
-| 「重置对话」 | 删 latest，不归档 |
-
-**自动保存条件：** 已有 history，或旅行模式已有目的地 / 工具摘要。
-
-### 3.3 能保存多少
-
-| 项目 | 限制 |
-|------|------|
-| `latest.json` | **仅 1 份**，每次覆盖 |
-| 快照内 `history` | **最近 40 条**（`MAX_HISTORY_PERSIST`） |
-| 会话内工具摘要 | **最近 6 回合**（`TOOL_MEMORY_INJECT_TURNS`） |
-| `archives/` | **数量不限**，每归档一次一个文件 |
-| 攻略正文 | 快照可能含 `last_travel_plan_md`；完整版在 `data/outputs/` |
-
-### 3.4 保存多久
-
-- **无过期策略、无自动清理** — 文件一直留在磁盘直到手动删除或覆盖。
-- `latest.json`：持续覆盖；重置或归档后删除。
-- `archives/*.json`：永久保留（除非手动删）。
-
-### 3.5 恢复时能恢复什么
-
-- ✅ 聊天气泡（≤40 条）、旅行 intake/阶段/工具摘要、偏好、导出列表  
-- ❌ **checkpoint 不恢复** — AI 需靠 state/摘要 + 新用户话重新推理，非无缝续 thread  
-
----
-
-## 4. 一轮对话里记忆如何变化
+## 1. 30 秒看懂
 
 ```text
-用户输入 → [旅行] 包装 [TRAVEL_CONTEXT]
-         → checkpoint 追加消息 + ReAct tool
-         → history 追加 user/assistant/(tool)
-         → [旅行] 更新 intake/phase；有工具则 tool_memory + 可选换 thread_id
-         → save_latest_autosave()
-         → [未来] 会话/任务结束 → 长期记忆流水线（§7，未实现）
+┌─────────────────────────────────────────────────────────────────┐
+│  L1 短期推理   checkpoint（MemorySaver + thread_id）             │
+│              → AI 当页连续推理；刷新 / 换 thread 即失              │
+├─────────────────────────────────────────────────────────────────┤
+│  L2 界面展示   history（聊天气泡）                                │
+│              → 给人看；不自动进 LLM                               │
+├─────────────────────────────────────────────────────────────────┤
+│  L3 会话快照   latest.json / archives/*.json                     │
+│              → 恢复 UI + 旅行进度；latest=当前场，archives=历史场   │
+├─────────────────────────────────────────────────────────────────┤
+│  L4 长期记忆   profile.json + 本地 Chroma（user_memory）          │
+│              → 跨会话偏好 / 任务 / 会话摘要；与 RAG 分离             │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
----
 
-## 5. 通用模式 vs 旅行模式
+| #   | 规则                                              |
+| --- | ----------------------------------------------- |
+| 1   | AI **当页接着聊** → L1 checkpoint（**不是** L2 history） |
+| 2   | **刷新后**气泡和旅行进度回来 → L3（checkpoint **回不来**）       |
+| 3   | **跨会话**还记得偏好 / 做过什么 → L4（须归档 / 导出 / 显式记住触发写入）   |
 
-| 维度 | 通用 | 旅行 |
-|------|------|------|
-| checkpoint 短期 | ✅ | ✅（部分节点换 thread） |
-| 结构化事实提取 | ❌ | ✅ intake |
-| 工具回合摘要 | ❌ | ✅ tool_memory |
-| 快照 | history + 偏好 | + travel 块 |
-| 长期记忆流水线 | ❌（规划通用） | 可复用同一套 |
+
+**latest 与 archives：** 快照 **内容结构相同**（≤40 条 history + travel 块等）。`latest` = 当前这一场、覆盖写；`archives` = 点「新对话（归档）」时封存已结束的那一场，并可从侧边栏恢复。
 
 ---
 
-## 6. 用户操作对记忆的影响
+## 2. 四层记忆架构
 
-| 操作 | history | checkpoint | latest.json | archives |
-|------|---------|------------|-------------|----------|
-| 继续聊 | 追加 | 累积 | 覆盖更新 | — |
-| 刷新 | 失→可恢复 | 丢失 | 仍在 | — |
-| 恢复会话 | 从快照 | 仍空 | 读入 | — |
-| 新对话（归档） | 清空 | 新 thread | 删除 | **写入** |
-| 重置 | 清空 | 新 thread | **删除** | 不归档 |
 
-**关键文件：** `ui/chat.py`、`app.py`、`session_store.py`、`ui/sidebar.py`。
+| 层      | 名称   | 位置                          | 持久         | 消费者         | 典型内容                                  |
+| ------ | ---- | --------------------------- | ---------- | ----------- | ------------------------------------- |
+| **L1** | 短期推理 | `MemorySaver` + `thread_id` | ❌          | AI          | 本 thread 内 user / assistant / tool 消息 |
+| **L2** | 界面历史 | `st.session_state.history`  | ❌；L3 可恢复部分 | 人           | 聊天气泡                                  |
+| **L3** | 会话快照 | `data/sessions/`            | ✅          | 人恢复 UI      | history≤40、intake、工具摘要、偏好             |
+| **L4** | 长期记忆 | `data/memory/`              | ✅          | AI 注入 + 侧边栏 | profile 结构化字段 + 会话摘要向量                |
+
+
+**旅行模式额外（会话内提炼，进 L3 / 下轮 prompt，非独立层）：** `travel_intake`、`travel_tool_memory`（最近 6 回合）、`data/outputs/*.md`（正文在磁盘，记忆层只存路径）。
 
 ---
 
-## 7. 长期记忆方案（讨论稿）
+## 3. 何时写入 / 何时读出
 
-> **目标：** 在 checkpoint 短期记忆之上，增加 **全 Agent 通用** 的长期层：只沉淀 **重要、可验证、不敏感** 的信息，而非全文聊天记录。  
-> **状态：** 方案讨论中，**未编码**。
+### 3.1 写入
 
-### 7.1 设计原则
 
-1. **短期 vs 长期分离** — checkpoint 只服务当次推理；长期库不塞全文 chat 进每轮 prompt。  
-2. **写入要有门槛** — 不是每句都记；会话/任务结束时有「值不值得记」判断。  
-3. **结构化优先** — 能进 profile/SQL 的 facts 不进向量；向量只放需要语义召回的叙述。  
-4. **可验证** — 优先记用户明确说的、工具返回的、已导出文件指针；少记模型臆测。  
-5. **与现有 RAG 分工** — RAG = **领域文档**；长期记忆 = **该用户/该会话的使用经历与偏好**（不混 collection）。
+| 事件          | L1          | L2  | L3                  | L4                      | 入口                        |
+| ----------- | ----------- | --- | ------------------- | ----------------------- | ------------------------- |
+| 每轮对话成功      | ✅           | ✅   | ✅ latest            | —                       | `ui/chat.py`              |
+| **新对话（归档）** | 🔄 新 thread | 清空  | ✅ archives，删 latest | ✅ pipeline              | `archive_current_session` |
+| **重置对话**    | 🔄          | 清空  | ❌ 删 latest          | —                       | `sidebar`                 |
+| 刷新页面        | ❌ 内存丢失      | ❌   | 磁盘仍在                | 仍在                      | —                         |
+| 恢复快照 / 归档   | 仍空          | ✅   | 读入                  | —                       | `apply_snapshot`          |
+| **旅行导出成功**  | —           | ✅   | ✅                   | ✅ pipeline              | `ui/chat.py`              |
+| **显式「记住…」** | —           | ✅   | ✅                   | ✅ pipeline              | `ui/chat.py`              |
+| App 启动      | —           | —   | —                   | 📖 profile → session 偏好 | `app.py`                  |
 
-### 7.2 建议流水线
+
+L3 自动保存条件：已有 history，或旅行模式已有目的地 / 工具摘要。
+
+### 3.2 读出（AI 侧）
+
+
+| 场景          | 数据源                  | 注入方式                                           |
+| ----------- | -------------------- | ---------------------------------------------- |
+| 每轮发消息       | L4 profile           | `[USER_MEMORY]` 块（`memory_recall.py`）          |
+| query ≥ 4 字 | L4 本地 Chroma         | 同上，Top-3 相关摘要（**不走 RAG**，见 §6）                 |
+| 同页连续聊       | L1 checkpoint        | LangGraph 按 `thread_id` 自动加载                   |
+| 旅行每轮        | intake + tool_memory | `[TRAVEL_CONTEXT]` 包装用户消息                      |
+| 旅行改稿        | 导出 md / 内存正文         | `[PREVIOUS_PLAN]`                              |
+| 领域知识        | RAG（rag-server）      | ReAct **工具** `query_knowledge_hub`（当轮 tool 消息） |
+
+
+---
+
+## 4. 存储一览
 
 ```text
-触发点（会话归档 / 新对话 / 任务 phase 完成 / 用户显式「记住这个」）
-    ↓
-① 收集素材：history 末 N 轮 + intake/工具摘要 + 导出路径（非全文 checkpoint）
-    ↓
-② 值不值得记？（规则 + 可选 LLM 分类器，输出 yes/no + 理由）
-    ↓
-③ 分类 → 写入不同类型存储（见 §7.4）
-    ↓
-④ 去重合并（profile 字段覆盖；向量块 similarity 阈值；同一 key 更新而非追加）
-    ↓
-⑤ 落库
-    ↓
-⑥ 使用时按需召回（下轮对话注入 [USER_MEMORY] 或 tool：search_user_memory）
+agents-master/data/
+├── sessions/
+│   ├── latest.json           # L3 当前场（1 份，覆盖）
+│   └── archives/*.json       # L3 历史场（归档产生，结构同 latest）
+├── memory/
+│   ├── profile.json          # L4 结构化
+│   └── chroma/               # L4 向量（collection: user_memory）
+└── outputs/*.md              # 成品；L4 只存路径指针
 ```
 
-### 7.3 「重要信息」候选清单（待确认）
 
-以下按 **是否建议长期记忆** 分组，供 §8 逐项拍板。
+| 项目                   | 限制           |
+| -------------------- | ------------ |
+| 快照 history           | 40 条         |
+| tool_memory          | 6 回合         |
+| profile recent_tasks | 20 条         |
+| 向量摘要                 | ~200 条，滚动删最旧 |
 
-#### A. 建议记（高价值、可验证）
 
-| 类别 | 示例 | 建议存储 | 说明 |
-|------|------|----------|------|
-| **用户偏好** | 预算档、交通方式、同行类型、饮食忌口 | Profile 表 / JSON | 已有 `user_preferences` 雏形，可扩展字段 |
-| **稳定事实** | 常居城市、姓名/称呼（若用户提供） | Profile | 跨会话复用 |
-| **任务结论** | 「西安 2 日游攻略已生成」+ 导出路径 | Profile 或 messages 元数据 | 指针即可，正文在 md |
-| **结构化需求** | 旅行 intake 九字段最终版 | Profile 或 task 表 | 旅行模式已在用，可通用化为 `task_context` |
-| **工具验证事实** | 「大理 3/15 晴 12°C」（天气 API） | 向量或结构化 facts + `source=amap` | 带来源与时间戳 |
-| **用户显式指令** | 「以后默认用经济型酒店」 | Profile | 用户说「记住」时必记 |
+**L3 与 L4 区别：** archives 是 **整包快照**（可恢复 UI）；Chroma 是 **一句摘要向量**（供语义检索，不可恢复聊天气泡）。
 
-#### B. 可选记（视场景）
+---
 
-| 类别 | 示例 | 建议存储 | 风险 |
-|------|------|----------|------|
-| **会话摘要** | 「本次讨论了大理 POI 并生成攻略」 | 向量（episodic） | 与 RAG 混淆，需 metadata 区分 |
-| **未完成任务** | intake 缺 3 项未生成 | task 表 | 刷新恢复已部分覆盖 |
-| **通用 QA 结论** | 「知识库里 XXX 的定义是…」 | 向量 | 可能与 RAG 重复，优先信 RAG |
+## 5. 一轮对话全流程
 
-#### C. 建议不记
+本节回答：**用户点发送后，数据往哪走、Agent 实际看到什么。**
 
-| 类别 | 原因 |
-|------|------|
-| API Key、密码、证件号 | 敏感 |
-| 完整 ToolMessage JSON | 体积大；已有摘要机制 |
-| 全文每轮 chat 逐字 | Token 与噪声；用摘要替代 |
-| 模型未经验证的猜测 | 不可验证 |
-| 临时 UI 状态（phase 中间态） | 任务结束即无效 |
+### 5.1 三个面：各写各的
 
-### 7.4 存储方案对比（待选型）
+同一轮用户消息会同时触及三条链路，**互不替代**：
 
-| 方案 | 存什么 | 优点 | 缺点 | 与现有栈 |
-|------|--------|------|------|----------|
-| **① Profile 表（SQL/JSON）** | 键值偏好、稳定 facts、最近任务指针 | 精确、去重简单、面试好讲 | 无语义模糊查询 | 可扩 `user_preferences` → `data/memory/profile.json` |
-| **② 向量库（Chroma 等）** | 会话摘要、叙述型 episodic | 语义召回「类似经历」 | 与 RAG 两套索引；需 metadata | 可复用 rag-server 技术栈，**独立 collection** `user_memory` |
-| **③ Messages / 会话表** | 归档级会话元数据 + 短摘要 | 时间线清晰 | 不是给 LLM 全文灌入 | 扩展现有 `archives/*.json` → SQLite `sessions` 表 |
-| **④ 文件** | 导出 md 指针 | 已有 | 非结构化检索 | `data/outputs/` 已存在 |
 
-**倾向组合（讨论中）：**
+| 面                           | 存什么                                | 本轮是否写入                    |
+| --------------------------- | ---------------------------------- | ------------------------- |
+| **给人看（L2）**                 | 界面气泡原文                             | 回复成功后 append history      |
+| **给 AI 推理（L1 + prompt 包装）** | checkpoint + 本条 HumanMessage 里的包装块 | 请求时读旧 checkpoint；成功后追加新消息 |
+| **给将来恢复（L3 / L4）**          | 磁盘快照 / 长期库                         | 成功后写 latest；满足条件时写 L4     |
+
+
+### 5.3 时序（按时间顺序）
+
+**阶段 A — 发消息前（`ui/chat.py`）**
+
+
+| 步骤  | 动作                                                                          | 层        |
+| --- | --------------------------------------------------------------------------- | -------- |
+| A1  | 用户输入 `user_query`（界面将展示原文）                                                  | —        |
+| A2  | [旅行] `handle_travel_user_message`：合并 intake、算 phase，拼 `[TRAVEL_CONTEXT]`    | 会话内提炼    |
+| A3  | [旅行] 若 POI→intake 切换：`reset_agent_thread_o9()` **换 thread_id**              | L1 下轮起为空 |
+| A4  | `wrap_query_with_user_memory`：读 L4 profile + 本地 Chroma 检索 → `[USER_MEMORY]` | L4 读     |
+| A5  | 调用 `process_query(agent_query, …)`                                          | —        |
+
+
+**阶段 B — Agent 运行中（`app.py`）**
+
+
+| 步骤  | 动作                                                        | 层        |
+| --- | --------------------------------------------------------- | -------- |
+| B1  | LangGraph ReAct：读 checkpoint + 本轮 HumanMessage，多步 tool 调用 | L1 读 + 写 |
+| B2  | [旅行] 工具可能调 RAG MCP → 结果进 **ToolMessage**（非 L4）            | RAG 当轮   |
+| B3  | 流式返回 assistant 文本与 tool 输出                                | —        |
+
+
+**阶段 C — 回复成功后**
+
+
+| 步骤  | 动作                                                                                             | 层                     |
+| --- | ---------------------------------------------------------------------------------------------- | --------------------- |
+| C1  | [旅行] `finalize_assistant_turn`：解析 `TRAVEL_INTAKE`、更新 phase                                     | 会话内提炼                 |
+| C2  | L2：`history` += user / assistant / (tool)                                                      | L2 写                  |
+| C3  | [旅行] 有 tool：`ingest_tool_round_memory` → `trim_checkpoint_after_tool_ingest()` **换 thread_id** | L1 清空；摘要进 tool_memory |
+| C4  | `save_latest_autosave()`                                                                       | L3 写                  |
+| C5  | 若导出成功 / 显式「记住」：`memory_pipeline`                                                               | L4 写                  |
+
+
+---
+
+## 6. L4 向量召回 vs RAG
+
+**结论：L4 向量召回不走 rag-server，也不共用 RAG 的 Chroma collection。**
+
+
+| 维度             | L4 用户记忆（`data/memory/chroma`）             | RAG（`rag-server`）                 |
+| -------------- | ----------------------------------------- | --------------------------------- |
+| **存什么**        | 用户会话 **一句摘要**（episodic）                   | **领域文档** chunk（景点、攻略 PDF 等）       |
+| **谁写入**        | `memory_pipeline` 归档 / 导出 / 显式记住          | `rag-server` ingest 脚本            |
+| **谁检索**        | `memory_store.search_session_summaries()` | Agent 调 MCP `query_knowledge_hub` |
+| **何时进 LLM**    | 发消息前 **预注入** `[USER_MEMORY]`              | ReAct **当轮** tool 返回              |
+| **Chroma 路径**  | `agents-master/data/memory/chroma`        | `rag-server/data/db/chroma`       |
+| **Collection** | `user_memory`                             | 各业务 collection（如旅行知识库）            |
+| **Embedding**  | 百炼 `text-embedding-v3`（agents 进程内）        | rag-server 配置的 embedding          |
+| **检索 API**     | 进程内 `coll.query(query_texts=…)`           | MCP 工具，Hybrid Search 等            |
+
 
 ```text
-Profile（JSON/SQLite）     ← 偏好 + 稳定 facts + 最近任务指针
-     +
-Vectors（user_memory）    ← 会话/任务摘要、叙述型 episodic（带 user_id、time、source）
-     +
-Messages 元数据          ← 与 archives 合并：何时、何种模式、摘要一行、关联 export 路径
-     +
-短期 checkpoint           ← 不变，仍只管当页推理
+用户发消息
+    │
+    ├─► [预注入，非 tool]  memory_recall → 本地 Chroma user_memory
+    │                      + profile.json
+    │
+    └─► [ReAct 按需]       Agent 决定调 query_knowledge_hub → rag-server
 ```
 
-**不推荐：** 把长期记忆全文每次塞进 System Prompt；应 **按需检索 Top-K** 再注入。
+**为何分离：** RAG 是 **静态领域知识**；L4 是 **该用户使用史**。混库会导致检索污染（用景点文档回答「我上次去哪」）且生命周期、权限、更新频率不同。
 
-### 7.5 触发时机（待确认）
-
-| 触发点 | 说明 | 倾向 |
-|--------|------|------|
-| 用户点「新对话（归档）」 | 会话明确结束 | ✅ 首选 |
-| 旅行 `generating` 成功 + 导出 | 任务里程碑 | ✅ |
-| 每轮对话结束 | 太频、噪声多 | ❌ 默认否 |
-| 用户说「记住…」 | 显式 | ✅ 规则优先 |
-| 定时 / 空闲 | 复杂 | ⏸ 后期 |
-
-### 7.6 召回方式（待确认）
-
-| 方式 | 说明 |
-|------|------|
-| **自动注入** | 每轮在 System 或 User 前加 `[USER_MEMORY]`（Profile 全量 + 向量 Top-3） |
-| **Agent 工具** | MCP `search_user_memory(query)`，模型决定何时查 |
-| **模式专用** | 旅行启动时加载该用户最近 N 次旅行 intake |
-
-面试 demo 建议：**Profile 自动注入 + 侧边栏「长期记忆」只读面板**（可验证、好演示）。
-
-### 7.7 与快照的关系
-
-| | 快照（现有） | 长期记忆（规划） |
-|---|-------------|----------------|
-| 目的 | 恢复 **未完成** 会话 | 沉淀 **跨会话** 重要信息 |
-| 内容 | 整段 state dump | 筛选 + 分类 + 去重后的 facts |
-| 生命周期 | latest 覆盖；archives 永久 | Profile 更新；向量可 TTL 或手动删 |
-| 关系 | 归档时可 **作为输入** 走 §7.2 流水线 | 不替代 checkpoint |
+**面试可讲：** 这是 **Profile（结构化）+ Episodic Vector（叙述摘要）** 与 **Document RAG** 的三路记忆；L4 向量是 **write-on-archive 的轻量 episodic store**，不是替代 RAG，也不是把 chat log 做 RAG ingest。
 
 ---
 
-## 8. 待确认事项
+## 7. 长期记忆（L4）
 
-请逐项确认或修改，确认后更新本文 §7 并标记 ✅。
+### 7.1 流水线
 
-| # | 问题 | 当前倾向 | 状态 |
-|---|------|----------|------|
-| 1 | 长期记忆是否 **单用户本地**（无 login 共用一份 profile）？ | 是，路径 `data/memory/` | 待确认 |
-| 2 | **A 类**（§7.3）是否全部纳入 v1？ | 偏好 + intake 终稿 + 导出指针 + 显式「记住」 | 待确认 |
-| 3 | **会话摘要** 是否进向量库？ | 进，collection=`user_memory`，metadata 区分 RAG | 待确认 |
-| 4 | 存储选型：SQLite vs JSON profile + Chroma？ | v1：JSON profile + 现有 Chroma 新 collection（轻量） | 待确认 |
-| 5 | 提取用 **规则** 还是 **LLM 结构化输出**？ | 规则处理 intake/偏好；LLM 仅用于会话摘要 | 待确认 |
-| 6 | 触发点：仅 **归档 + 旅行生成成功** 是否够？ | 先这两个 | 待确认 |
-| 7 | 召回：**自动注入 Profile** + 向量 Top-K 何时启用？ | 每轮注入 Profile；向量仅 query 相关时 | 待确认 |
-| 8 | 敏感信息黑名单 | 证件、密钥、手机号 regex 不落库 | 待确认 |
+```text
+触发（归档 / 旅行导出 / 显式记住）
+  → 从快照收集候选（偏好、intake、导出路径、显式句）
+  → 规则 + LLM 判「值不值得记」
+  → 敏感 regex 拦截
+  → profile.json（结构化覆盖/追加）
+  → Chroma user_memory（一句摘要，近重复跳过）
+```
+
+### 7.2 记 / 不记
+
+
+| ✅ 记                 | ❌ 不记         |
+| ------------------- | ------------ |
+| 偏好、稳定事实、任务结论 + 导出路径 | 工具 API 细项    |
+| intake 终稿（够完整时）     | 全文 chat、密钥证件 |
+| 显式「请记住…」            | 未验证猜测        |
+| 会话一句摘要（向量）          | phase 临时态    |
+
+
+偏好同字段以 **最近一次归档** 为准覆盖 profile。
+
+### 7.3 与 L3 分工
+
+
+|      | L3 latest / archives   | L4                   |
+| ---- | ---------------------- | -------------------- |
+| 目的   | 恢复 **整段** 会话 UI        | 跨会话 **facts + 摘要**   |
+| 粒度   | 多字段快照                  | profile 字段 + 1 句/次向量 |
+| 归档关系 | 归档时 **作为 pipeline 输入** | 归档时 **产出**           |
+
 
 ---
 
-## 9. 修订记录
+## 8. 设计与演进建议（技术 / 面试）
 
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| v3.0 | 2026-06-09 | 聚焦对话记忆；区分 UI / checkpoint |
-| v3.1 | 2026-06-09 | 新增 §3 快照 FAQ；§7 长期记忆讨论稿；§8 待确认清单 |
+从 **架构合理性、Token 经济学、一致性、可扩展** 分析；不仅列产品痛点。
+
+### 8.1 当前设计的可取之处（面试先讲优点）
+
+1. **读写分离清晰：** L2 展示 / L1 推理 / L3 灾备 / L4 跨会话，避免「把 UI history 塞进 prompt」的反模式。
+2. **旅行模式 Token 治理：** O2/O4 换 `thread_id` + `travel_tool_memory` 外置摘要，是 **checkpoint 裁剪 + 外部结构化记忆** 的组合，比单纯 Message Trimmer 更可解释。
+3. **L4 双存储：** profile（精确、可覆盖）+ 向量（模糊召回 episodic），符合 **semantic vs episodic** 常见分法。
+4. **与 RAG 解耦：** 用户画像与领域文档分库，边界清楚。
+
+### 8.2 技术债与优化方向
+
+#### A. 一致性与恢复（架构）
+
+
+| 问题                               | 根因                         | 建议                                                                                                       |
+| -------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 刷新 / 换 thread 后 AI「断片」           | L1 不持久；L3 恢复不写回 checkpoint | **RestoreSessionSummarizer**：`apply_snapshot` 后生成固定 `[SESSION_RESUME]` 注入首轮，或持久化 checkpoint（SqliteSaver） |
+| history 与 checkpoint 双轨          | 产品层 history 不参与推理          | 文档化即可；若需一致，可选 **history 摘要进 L4 而非 checkpoint**                                                           |
+| latest / archives 仅 40 条 history | `MAX_HISTORY_PERSIST`      | archives **不截断**；latest 保持 40 降 IO                                                                       |
+
+
+#### B. Token 与延迟（性能）
+
+
+| 问题                   | 建议                                      | 预期          |
+| -------------------- | --------------------------------------- | ----------- |
+| 每轮全量 `[USER_MEMORY]` | profile 小可保留；向量改 **意图触发**（regex / 小分类器） | 降 prompt 噪声 |
+| 归档 pipeline 同步调 LLM  | 改 **异步队列** 或「先写规则项，摘要后台补」               | 归档按钮不阻塞 UI  |
+| 旅行频繁换 thread         | 已合理；可度量 **换 thread 前后 token 曲线** 写进测试报告 | 面试有数据       |
+
+
+#### C. 存储与检索（工程）
+
+
+| 问题                                            | 建议                                                           |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| agents 与 rag-server **两套 Chroma + Embedding** | 短期保持分离；中期 **统一 embedding 模型与维度**，或 L4 检索走内部 HTTP 服务          |
+| L4 无 TTL / 版本                                 | profile 加 `updated_at` per field；向量 metadata 加 `stale_after` |
+| 无 `search_user_memory` tool                   | v2 暴露 MCP，Agent **按需检索** 优于每轮预注入向量                           |
+
+
+#### D. 通用模式长期记忆弱
+
+
+| 问题           | 建议                                                    |
+| ------------ | ----------------------------------------------------- |
+| 无 intake 结构  | 通用 `session_facts: dict[str,str]`，规则 + 显式记住写入 profile |
+| pipeline 偏旅行 | `build_candidates` 按 `app_mode` 分支，通用模式抽 topic + 结论句  |
+
+
+#### E. 安全与质量
+
+
+| 问题                | 建议                                             |
+| ----------------- | ---------------------------------------------- |
+| regex 敏感过滤        | 落库前 + 注入前 **双检**                               |
+| LLM worthiness 幻觉 | 结构化字段 **规则直通**；LLM 只写摘要                        |
+| 向量摘要不可审计          | metadata 强制 `archive_path` / `trigger`，侧边栏只读溯源 |
+
+
+### 8.3 面试话术模板（30 秒 / 2 分钟）
+
+**30 秒：**  
+「我们四层记忆：checkpoint 管当页推理，history 只展示，快照做会话恢复，长期记忆用 profile 加独立 Chroma 存用户 episodic 摘要。RAG 管领域文档，走 MCP 工具，和用户记忆分库。旅行模式还会换 thread_id 控 Token，用 intake 和 tool_memory 衔接上下文。」
+
+**2 分钟展开：**  
+
+- **为什么 history 不进 LLM：** 每轮单条 HumanMessage + checkpoint，避免重复 token 与 UI 状态耦合。  
+- **为什么换 thread_id：** POI/generating 阶段 tool 消息膨胀；外置摘要比 trim 更可审计。  
+- **为什么 L4 不用 RAG：** 数据源、更新频率、检索意图不同；混库污染查准率。  
+- **已知短板：** checkpoint 不持久 → 恢复靠摘要注入；可演进 SqliteSaver 或 session resume block。
 
 ---
 
-## 附录：与对话记忆弱相关的部分
+## 9. 代码与数据路径
 
-| 内容 | 说明 |
-|------|------|
-| RAG 知识库 | 领域文档，非用户使用记忆 |
-| System Prompt | 静态程序性指令 |
-| 旅行状态机 | 流程编排 |
-| MCP 工具定义 | 能力列表 |
+
+| 模块    | 文件                                       | 职责                     |
+| ----- | ---------------------------------------- | ---------------------- |
+| 会话快照  | `session_store.py`                       | L3                     |
+| 长期存储  | `memory_store.py`                        | L4 profile + 本地 Chroma |
+| 长期流水线 | `memory_pipeline.py`                     | 写入 L4                  |
+| 长期召回  | `memory_recall.py`                       | `[USER_MEMORY]`        |
+| 旅行提炼  | `travel_mode.py`、`travel_tool_memory.py` | CONTEXT / thread 切换    |
+| 对话    | `ui/chat.py`                             | L2、注入、触发 pipeline      |
+| 侧边栏   | `ui/sidebar.py`                          | 归档、记忆面板                |
+| Agent | `app.py`                                 | L1 checkpoint          |
+
+
+**依赖：** `chromadb`；L4 embedding：`text-embedding-v3`（`DASHSCOPE_API_KEY`）。Chroma 不可用时降级为仅 profile。
 
 ---
 
-## 相关文档
-
-| 文档 | 说明 |
-|------|------|
-| [../project-design/多模式Agent架构选型.md](../project-design/多模式Agent架构选型.md) | 多模式扩展 |

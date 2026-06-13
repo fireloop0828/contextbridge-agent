@@ -112,7 +112,6 @@ def render_chat() -> None:
                 main.rebuild_agent_only(spinner_label="正在进入旅行规划模式…")
             st.toast("已进入旅行规划模式", icon="🧳")
 
-        agent_query = user_query
         query_timeout = st.session_state.timeout_seconds
         query_recursion = st.session_state.recursion_limit
         if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL:
@@ -126,6 +125,14 @@ def render_chat() -> None:
             query_recursion = tm.travel_recursion_limit(
                 st.session_state.recursion_limit, phase_this_turn
             )
+        else:
+            agent_query = user_query
+
+        from memory_recall import wrap_query_with_user_memory
+
+        agent_query = wrap_query_with_user_memory(
+            agent_query, search_query=user_query
+        )
 
         timing = tlog.TimingCollector()
         preview = user_query.replace("\n", " ")[:80]
@@ -192,6 +199,22 @@ def render_chat() -> None:
             main._register_exports(export_paths)
             if export_paths:
                 st.session_state.last_export_path = export_paths[-1]
+            if (
+                export_paths
+                and phase_this_turn in (tm.PHASE_GENERATING, tm.PHASE_REVISION)
+            ):
+                try:
+                    from memory_pipeline import run_memory_pipeline_from_current
+
+                    run_memory_pipeline_from_current(trigger="travel_export")
+                except Exception:
+                    pass
+            try:
+                from memory_pipeline import run_explicit_remember_from_user_text
+
+                run_explicit_remember_from_user_text(user_query)
+            except Exception:
+                pass
             if phase_this_turn:
                 warn = tm.check_travel_delivery(
                     phase_before=phase_this_turn,
