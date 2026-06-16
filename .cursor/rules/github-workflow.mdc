@@ -1,0 +1,92 @@
+---
+description: GitHub 半自动推送流程——安全、按变更意图分批 commit、功能完成提醒
+alwaysApply: true
+---
+
+# GitHub 推送工作流
+
+目标：**低摩擦、可控的半自动**。仅在用户明确要求时 commit / push；不自动推送。
+
+默认远程：`fireloop0828/contextbridge-agent`（私有），分支 `main`。
+
+---
+
+## 安全红线（提交前必查）
+
+**禁止提交：**
+
+- `.env`、`rag-server/config/settings.yaml` 及任何含真实 `api_key` 的配置
+- `data/`、`logs/`、`cache/`、`.venv/`、`node_modules/`
+- 含 API Key、Token、密码的文件
+
+提交前扫描 `git diff`：`config.json` 的 MCP `env` 不得含明文 Key。
+
+---
+
+## 口令：「提交并 push」
+
+用户说「提交并 push」或同义表述时，按以下流程执行：
+
+1. **并行查看状态**：`git status`、`git diff`（ staged + unstaged）、`git log -3`
+2. **安全扫描**：若有敏感文件，剔除并告知用户，不提交
+3. **按变更意图分批**（见下节）：输出**提交计划**——每个 commit 的意图、文件列表、message 草案
+4. **等待确认**：用户无异议后再执行；用户可要求合并/拆分 commit
+5. **依次提交**：每个意图 `git add` → `git commit`（HEREDOC 写 message）
+6. **统一推送**：全部 commit 完成后 `git push`（首次用 `-u origin main`）
+7. **回报**：commit 列表 + `git branch -vv` 或 push 结果
+
+未收到口令时：**不** commit、**不** push。
+
+---
+
+## 分批原则：变更意图优先
+
+**主依据**：读 diff，理解「这一坨改动在解决什么问题」——每个独立意图一个 commit。
+
+**辅助**：目录/模块边界仅用于命名和查漏，**不能**仅凭路径机械拆分。
+
+- **合并**：同一功能意图跨多模块（如 `travel_facts.py` + `travel_mode.py` + `ui/chat.py` + 对应 `docs/`）→ **一个 commit**
+- **拆分**：工作区并存多个**无关**意图（如旅行优化 + RAG 文档各做各的）→ **多个 commit**
+- **禁止**：同一功能因路径不同被拆成多个 commit；无关改动因「顺手」塞进一个 commit
+
+### 划分步骤
+
+1. 通读 diff，列出独立变更意图
+2. 每个文件归入唯一意图；存疑时询问用户
+3. 用模块表检查同一意图是否漏了 prompts / docs / tests
+4. 输出计划 → 确认 → 执行
+
+### 模块表（辅助查漏）
+
+| 意图类型 | 常见路径 |
+|----------|----------|
+| 旅行模式 | `travel_*.py`、`prompts/travel-*` |
+| 记忆与会话 | `session_store.py`、`ui/sidebar.py` |
+| UI / 聊天 | `ui/chat.py`、`ui/sidebar.py` |
+| MCP / 配置 | `config/`、`mcp_server_*.py`、`config.json` |
+| RAG 子项目 | `rag-server/**`（与 agents-master 不同意图时再拆） |
+| 文档 | `docs/**`（与功能同意图则同 commit） |
+| 脚本 | `scripts/**` |
+
+### Commit message
+
+- 中文或 conventional commits，说明 **why**，非仅罗列文件名
+- 示例：`feat(travel): 外置 POI 事实层，减少重复工具调用`
+
+---
+
+## 习惯：功能点完成提醒
+
+当对话中一个**功能点/任务块**已落地（实现完成、测试通过、或用户表示「做完了」）：
+
+- 用一两句话总结本段改动
+- 轻量提醒：「若这版想留档，可以说 **提交并 push**」
+- **不**自动提交；同一会话同一功能点**只提醒一次**
+
+---
+
+## 明确不做
+
+- 保存/编辑后自动 commit 或 push
+- 未经用户确认的推送
+- 为日常 push 依赖 Automations / GitHub MCP
