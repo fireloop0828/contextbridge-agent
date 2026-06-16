@@ -105,29 +105,23 @@ INTAKE_FIELD_LABELS: dict[str, str] = {
 }
 
 POI_SELECTION_TOOL_CHECKLIST = """
-【本回合必须完成的工具调用】
-1. maps_text_search：以目的地/区域 +「必玩」「景点」「地标」等关键词检索，获取 5~10 个代表性 POI
-2. list_collections → query_knowledge_hub：检索该目的地必玩/经典线路（自选 collection）
-3. 可选 maps_search_detail：补充 2~3 个重点 POI 的简要信息
-
-【本回合输出要求】
-- 用编号列表展示必玩/热门景点（名称 + 一句话特色），注明信息来源（高德/RAG）
-- 明确询问用户：哪些是您「必去」、哪些「想去」、哪些可以不去
-- 不要生成完整行程攻略，不要调用 write_markdown_document
+【界面已展示「系统预取数据」】含高德 POI 表 + 知识库原文；用户可见，勿在正文重复粘贴大段工具 JSON。
+【你的任务】基于预取数据写简短推荐列表，每项带角标 [RAG-N]/[AMAP-PN]；引导用户勾选必去/想去。
+【勿重复调用】maps_text_search、query_knowledge_hub（除非预取区明确为空）。
+【勿】生成完整攻略、勿调用 write_markdown_document。
 """.strip()
 
 GENERATING_TOOL_CHECKLIST = """
-【本回合工具（按序；collection 已知可跳过 list_collections）】
-1. get_current_time
-2. list_collections → query_knowledge_hub（或仅 query_knowledge_hub）
-3. maps_weather（目的地城市）
-4. maps_text_search / maps_search_detail（核心 POI，可 2~3 次）
-5. maps_geo + maps_direction_*（按 transport，可 2~3 段路线或整日动线代表段）
-6. **勿调用 write_markdown_document**（系统将从对话正文自动保存为可下载文件）
+【界面已展示「系统预取数据」】天气 [AMAP-W]、路线 [AMAP-RN]、RAG 原文；导出文件会自动附上系统数据附录。
+【正文结构】📋行程总览 → 🌤️天气 → 🗺️行程地图参考（Day 1 前）→ Day 1/2/… → 🚌交通/🍜美食/💰预算/🧩实用提示。
+【章节标题】固定 emoji（勿省略）：`# 🧳 …` · `## 📋 行程总览` · `## 🌤️ 天气与穿搭` · `## 🗺️ 行程地图参考` · `## 🚌 交通指南` · `## 🍜 美食推荐` · `## 💰 预算估算` · `## 🧩 实用提示`；`## Day N：…` 不加 emoji。
+【行程地图参考】每日一行动线（站点用 → 连接），与预取路线/POI 一致；勿放在文末。
+【你的任务】写行程叙述；数字天气/路程须引用预取角标，禁止编造。
+【勿写长「数据依据」章节】系统已生成；正文保留 3+ 处角标即可。
+【勿重复调用】maps_weather、query_knowledge_hub、maps_direction_*（除非预取区为空）。
+【勿调用 write_markdown_document】。
 
-【本回合对话输出】
-- 在对话中输出**完整** Markdown 攻略（行程总览、逐日详情、数据依据等）
-- 正文写完后简短提示用户点击「下载 Markdown」
+【本回合对话输出】完整 Markdown 攻略正文；写完后提示下载。
 """.strip()
 
 # O11/6A：改稿全文不再塞入 [TRAVEL_CONTEXT]，见 resolve_revision_plan_body + [PREVIOUS_PLAN]
@@ -473,9 +467,11 @@ def detect_travel_intent(text: str) -> bool:
 def init_travel_state() -> None:
     import streamlit as st
 
+    from travel_facts import init_travel_facts_state
     from travel_tool_memory import init_travel_tool_memory
 
     init_travel_tool_memory()
+    init_travel_facts_state()
     defaults = {
         "app_mode": APP_MODE_GENERAL,
         "travel_phase": PHASE_INTAKE_1,
@@ -569,6 +565,8 @@ def _phase_instruction(phase: str, missing: list[str]) -> str:
         return (
             "当前为改稿阶段：根据用户意见与【上一版攻略】修订；按需重查工具；"
             "在对话中输出完整新 Markdown，勿调用 write_markdown_document。"
+            "保持章节 emoji 与结构：`# 🧳` · `## 📋 行程总览` · `## 🌤️ 天气与穿搭` · "
+            "`## 🗺️ 行程地图参考`（Day 1 前）· Day 章节 · `## 🚌/🍜/💰/🧩` 尾部四章。"
         )
     return ""
 
@@ -580,6 +578,7 @@ def build_travel_context(
     missing: list[str],
     intake_user_turns: int,
 ) -> str:
+    from travel_facts import format_travel_facts_block, get_travel_facts
     from travel_tool_memory import format_tool_memory_for_context, get_cached_rag_collections
 
     payload: dict[str, Any] = {
@@ -613,6 +612,15 @@ def build_travel_context(
     tool_mem = format_tool_memory_for_context()
     if tool_mem:
         lines.append(tool_mem)
+
+    facts_block = format_travel_facts_block(get_travel_facts())
+    if facts_block:
+        lines.append(facts_block)
+    elif phase in (PHASE_POI_SELECTION, PHASE_GENERATING):
+        lines.append(
+            "【TRAVEL_FACTS】本轮暂无预取数据（可能 MCP 未就绪或预取失败）；"
+            "可谨慎调用 query_knowledge_hub / maps_* 补充，并标注待核实。"
+        )
 
     if phase == PHASE_REVISION:
         lines.append(
@@ -739,14 +747,66 @@ def after_assistant_response(
     return new_phase, intake, display_text
 
 
+_SECTION_EMOJI_PREFIX = re.compile(
+    r"^(##+)\s*(?:📋|🌤️|🗺️|🚌|🍜|💰|🧩|🧳)\s*",
+    re.MULTILINE,
+)
+_SYSTEM_APPENDIX_MARKER = "## 数据依据（系统预取"
+
+
+def split_travel_plan_and_appendix(text: str) -> tuple[str, str]:
+    """拆分攻略正文与系统附录（导出检测用）。"""
+    if _SYSTEM_APPENDIX_MARKER in text:
+        idx = text.find(_SYSTEM_APPENDIX_MARKER)
+        return text[:idx].rstrip(), text[idx:].lstrip()
+    return (text or "").strip(), ""
+
+
+def _strip_section_emojis(text: str) -> str:
+    return _SECTION_EMOJI_PREFIX.sub(r"\1 ", text or "")
+
+
+def canonical_plan_text_for_detection(text: str) -> str:
+    """检测用：去附录、去章节 emoji、去 intake 确认前缀。"""
+    plan, _ = split_travel_plan_and_appendix(text)
+    plan = _strip_section_emojis(plan)
+    return normalize_travel_plan_body(plan)
+
+
 def looks_like_travel_plan(text: str) -> bool:
-    cleaned = strip_travel_intake_block(text).strip()
+    cleaned = canonical_plan_text_for_detection(text)
     if len(cleaned) < 400:
         return False
-    if cleaned.startswith("#"):
+    markers = ("## 行程总览", "## 逐日详情", "## 天气与穿搭", "## 行程地图参考")
+    marker_hits = sum(1 for m in markers if m in cleaned)
+    if marker_hits >= 2:
         return True
-    markers = ("## 行程总览", "## 逐日详情", "## 数据依据")
-    return sum(1 for m in markers if m in cleaned) >= 2
+    if marker_hits >= 1 and re.search(
+        r"^##\s+Day\s+\d+", cleaned, re.MULTILINE | re.IGNORECASE
+    ):
+        return True
+    if marker_hits >= 1 and re.search(r"^##\s+第\d+天", cleaned, re.MULTILINE):
+        return True
+    return False
+
+
+def normalize_travel_plan_body(text: str) -> str:
+    """去掉 intake 确认话术等前缀，保留攻略正文（导出与后处理用）。"""
+    cleaned = strip_travel_intake_block(text).strip()
+    if not cleaned:
+        return ""
+    if "## 行程总览" in cleaned:
+        ov_idx = cleaned.find("## 行程总览")
+        segment = cleaned[:ov_idx]
+        headings = list(re.finditer(r"^#\s+.+$", segment, re.MULTILINE))
+        if headings:
+            return cleaned[headings[-1].start() :].strip()
+    if "\n---\n" in cleaned:
+        head, tail = cleaned.split("\n---\n", 1)
+        tail = tail.strip()
+        if "## 行程总览" in tail and len(head) < 600:
+            return tail if tail.startswith("#") else cleaned
+    return cleaned
 
 
 def _apply_user_preferences_to_intake(intake: dict[str, Any]) -> dict[str, Any]:
@@ -766,6 +826,60 @@ def _apply_user_preferences_to_intake(intake: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def advance_travel_turn(
+    user_query: str,
+    *,
+    phase: str,
+    intake: dict[str, Any],
+    intake_user_turns: int,
+    last_travel_plan_md: str,
+) -> tuple[str, int, dict[str, Any]]:
+    """合并 intake、推进 phase（不构建 Agent 消息，便于预取后再包装）。"""
+    extracted = extract_intake_from_user_message(user_query)
+    intake = merge_intake_and_track_destination(intake, extracted)
+    intake = _apply_user_preferences_to_intake(intake)
+    new_phase, new_turns, intake = prepare_phase_before_agent(
+        phase=phase,
+        intake=intake,
+        intake_user_turns=intake_user_turns,
+        last_travel_plan_md=last_travel_plan_md,
+        user_query=user_query,
+    )
+    return new_phase, new_turns, intake
+
+
+def compose_travel_agent_query(
+    user_query: str,
+    *,
+    phase: str,
+    intake: dict[str, Any],
+    intake_user_turns: int,
+    last_travel_plan_md: str,
+) -> str:
+    """在 phase/intake 已定且 travel_facts 已预取后，构建发给 Agent 的完整文本。"""
+    missing = compute_missing_fields(intake)
+    ctx = build_travel_context(
+        phase=phase,
+        intake=intake,
+        missing=missing,
+        intake_user_turns=intake_user_turns,
+    )
+    parts = [ctx]
+    if phase == PHASE_REVISION:
+        import streamlit as st
+
+        plan_body, plan_src = resolve_revision_plan_body(
+            last_travel_plan_md=last_travel_plan_md,
+            last_export_path=st.session_state.get("last_export_path", ""),
+        )
+        if plan_body:
+            parts.append(
+                f"[PREVIOUS_PLAN source={plan_src}]\n{plan_body}\n[/PREVIOUS_PLAN]"
+            )
+    parts.append(f"---\n\n用户消息：\n{user_query}")
+    return "\n\n".join(parts)
+
+
 def wrap_user_query_for_agent(
     user_query: str,
     *,
@@ -783,37 +897,20 @@ def wrap_user_query_for_agent(
     if app_mode != APP_MODE_TRAVEL:
         return user_query, phase, intake_user_turns, intake
 
-    extracted = extract_intake_from_user_message(user_query)
-    intake = merge_intake_and_track_destination(intake, extracted)
-    intake = _apply_user_preferences_to_intake(intake)
-    new_phase, new_turns, intake = prepare_phase_before_agent(
+    new_phase, new_turns, intake = advance_travel_turn(
+        user_query,
         phase=phase,
         intake=intake,
         intake_user_turns=intake_user_turns,
         last_travel_plan_md=last_travel_plan_md,
-        user_query=user_query,
     )
-    missing = compute_missing_fields(intake)
-    ctx = build_travel_context(
+    wrapped = compose_travel_agent_query(
+        user_query,
         phase=new_phase,
         intake=intake,
-        missing=missing,
         intake_user_turns=new_turns,
+        last_travel_plan_md=last_travel_plan_md,
     )
-    parts = [ctx]
-    if new_phase == PHASE_REVISION:
-        import streamlit as st
-
-        plan_body, plan_src = resolve_revision_plan_body(
-            last_travel_plan_md=last_travel_plan_md,
-            last_export_path=st.session_state.get("last_export_path", ""),
-        )
-        if plan_body:
-            parts.append(
-                f"[PREVIOUS_PLAN source={plan_src}]\n{plan_body}\n[/PREVIOUS_PLAN]"
-            )
-    parts.append(f"---\n\n用户消息：\n{user_query}")
-    wrapped = "\n\n".join(parts)
     return wrapped, new_phase, new_turns, intake
 
 
@@ -846,9 +943,11 @@ def reset_travel_session() -> None:
     """重置旅行模式对话状态（保留 app_mode）。"""
     import streamlit as st
 
+    from travel_facts import clear_travel_facts
     from travel_tool_memory import clear_travel_tool_memory
 
     clear_travel_tool_memory()
+    clear_travel_facts()
     st.session_state.travel_phase = PHASE_INTAKE_1
     st.session_state.travel_intake = empty_intake()
     st.session_state.travel_intake_user_turns = 0

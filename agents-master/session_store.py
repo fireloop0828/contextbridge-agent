@@ -46,6 +46,8 @@ def _serialize_history(history: list[dict[str, Any]]) -> list[dict[str, Any]]:
         item: dict[str, Any] = {"role": msg.get("role"), "content": msg.get("content", "")}
         if msg.get("exports"):
             item["exports"] = msg["exports"]
+        if msg.get("travel_facts"):
+            item["travel_facts"] = msg["travel_facts"]
         out.append(item)
     return out
 
@@ -61,6 +63,7 @@ def collect_snapshot(*, archived: bool = False, label: str = "") -> dict[str, An
 
     travel_block: dict[str, Any] | None = None
     if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL:
+        travel_facts = st.session_state.get("travel_facts")
         travel_block = {
             "phase": st.session_state.get("travel_phase", tm.PHASE_INTAKE_1),
             "intake": st.session_state.get("travel_intake") or tm.empty_intake(),
@@ -72,6 +75,7 @@ def collect_snapshot(*, archived: bool = False, label: str = "") -> dict[str, An
             "rag_collections_cache": get_cached_rag_collections(),
             "must_visit_confirmed": bool(st.session_state.get("must_visit_confirmed")),
             "poi_for_destination": st.session_state.get("poi_for_destination"),
+            "travel_facts": travel_facts if isinstance(travel_facts, dict) else None,
         }
 
     return {
@@ -126,8 +130,26 @@ def clear_persisted_latest() -> None:
             pass
 
 
-def archive_current_session(*, label: str = "") -> str | None:
-    """归档当前会话到 archives/，返回归档文件路径。"""
+def _run_archive_memory_pipeline(payload: dict[str, Any], archive_path: str) -> None:
+    """后台执行完整记忆流水线（含 LLM 判断与摘要）。"""
+    try:
+        from memory_pipeline import run_memory_pipeline
+
+        run_memory_pipeline(
+            payload,
+            trigger="archive",
+            archive_path=archive_path,
+            skip_llm=False,
+        )
+    except Exception:
+        pass
+
+
+def archive_current_session(*, label: str = "", fast: bool = False) -> str | None:
+    """归档当前会话到 archives/，返回归档文件路径。
+
+    fast=True 时先写盘并清空 latest（UI 不阻塞），再在后台线程跑完整 LLM 记忆流水线。
+    """
     if not _has_meaningful_session():
         return None
     _ensure_dirs()
@@ -138,13 +160,17 @@ def archive_current_session(*, label: str = "") -> str | None:
     safe = datetime.now().strftime("%Y%m%d-%H%M%S")
     path = os.path.join(ARCHIVES_DIR, f"{safe}.json")
     _write_json(path, payload)
-    try:
-        from memory_pipeline import run_memory_pipeline
-
-        run_memory_pipeline(payload, trigger="archive", archive_path=path)
-    except Exception:
-        pass
     clear_persisted_latest()
+    if fast:
+        import threading
+
+        threading.Thread(
+            target=_run_archive_memory_pipeline,
+            args=(dict(payload), path),
+            daemon=True,
+        ).start()
+    else:
+        _run_archive_memory_pipeline(payload, path)
     return path
 
 
@@ -189,10 +215,12 @@ def apply_snapshot(snapshot: dict[str, Any]) -> None:
     import streamlit as st
 
     from travel_tool_memory import init_travel_tool_memory
+    from travel_facts import init_travel_facts_state, set_travel_facts
 
     init_session_store_state()
     tm.init_travel_state()
     init_travel_tool_memory()
+    init_travel_facts_state()
 
     st.session_state.app_mode = snapshot.get("app_mode", tm.APP_MODE_GENERAL)
     st.session_state.agent_prompt_mode = st.session_state.app_mode
@@ -219,6 +247,8 @@ def apply_snapshot(snapshot: dict[str, Any]) -> None:
         st.session_state.rag_collections_cache = list(travel.get("rag_collections_cache") or [])
         st.session_state.must_visit_confirmed = bool(travel.get("must_visit_confirmed"))
         st.session_state.poi_for_destination = travel.get("poi_for_destination")
+        tf = travel.get("travel_facts")
+        set_travel_facts(tf if isinstance(tf, dict) else None)
     elif st.session_state.app_mode == tm.APP_MODE_TRAVEL:
         tm.reset_travel_session()
 

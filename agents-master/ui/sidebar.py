@@ -492,6 +492,7 @@ def _render_memory_panel() -> None:
 _NEW_CHAT_HELP = (
     "将当前会话归档（保留行程需求、工具摘要、"
     "导出指针与最近聊天气泡），然后打开空白页。可在记忆面板下恢复会话。"
+    "记忆整理（含 LLM 摘要）在后台进行，不阻塞页面。"
     "适合「大理行程告一段落，开始规划桂林」。"
 )
 _RESET_CHAT_HELP = (
@@ -509,7 +510,7 @@ def _render_conversation_actions() -> None:
         type="secondary",
         help=_NEW_CHAT_HELP,
     ):
-        path = archive_current_session()
+        path = archive_current_session(fast=True)
         start_blank_session(keep_preferences=True)
         if path:
             st.toast(

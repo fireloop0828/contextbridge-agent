@@ -509,21 +509,25 @@ def auto_export_travel_plan_from_chat(
     display_text: str,
     intake: dict,
     *,
-    phase: str,
+    phase: str = "",
 ) -> list[str]:
     """
     O5：将对话中的完整攻略正文服务端写入文件，避免 LLM 在 write_markdown_document 再输出一遍。
+    仅当正文结构确认为完整攻略时写盘（intake/POI 问答不会触发）。
     """
-    if phase not in (tm.PHASE_GENERATING, tm.PHASE_REVISION):
+    plan_part, appendix = tm.split_travel_plan_and_appendix(display_text)
+    if not tm.looks_like_travel_plan(plan_part):
         return []
-    cleaned = tm.strip_travel_intake_block(display_text).strip()
-    if not tm.looks_like_travel_plan(cleaned):
+    body = tm.normalize_travel_plan_body(plan_part).strip()
+    if not body:
         return []
+    if appendix:
+        body = body.rstrip() + "\n\n" + appendix
     dest = (intake.get("destination") or "旅行攻略").strip()
     days = intake.get("duration_days")
     title = f"{dest}旅行攻略" if not days else f"{dest}{days}日攻略"
     rel = save_markdown_export(
-        cleaned,
+        body,
         title=title,
         filename=travel_export_filename(intake),
     )

@@ -1,7 +1,7 @@
 # 旅行模式 MCP 与 RAG 能力展示优化建议
 
-> 文档版本：v1.1  
-> 更新日期：2026-06-12  
+> 文档版本：v1.2  
+> 更新日期：2026-06-16  
 > 适用项目：`agents-master`（Streamlit + LangGraph ReAct + 旅行规划工作流）  
 > 关联文档：[旅行模式 Token 消耗分析与优化](./旅行模式Token消耗分析与优化.md)、[多模式 Agent 架构选型](../project-design/多模式Agent架构选型.md)
 
@@ -28,13 +28,13 @@ ReAct Agent                 → 实际调 MCP，把结果写进 Markdown
 ### 2.2 用户实际看到什么
 
 
-| 环节     | 当前展示                                 |
+| 环节     | 当前展示（以最新实现为准）                                 |
 | ------ | ------------------------------------ |
-| POI 推荐 | 文字列表，来源标注依赖 LLM 自觉写「高德/RAG」          |
-| 生成攻略   | 完整 Markdown；工具调用藏在 `🔧 工具调用详情` 折叠里   |
-| 数据依据   | `## 数据依据` 章节，仍是 LLM 叙述，非结构化溯源        |
-| RAG    | `query_knowledge_hub` 返回片段，用户几乎看不到原文 |
-| 高德     | 路线/天气变成正文「约 X 分钟」，无地图/卡片             |
+| POI 推荐 | 证据区展示 **双源对照**（高德 POI × 知识库命中） + 可折叠原文摘要 |
+| 生成攻略   | 正文与证据分层：上方「系统预取数据（MCP 直出）」默认收起；下方为 AI 行程建议 |
+| 数据依据   | 导出 `.md` 末尾自动追加 `## 数据依据（系统预取 · 非模型编造）`（结构化表格/列表） |
+| RAG    | 命中片段可见；低相关/过滤后为空时显示明确说明（`rag_meta.notice`） |
+| 高德     | 天气卡片 + POI 列表；路线以「逐站点单点跳转表」落到每个 Day 下（不依赖酒店/住宿） |
 
 
 ### 2.3 结论
@@ -212,7 +212,7 @@ P3  深体验：地图 + 交互 RAG + 知识库运营     → 完整「数据驱
 | P0-4 | 将 `travel_facts` 摘要注入 `[TRAVEL_CONTEXT]`，替代部分「请记得调工具」式 Prompt         | `travel_mode.build_travel_context`                    | Agent 写作时直接消费结构化事实，减少 ReAct 盲目探索          | §4.1、§4.3 前置 | context 中含 `travel_facts` JSON；Token 对比见 §7.4                   |
 | P0-5 | 新建 **证据折叠面板**：展示 RAG 片段列表（id、collection、excerpt、来源文档）                 | `ui/travel_evidence.py`；`ui/chat.py` 助手消息下渲染          | 用户无需点开「工具调用详情」即可浏览知识库命中内容                 | §4.1         | 生成完成后面板 ≥1 条 RAG excerpt 可展开                                    |
 | P0-6 | 攻略正文 **引用角标** 规范：`[RAG-1]`、`[AMAP-W]`、`[AMAP-R1]`；面板内 id 可跳转          | `prompts/travel-planner.md`；证据面板锚点                    | 用户能回答「这句话从哪来」                             | §4.1         | 正文 ≥3 处角标；点击/展开可看到对应 excerpt                                    |
-| P0-7 | **工具结果卡片**（生成结束后解析 tool 输出或读 `travel_facts`）                          | `ui/travel_evidence.py`；可选改 `app.py` 流式回调             | 天气、路线、POI 以卡片展示，告别 JSON 墙                 | §4.2         | 天气 1 卡 + 路线 ≥2 卡或等价摘要                                           |
+| P0-7 | **工具结果卡片**（优先读 `travel_facts` 渲染）                                          | `ui/travel_evidence.py`                                     | 天气、POI 以卡片/列表展示，告别 JSON 墙                 | §4.2         | 天气 1 卡 + POI 列表可展开                                           |
 | P0-8 | 攻略上方 **「本行程数据摘要」** 折叠区（多日天气 + 关键路段）                                   | `ui/chat.py` 或 `travel_evidence.py`                   | 打开攻略先看到「硬数据摘要」，再读叙述正文                     | §4.2         | 摘要与 `travel_facts` 一致，不依赖 LLM 复述                                |
 
 
@@ -312,7 +312,7 @@ P3  深体验：地图 + 交互 RAG + 知识库运营     → 完整「数据驱
 | P3-1 | 景点旁 **「查攻略详情」** 按钮 → 单 POI `query_knowledge_hub` → 侧边弹出 | `ui/travel_evidence.py`                           | 用户主动深挖 RAG，不限于生成时一次性检索      | §4.4      | 点击后 3s 内展示新 excerpt           |
 | P3-2 | 侧边栏 **知识库选择器**：展示 O10 缓存 collections，可勾选优先库             | `ui/sidebar.py`；写入 intake 或 `travel_facts`        | 用户可指定「用我的杭州私藏库」             | §4.4、§4.6 | 勾选后下次预取带 `collection` 参数      |
 | P3-3 | 改稿 **「用知识库优化这段」** 快捷意图 → 定向 RAG + 可选重算路线                | `travel_mode` 意图 regex + `travel_pipeline`        | 改稿与 RAG 联动，而非纯 LLM 重写       | §4.4      | 触发后 `travel_facts` 有新增 rag 条目 |
-| P3-4 | **高德静态图 / 动线示意图**（逐日详情旁）                                | `travel_evidence` + 高德静态图 API                     | 地图能力可视化，MCP 价值最直观           | §4.2 进阶   | 至少 1 日行程配图                    |
+| P3-4 | **高德静态图 / 动线示意图**（逐日详情旁）                                | `travel_evidence` + 高德静态图 API                     | 地图能力可视化，MCP 价值最直观           | §4.2 进阶   | 至少 1 日行程配图（可选）                    |
 | P3-5 | **目的地 → collection 路由表**（如 `杭州 → travel_杭州`）            | `travel_facts` 或 `config/travel_collections.yaml` | 小众城市场景下降级提示更准               | §4.6      | 有路由目的地预取命中率明显提升               |
 | P3-6 | 侧边 **知识库覆盖提示**：「杭州 ✓ 已覆盖 / 某某县 ✗ 将依赖高德」                 | `ui/sidebar.py`                                   | 管理用户预期，避免 RAG 空结果被误解为产品 bug | §4.6      | 无 collection 时显示明确文案          |
 | P3-7 | （可选）**对比演示模式**：同 intake 生成「无工具 / 全工具」两版折叠               | 独立 demo 开关或 `docs` 演示脚本                           | 路演/demo 时一眼看出 MCP+RAG 价值    | §4.7      | 并排可见天气/路线差异                   |

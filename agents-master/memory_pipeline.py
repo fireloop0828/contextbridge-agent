@@ -361,6 +361,7 @@ def run_memory_pipeline(
     *,
     trigger: str = "archive",
     archive_path: str = "",
+    skip_llm: bool = False,
 ) -> dict[str, Any]:
     """
     执行长期记忆流水线。
@@ -380,17 +381,26 @@ def run_memory_pipeline(
         preworthy = [c for c in candidates if c.get("kind") == "explicit_note"]
 
     history_snippet = _history_snippet(snapshot.get("history") or [])
-    if trigger in ("archive", "travel_export") and candidates:
+    label = str(snapshot.get("label") or "")
+    app_mode = snapshot.get("app_mode", tm.APP_MODE_GENERAL)
+    dest = str((snapshot.get("travel") or {}).get("intake", {}).get("destination") or "")
+    export_path = str((snapshot.get("travel") or {}).get("last_export_path") or "")
+    fallback_summary = _fallback_summary(
+        label=label,
+        app_mode=app_mode,
+        dest=dest,
+        export_path=export_path,
+        history_len=len(snapshot.get("history") or []),
+    )
+
+    if skip_llm or not candidates:
+        worthy_kinds = [c["kind"] for c in preworthy] if preworthy else []
+        summary = fallback_summary
+    elif trigger in ("archive", "travel_export") and candidates:
         worthy_kinds, summary = _llm_judge_and_summarize(candidates, history_snippet, snapshot)
     else:
         worthy_kinds = [c["kind"] for c in preworthy]
-        summary = _fallback_summary(
-            label=str(snapshot.get("label") or ""),
-            app_mode=snapshot.get("app_mode", tm.APP_MODE_GENERAL),
-            dest=str((snapshot.get("travel") or {}).get("intake", {}).get("destination") or ""),
-            export_path=str((snapshot.get("travel") or {}).get("last_export_path") or ""),
-            history_len=len(snapshot.get("history") or []),
-        )
+        summary = fallback_summary
 
     saved_at = str(snapshot.get("saved_at") or "")
     profile = load_profile()
