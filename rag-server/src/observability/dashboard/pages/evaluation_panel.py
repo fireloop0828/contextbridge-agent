@@ -27,14 +27,14 @@ EVAL_HISTORY_PATH = Path("logs/eval_history.jsonl")
 
 def render() -> None:
     """Render the Evaluation Panel page."""
-    st.header("📏 评估面板")
+    st.header("📏 效果评测")
     st.markdown(
-        "针对**黄金测试集**运行评估，衡量检索与生成质量。"
-        "结果包含各查询详情及汇总指标。"
+        "针对**黄金测试集**批量评测检索与回答质量，"
+        "输出汇总指标与各题详情，支持历史对比。"
     )
 
     # ── Configuration Section ──────────────────────────────────────
-    st.subheader("⚙️ 配置")
+    st.subheader("⚙️ 评测配置")
 
     col1, col2, col3 = st.columns(3)
 
@@ -69,10 +69,10 @@ def render() -> None:
 
     with col3:
         collection = st.text_input(
-            "集合（可选）",
+            "知识库（可选）",
             value="",
             key="eval_collection",
-            help="将检索限制在指定集合内。",
+            help="将检索限制在指定知识库（collection）内。",
         )
 
     # Golden test set file selection
@@ -138,7 +138,7 @@ def render() -> None:
     st.divider()
 
     run_clicked = st.button(
-        "▶️ 运行评估",
+        "▶️ 开始评测",
         type="primary",
         key="eval_run_btn",
         disabled=not golden_path.exists(),
@@ -171,7 +171,7 @@ def _run_evaluation(
     display aggregate + per-query metrics.  Falls back to a graceful
     error message on failure.
     """
-    with st.spinner("正在加载评估器并运行评估…"):
+    with st.spinner("正在加载评测器并运行…"):
         try:
             report_dict = _execute_evaluation(
                 backend=backend,
@@ -181,12 +181,12 @@ def _run_evaluation(
                 user_answers=user_answers,
             )
         except Exception as exc:
-            st.error(f"❌ 评估失败：{exc}")
+            st.error(f"❌ 评测失败：{exc}")
             logger.exception("Evaluation failed")
             return
 
     # ── Display results ────────────────────────────────────────────
-    st.success("✅ 评估完成！")
+    st.success("✅ 评测完成！")
 
     _render_aggregate_metrics(report_dict)
     _render_query_details(report_dict)
@@ -377,13 +377,13 @@ def _render_query_details(report: Dict[str, Any]) -> None:
 
 def _render_history() -> None:
     """Display historical evaluation results for comparison."""
-    st.subheader("📈 评估历史")
+    st.subheader("📈 评测历史")
 
     history = _load_history()
     if not history:
         st.info(
-            "**尚无评估历史。** "
-            "请在上方配置评估器并点击「运行评估」。"
+            "**尚无评测历史。** "
+            "请在上方配置评测参数并点击「开始评测」。"
             "结果将保存在此处，便于跨次运行对比。"
         )
         return
@@ -394,7 +394,7 @@ def _render_history() -> None:
         rows.append(
             {
                 "时间": entry.get("timestamp", "—"),
-                "评估器": entry.get("evaluator_name", "—"),
+                "评测器": entry.get("evaluator_name", "—"),
                 "查询数": entry.get("query_count", 0),
                 "耗时 (ms)": round(entry.get("total_elapsed_ms", 0)),
                 **{

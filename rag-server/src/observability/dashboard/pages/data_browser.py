@@ -18,7 +18,7 @@ from src.observability.dashboard.services.data_service import DataService
 
 def render() -> None:
     """Render the Data Browser page."""
-    st.header("🔍 数据浏览器")
+    st.header("🔍 知识浏览")
 
     try:
         svc = DataService()
@@ -27,14 +27,38 @@ def render() -> None:
         return
 
     # ── Collection selector ────────────────────────────────────────
+    # Prefer the default collection from settings.yaml when available.
+    default_collection = "default"
+    try:
+        from src.core.settings import load_settings
+
+        settings = load_settings()
+        if getattr(settings, "vector_store", None) and getattr(settings.vector_store, "collection_name", None):
+            cand = settings.vector_store.collection_name
+            if isinstance(cand, str) and cand.strip():
+                default_collection = cand.strip()
+    except Exception:
+        pass
+
     collections = svc.list_collections()
+    if not isinstance(collections, list):
+        collections = ["default"]
     if "default" not in collections:
         collections.insert(0, "default")
+    if default_collection not in collections:
+        collections.insert(0, default_collection)
+
+    default_index = 0
+    try:
+        default_index = collections.index(default_collection)
+    except ValueError:
+        default_index = 0
     collection = st.selectbox(
-        "集合",
+        "知识库",
         options=collections,
-        index=0,
+        index=default_index,
         key="db_collection_filter",
+        help="选择要浏览的 collection（知识库分区）。",
     )
     coll_arg = collection if collection else None
 
@@ -43,7 +67,7 @@ def render() -> None:
     with st.expander("⚠️ 危险操作", expanded=False):
         st.warning(
             "此操作将**永久删除**所有数据："
-            "ChromaDB 集合、BM25 索引、图片、摄取历史及追踪日志。"
+            "ChromaDB 知识库、BM25 索引、图片、入库历史及运行记录。"
         )
         col_btn, col_status = st.columns([1, 2])
         with col_btn:
@@ -65,7 +89,7 @@ def render() -> None:
                     else:
                         st.success(
                             f"全部数据已清空！"
-                            f"已删除 {result['collections_deleted']} 个集合。"
+                            f"已删除 {result['collections_deleted']} 个知识库。"
                         )
                     st.rerun()
             with c2:
@@ -84,9 +108,9 @@ def render() -> None:
 
     if not docs:
         st.info(
-            "**当前集合中没有文档。** "
-            "请前往「摄取管理」页面上传并摄取文件，"
-            "或在上方下拉框中选择其他集合。"
+            "**当前知识库中没有文档。** "
+            "请前往「文档入库」页面上传文件，"
+            "或在上方选择其他知识库。"
         )
         return
 
@@ -100,7 +124,7 @@ def render() -> None:
             col_a, col_b, col_c = st.columns(3)
             col_a.metric("分块数", doc["chunk_count"])
             col_b.metric("图片数", doc["image_count"])
-            col_c.metric("集合", doc.get("collection", "—"))
+            col_c.metric("知识库", doc.get("collection", "—"))
             st.caption(
                 f"**来源：** {doc['source_path']}  ·  "
                 f"**哈希：** `{doc['source_hash'][:16]}…`  ·  "

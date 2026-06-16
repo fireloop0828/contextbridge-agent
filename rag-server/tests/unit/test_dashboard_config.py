@@ -110,7 +110,7 @@ class TestConfigService:
         mock_load.return_value = _fake_settings()
         svc = ConfigService()
         cards = svc.get_component_cards()
-        ingestion = next(c for c in cards if c.name == "文档摄取")
+        ingestion = next(c for c in cards if c.name == "文档入库")
         assert ingestion.extra["分块大小"] == 1000
 
     @patch("src.observability.dashboard.services.config_service.load_settings")

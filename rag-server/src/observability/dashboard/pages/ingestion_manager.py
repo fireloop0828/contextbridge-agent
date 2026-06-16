@@ -63,9 +63,9 @@ def _run_ingestion(
             on_progress=on_progress,
         )
         progress_bar.progress(1.0, text="✅ 完成")
-        status_text.success(f"已成功将 **{uploaded_file.name}** 摄取到集合 **{collection}**。")
+        status_text.success(f"已成功将 **{uploaded_file.name}** 入库到知识库 **{collection}**。")
     except Exception as exc:
-        status_text.error(f"摄取失败：{exc}")
+        status_text.error(f"入库失败：{exc}")
     finally:
         TraceCollector().collect(trace)
         # Clean up temp file
@@ -77,23 +77,41 @@ def _run_ingestion(
 
 def render() -> None:
     """Render the Ingestion Manager page."""
-    st.header("📥 摄取管理")
+    st.header("📥 文档入库")
 
     # ── Upload section ─────────────────────────────────────────────
-    st.subheader("📤 上传与摄取")
+    st.subheader("📤 上传文件")
+
+    # Default knowledge base name from settings.yaml (falls back to "default").
+    default_collection = "default"
+    try:
+        from src.core.settings import load_settings
+
+        settings = load_settings()
+        if getattr(settings, "vector_store", None) and getattr(settings.vector_store, "collection_name", None):
+            cand = settings.vector_store.collection_name
+            if isinstance(cand, str) and cand.strip():
+                default_collection = cand.strip()
+    except Exception:
+        pass
 
     col1, col2 = st.columns([3, 1])
     with col1:
         uploaded = st.file_uploader(
-            "选择要摄取的文件",
+            "选择文件",
             type=["pdf", "txt", "md", "docx"],
             key="ingest_uploader",
         )
     with col2:
-        collection = st.text_input("集合", value="default", key="ingest_collection")
+        collection = st.text_input(
+            "目标知识库",
+            value=default_collection,
+            key="ingest_collection",
+            help="文档将写入该 collection，默认 default。",
+        )
 
     if uploaded is not None:
-        if st.button("🚀 开始摄取", key="btn_ingest"):
+        if st.button("🚀 开始入库", key="btn_ingest"):
             progress_bar = st.progress(0, text="准备中…")
             status_text = st.empty()
             _run_ingestion(uploaded, collection.strip() or "default", progress_bar, status_text)
@@ -101,7 +119,7 @@ def render() -> None:
     st.divider()
 
     # ── Document management section ────────────────────────────────
-    st.subheader("🗑️ 文档管理")
+    st.subheader("🗑️ 已入库文档")
 
     try:
         svc = DataService()
@@ -112,8 +130,8 @@ def render() -> None:
 
     if not docs:
         st.info(
-            "**尚无已摄取的文档。** "
-            "请在上方上传 PDF、TXT、MD 或 DOCX 文件，然后点击「开始摄取」。"
+            "**尚无已入库的文档。** "
+            "请在上方上传 PDF、TXT、MD 或 DOCX 文件，然后点击「开始入库」。"
         )
         return
 
@@ -122,7 +140,7 @@ def render() -> None:
         with col_info:
             st.markdown(
                 f"**{doc['source_path']}** — "
-                f"集合：`{doc.get('collection', '—')}` | "
+                f"知识库：`{doc.get('collection', '—')}` | "
                 f"分块：{doc['chunk_count']} | "
                 f"图片：{doc['image_count']}"
             )

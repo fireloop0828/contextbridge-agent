@@ -111,7 +111,7 @@ class TestDashboardSmoke:
             f"Overview page raised an exception: {at.exception}"
         )
         text = _collect_text(at)
-        assert "总览" in text or "系统" in text
+        assert "概览" in text or "配置" in text
 
     # ------------------------------------------------------------------
     # 2. Data Browser page
@@ -141,7 +141,7 @@ class TestDashboardSmoke:
             f"Data Browser page raised an exception: {at.exception}"
         )
         text = _collect_text(at)
-        assert "数据" in text or "文档" in text
+        assert "知识" in text or "文档" in text
 
     # ------------------------------------------------------------------
     # 3. Ingestion Manager page
@@ -199,7 +199,7 @@ class TestDashboardSmoke:
             f"Ingestion Traces page raised an exception: {at.exception}"
         )
         text = _collect_text(at)
-        assert "追踪" in text or "摄取" in text
+        assert "入库" in text or "记录" in text
 
     # ------------------------------------------------------------------
     # 5. Query Traces page
@@ -229,7 +229,7 @@ class TestDashboardSmoke:
             f"Query Traces page raised an exception: {at.exception}"
         )
         text = _collect_text(at)
-        assert "查询" in text or "追踪" in text
+        assert "检索" in text or "记录" in text
 
     # ------------------------------------------------------------------
     # 6. Evaluation Panel page
@@ -251,4 +251,4 @@ class TestDashboardSmoke:
             f"Evaluation Panel page raised an exception: {at.exception}"
         )
         text = _collect_text(at)
-        assert "评估" in text
+        assert "评测" in text or "评估" in text

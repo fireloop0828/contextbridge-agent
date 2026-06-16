@@ -33,16 +33,16 @@ _STAGE_LABELS = {
 
 def render() -> None:
     """Render the Ingestion Traces page."""
-    st.header("🔬 摄取追踪")
+    st.header("🔬 入库记录")
 
     svc = TraceService()
     traces = svc.list_traces(trace_type="ingestion")
 
     if not traces:
-        st.info("尚无摄取追踪记录。请先执行一次文档摄取。")
+        st.info("尚无入库记录。请先在「文档入库」完成一次文件入库。")
         return
 
-    st.subheader(f"📋 追踪历史 ({len(traces)})")
+    st.subheader(f"📋 入库历史 ({len(traces)})")
 
     for idx, trace in enumerate(traces):
         trace_id = trace.get("trace_id", "unknown")
@@ -61,7 +61,7 @@ def render() -> None:
             stages_by_name = {t["stage_name"]: t for t in timings}
 
             # ── 1. Overview metrics ────────────────────────────
-            st.markdown("#### 📊 流水线概览")
+            st.markdown("#### 📊 入库流程")
             st.caption(f"来源：`{source_path}`")
 
             load_d = stages_by_name.get("load", {}).get("data", {})
@@ -238,7 +238,7 @@ def _render_load_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None:
             key=f"load_raw_text_{trace_idx}",
         )
     else:
-        st.info("此追踪记录中未保存文本预览。")
+        st.info("此记录中未保存文本预览。")
 
 
 def _render_split_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None:
@@ -267,7 +267,7 @@ def _render_split_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None:
                     key=f"split_{trace_idx}_{i}",
                 )
     else:
-        st.info("未记录分块文本。请重新执行摄取以生成新的追踪记录。")
+        st.info("未记录分块文本。请重新入库以生成新记录。")
 
 
 def _render_transform_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None:
@@ -352,7 +352,7 @@ def _render_transform_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None
                             key=f"transform_after_{trace_idx}_{i}",
                         )
     else:
-        st.info("未记录各分块转换数据。请重新执行摄取以生成新的追踪记录。")
+        st.info("未记录各分块转换数据。请重新入库以生成新记录。")
 
 
 def _render_embed_stage(data: Dict[str, Any]) -> None:
@@ -433,7 +433,7 @@ def _render_upsert_stage(data: Dict[str, Any]) -> None:
             dc1, dc2 = st.columns(2)
             with dc1:
                 st.markdown(f"**后端：** `{dense_store.get('backend', '—')}`")
-                st.markdown(f"**集合：** `{dense_store.get('collection', '—')}`")
+                st.markdown(f"**知识库：** `{dense_store.get('collection', '—')}`")
             with dc2:
                 st.markdown(f"**路径：** `{dense_store.get('path', '—')}`")
                 st.markdown(f"**向量数：** {dense_store.get('count', 0)}")
@@ -444,7 +444,7 @@ def _render_upsert_stage(data: Dict[str, Any]) -> None:
             sc1, sc2 = st.columns(2)
             with sc1:
                 st.markdown(f"**后端：** `{sparse_store.get('backend', '—')}`")
-                st.markdown(f"**集合：** `{sparse_store.get('collection', '—')}`")
+                st.markdown(f"**知识库：** `{sparse_store.get('collection', '—')}`")
             with sc2:
                 st.markdown(f"**路径：** `{sparse_store.get('path', '—')}`")
                 st.markdown(f"**文档数：** {sparse_store.get('count', 0)}")
@@ -476,7 +476,7 @@ def _render_upsert_stage(data: Dict[str, Any]) -> None:
                     "分块 ID": m.get("chunk_id", ""),
                     "向量 ID": m.get("vector_id", ""),
                     "存储": m.get("store", ""),
-                    "集合": m.get("collection", ""),
+                    "知识库": m.get("collection", ""),
                 }
                 for i, m in enumerate(chunk_mapping)
             ]

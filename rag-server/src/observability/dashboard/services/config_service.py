@@ -112,7 +112,7 @@ class ConfigService:
         # Ingestion
         if s.ingestion:
             cards.append(ComponentInfo(
-                name="文档摄取",
+                name="文档入库",
                 provider=s.ingestion.splitter,
                 model="-",
                 extra={

@@ -29,13 +29,13 @@ _STAGE_LABELS = {
 
 def render() -> None:
     """Render the Query Traces page."""
-    st.header("🔎 查询追踪")
+    st.header("🔎 检索记录")
 
     svc = TraceService()
     traces = svc.list_traces(trace_type="query")
 
     if not traces:
-        st.info("尚无查询追踪记录。请先执行一次查询。")
+        st.info("尚无检索记录。请先通过 MCP 或命令行发起一次查询。")
         return
 
     # ── Keyword filter ─────────────────────────────────────────────
@@ -53,7 +53,7 @@ def render() -> None:
             or kw in str(t.get("stages", [])).lower()
         ]
 
-    st.subheader(f"📋 查询历史 ({len(traces)})")
+    st.subheader(f"📋 检索历史 ({len(traces)})")
 
     for idx, trace in enumerate(traces):
         trace_id = trace.get("trace_id", "unknown")
@@ -82,7 +82,7 @@ def render() -> None:
                 source_emoji = "🤖" if source == "mcp" else "📡"
                 st.markdown(f"**来源：** {source_emoji} `{source}`")
                 st.markdown(f"**Top-K：** `{meta.get('top_k', '—')}`")
-                st.markdown(f"**集合：** `{meta.get('collection', '—')}`")
+                st.markdown(f"**知识库：** `{meta.get('collection', '—')}`")
 
             st.divider()
 
@@ -199,7 +199,7 @@ def _render_diagnostics(
     if dense_err:
         hints.append(("error", f"**稠密检索失败：** {dense_err}"))
     elif dense_count == 0 and "dense_retrieval" in stages_by_name:
-        hints.append(("warning", "稠密检索返回 **0 条结果**。请检查集合中是否已有索引数据。"))
+        hints.append(("warning", "稠密检索返回 **0 条结果**。请检查知识库中是否已有索引数据。"))
 
     # Sparse errors / empty
     sparse_err = sparse_d.get("error", "")
@@ -209,7 +209,7 @@ def _render_diagnostics(
         hints.append((
             "warning",
             "稀疏 (BM25) 检索返回 **0 条结果**。"
-            "BM25 索引可能为空，或尚未为该集合构建。",
+            "BM25 索引可能为空，或尚未为该知识库构建。",
         ))
 
     # Fusion missing
@@ -237,8 +237,8 @@ def _render_diagnostics(
     if dense_count == 0 and sparse_count == 0:
         hints.append((
             "warning",
-            "**未找到任何结果。** 集合可能为空，或查询与已索引内容不匹配。"
-            "请先摄取数据后再试。",
+            "**未找到任何结果。** 知识库可能为空，或问题与已索引内容不匹配。"
+            "请先在「文档入库」导入数据后再试。",
         ))
 
     # Render hints

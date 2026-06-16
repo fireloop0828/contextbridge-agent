@@ -45,10 +45,10 @@ def _safe_collection_stats() -> Dict[str, Any]:
 
 def render() -> None:
     """Render the Overview page."""
-    st.header("📊 系统总览")
+    st.header("📊 运行概览")
 
     # ── Component configuration cards ──────────────────────────────
-    st.subheader("🔧 组件配置")
+    st.subheader("🔧 当前配置")
 
     try:
         config_service = ConfigService()
@@ -67,7 +67,7 @@ def render() -> None:
                     st.text(f"{k}：{v}")
 
     # ── Collection statistics ──────────────────────────────────────
-    st.subheader("📁 集合统计")
+    st.subheader("📁 知识库规模")
 
     stats = _safe_collection_stats()
     if stats:
@@ -77,23 +77,23 @@ def render() -> None:
                 count = info.get("chunk_count", "?")
                 st.metric(label=name, value=count)
                 if count == 0 or count == "?":
-                    st.caption("⚠️ 空集合")
+                    st.caption("⚠️ 暂无数据")
     else:
         st.warning(
-            "**未找到集合或 ChromaDB 不可用。** "
-            "请前往「摄取管理」页面上传并摄取文档。"
+            "**未找到知识库或 ChromaDB 不可用。** "
+            "请前往「文档入库」页面上传并入库文档。"
         )
 
     # ── Trace file statistics ──────────────────────────────────────
-    st.subheader("📈 追踪统计")
+    st.subheader("📈 运行记录")
 
     from src.core.settings import resolve_path
     traces_path = resolve_path("logs/traces.jsonl")
     if traces_path.exists():
         line_count = sum(1 for _ in traces_path.open(encoding="utf-8"))
         if line_count > 0:
-            st.metric("追踪记录总数", line_count)
+            st.metric("记录总数", line_count)
         else:
-            st.info("尚无追踪记录。请先执行一次查询或文档摄取。")
+            st.info("尚无运行记录。请先完成一次入库或检索。")
     else:
-        st.info("尚无追踪记录。请先执行一次查询或文档摄取。")
+        st.info("尚无运行记录。请先完成一次入库或检索。")
