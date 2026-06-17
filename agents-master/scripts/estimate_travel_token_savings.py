@@ -18,7 +18,7 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, APP_DIR)
 
 from prompts import build_system_prompt  # noqa: E402
-import travel_mode as tm  # noqa: E402
+from modes.travel import state_machine as tm  # noqa: E402
 
 
 def est_tokens(chars: int) -> int:

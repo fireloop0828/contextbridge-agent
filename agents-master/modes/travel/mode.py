@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import travel_mode as tm
+from . import state_machine as tm
 from modes.types import ModeBranding
-from prompts import build_travel_system_prompt
+from modes.travel import prompts as travel_prompts
 
 ID = tm.APP_MODE_TRAVEL
 LABEL = "旅行规划"
@@ -28,7 +28,7 @@ def chat_placeholder() -> str:
 
 
 def build_system_prompt() -> str:
-    return build_travel_system_prompt()
+    return travel_prompts.build_system_prompt()
 
 
 def detect_intent(text: str) -> bool:

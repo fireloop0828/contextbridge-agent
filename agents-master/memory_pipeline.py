@@ -6,7 +6,7 @@ import json
 import re
 from typing import Any
 
-import travel_mode as tm
+from modes.travel import state_machine as tm
 from memory_store import (
     EXPLICIT_REMEMBER_RE,
     PREF_FIELDS,

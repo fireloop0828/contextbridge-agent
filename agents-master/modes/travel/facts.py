@@ -786,7 +786,7 @@ def format_travel_plan_display(
     攻略交付后处理：仅做依赖 MCP 数据的增强（地图链接/路线表、可信度标注）与开场祝福。
     章节 emoji 由生成阶段 prompt 固定，不在此替换。
     """
-    import travel_mode as tm
+    from . import state_machine as tm
 
     raw = (md or "").strip()
     if not raw or not tm.looks_like_travel_plan(raw):

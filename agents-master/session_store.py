@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 
-import travel_mode as tm
+from modes.travel import state_machine as tm
 
 SESSION_VERSION = 1
 MAX_HISTORY_PERSIST = 40
@@ -56,7 +56,7 @@ def collect_snapshot(*, archived: bool = False, label: str = "") -> dict[str, An
     """从 st.session_state 收集可持久化快照。"""
     import streamlit as st
 
-    from travel_tool_memory import get_cached_rag_collections
+    from modes.travel.tool_memory import get_cached_rag_collections
 
     init_session_store_state()
     _ensure_dirs()
@@ -214,8 +214,8 @@ def apply_snapshot(snapshot: dict[str, Any]) -> None:
     """将快照恢复到 st.session_state。"""
     import streamlit as st
 
-    from travel_tool_memory import init_travel_tool_memory
-    from travel_facts import init_travel_facts_state, set_travel_facts
+    from modes.travel.tool_memory import init_travel_tool_memory
+    from modes.travel.facts import init_travel_facts_state, set_travel_facts
 
     init_session_store_state()
     tm.init_travel_state()
@@ -282,7 +282,7 @@ def start_blank_session(*, keep_preferences: bool = True) -> None:
     import streamlit as st
 
     import timing_log as tlog
-    from travel_tool_memory import clear_travel_tool_memory
+    from modes.travel.tool_memory import clear_travel_tool_memory
     from utils import random_uuid
 
     prefs = dict(st.session_state.get("user_preferences") or empty_user_preferences())
@@ -304,7 +304,7 @@ def format_session_state_markdown() -> str:
     """侧边栏「本轮会话状态」：仅展示当前页结构化 state（非长期记忆、非聊天气泡全文）。"""
     import streamlit as st
 
-    from travel_tool_memory import format_tool_memory_for_context
+    from modes.travel.tool_memory import format_tool_memory_for_context
 
     app_mode = st.session_state.get("app_mode", tm.APP_MODE_GENERAL)
     history = st.session_state.get("history") or []

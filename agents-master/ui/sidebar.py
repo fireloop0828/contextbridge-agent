@@ -8,7 +8,7 @@ import os
 import streamlit as st
 
 import timing_log as tlog
-import travel_mode as tm
+from modes.travel import state_machine as tm
 from modes import registry as modes
 from session_store import (
     apply_snapshot,

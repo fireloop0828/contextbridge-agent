@@ -467,11 +467,10 @@ def detect_travel_intent(text: str) -> bool:
 def init_travel_state() -> None:
     import streamlit as st
 
-    from travel_facts import init_travel_facts_state
-    from travel_tool_memory import init_travel_tool_memory
+    from . import facts, tool_memory
 
-    init_travel_tool_memory()
-    init_travel_facts_state()
+    tool_memory.init_travel_tool_memory()
+    facts.init_travel_facts_state()
     defaults = {
         "app_mode": APP_MODE_GENERAL,
         "travel_phase": PHASE_INTAKE_1,
@@ -578,8 +577,8 @@ def build_travel_context(
     missing: list[str],
     intake_user_turns: int,
 ) -> str:
-    from travel_facts import format_travel_facts_block, get_travel_facts
-    from travel_tool_memory import format_tool_memory_for_context, get_cached_rag_collections
+    from .facts import format_travel_facts_block, get_travel_facts
+    from .tool_memory import format_tool_memory_for_context, get_cached_rag_collections
 
     payload: dict[str, Any] = {
         "app_mode": APP_MODE_TRAVEL,
@@ -943,8 +942,8 @@ def reset_travel_session() -> None:
     """重置旅行模式对话状态（保留 app_mode）。"""
     import streamlit as st
 
-    from travel_facts import clear_travel_facts
-    from travel_tool_memory import clear_travel_tool_memory
+    from .facts import clear_travel_facts
+    from .tool_memory import clear_travel_tool_memory
 
     clear_travel_tool_memory()
     clear_travel_facts()

@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import travel_mode as tm
-from travel_facts import (
+from . import state_machine as tm
+from .facts import (
     TravelFacts,
     empty_travel_facts,
     finalize_facts,
@@ -20,7 +20,7 @@ from travel_facts import (
     set_travel_facts,
     tool_result_to_text,
 )
-from travel_tool_memory import get_cached_rag_collections, try_cache_rag_collections_from_tool_output
+from .tool_memory import get_cached_rag_collections, try_cache_rag_collections_from_tool_output
 
 logger = logging.getLogger(__name__)
 
@@ -283,7 +283,7 @@ async def ensure_generating_facts_for_delivery(
     """
     攻略交付前确保 travel_facts 含 generating 阶段的天气/路线（改稿或 POI 阶段 facts 可能过旧）。
     """
-    from travel_facts import get_travel_facts
+    from .facts import get_travel_facts
 
     facts = get_travel_facts()
     amap = (facts or {}).get("amap") or {}
