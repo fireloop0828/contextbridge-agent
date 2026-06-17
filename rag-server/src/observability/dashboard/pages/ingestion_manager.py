@@ -95,26 +95,68 @@ def render() -> None:
     except Exception:
         pass
 
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        uploaded = st.file_uploader(
-            "选择文件",
-            type=["pdf", "txt", "md", "docx"],
-            key="ingest_uploader",
+    uploaded = st.file_uploader(
+        "选择文件",
+        type=["pdf", "txt", "md", "docx"],
+        key="ingest_uploader",
+    )
+
+    # Put knowledge base controls UNDER file picker (more space).
+    kb_left, kb_right = st.columns([3, 2])
+    with kb_right:
+        create_new = st.toggle(
+            "新增知识库",
+            value=False,
+            key="ingest_create_new_kb",
+            help="关闭：从已有知识库中选择；开启：输入新知识库名（将自动创建）。",
         )
-    with col2:
-        collection = st.text_input(
-            "目标知识库",
-            value=default_collection,
-            key="ingest_collection",
-            help="文档将写入该 collection，默认 default。",
-        )
+        st.caption("提示：开启后输入的新名称会创建为新的 collection。")
+
+    with kb_left:
+        if create_new:
+            collection = st.text_input(
+                "新知识库名称",
+                value="",
+                key="ingest_collection_new",
+                placeholder="例如：travel_plan",
+                help="将自动创建同名知识库（collection），并把本次文档写入其中。",
+            )
+        else:
+            try:
+                collections = DataService().list_collections()
+            except Exception:
+                collections = []
+            if not isinstance(collections, list):
+                collections = []
+
+            # Ensure the configured default is always selectable.
+            if default_collection and default_collection not in collections:
+                collections.insert(0, default_collection)
+            if "default" not in collections:
+                collections.append("default")
+
+            default_index = 0
+            try:
+                default_index = collections.index(default_collection)
+            except Exception:
+                default_index = 0
+
+            collection = st.selectbox(
+                "选择已有知识库",
+                options=collections,
+                index=default_index,
+                key="ingest_collection_existing",
+                help="选择一个已有知识库（collection）。如果你刚创建/入库了新库，刷新后下拉会自动同步。",
+            )
 
     if uploaded is not None:
         if st.button("🚀 开始入库", key="btn_ingest"):
             progress_bar = st.progress(0, text="准备中…")
             status_text = st.empty()
-            _run_ingestion(uploaded, collection.strip() or "default", progress_bar, status_text)
+            chosen = (collection or "").strip()
+            if not chosen:
+                chosen = default_collection or "default"
+            _run_ingestion(uploaded, chosen, progress_bar, status_text)
 
     st.divider()
 

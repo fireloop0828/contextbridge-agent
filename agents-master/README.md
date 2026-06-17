@@ -160,12 +160,12 @@ mkdir -p data/documents
 # 复制你的 PDF/文档到 data/documents/，或使用示例：
 python scripts/ingest.py \
   --path tests/fixtures/sample_documents/simple.pdf \
-  --collection knowledge_hub
+  --collection travel_plan
 
 # 批量导入 data/documents 下所有 PDF/TXT
 python scripts/ingest.py \
   --path data/documents \
-  --collection knowledge_hub \
+  --collection travel_plan \
   --force
 ```
 
@@ -183,7 +183,7 @@ streamlit run app.py
 2. 等待页面自动初始化完成（侧边栏应显示 MCP 工具数量 ≥ 4：time + RAG + 导出等）
 3. 在聊天框提问，例如：
   - 「知识库里有哪些 collection？」
-  - 「在 knowledge_hub 里检索关于 XXX 的内容」
+  - 「在 travel_plan 里检索关于 XXX 的内容」
 
 ### 常见问题
 

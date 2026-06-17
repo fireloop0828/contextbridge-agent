@@ -28,7 +28,7 @@ vision_llm:
 vector_store:
   provider: "chroma"
   persist_directory: "./data/db/chroma"
-  collection_name: "knowledge_hub"
+  collection_name: "travel_plan"
 
 retrieval:
   dense_top_k: 20

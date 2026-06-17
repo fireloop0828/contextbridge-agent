@@ -424,8 +424,8 @@ def parse_rag_results(
 
 def pick_rag_collection(cached: list[str]) -> str:
     if not cached:
-        return "knowledge_hub"
-    for preferred in ("knowledge_hub", "travel", "default"):
+        return "travel_plan"
+    for preferred in ("travel_plan", "travel", "default"):
         if preferred in cached:
             return preferred
     return cached[0]

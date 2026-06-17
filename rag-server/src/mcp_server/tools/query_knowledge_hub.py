@@ -81,7 +81,8 @@ class QueryKnowledgeHubConfig:
     """
     default_top_k: int = 5
     max_top_k: int = 20
-    default_collection: str = "default"
+    # Default should match settings.yaml in typical single-kb setups.
+    default_collection: str = "travel_plan"
     enable_rerank: bool = True
 
 
