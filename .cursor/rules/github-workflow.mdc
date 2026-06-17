@@ -29,8 +29,11 @@ alwaysApply: true
 
 1. **并行查看状态**：`git status`、`git diff`（ staged + unstaged）、`git log -3`
 2. **安全扫描**：若有敏感文件，剔除并告知用户，不提交
-3. **按变更意图分批**（见下节）：输出**提交计划**——每个 commit 的意图、文件列表、message 草案
-4. **等待确认**：用户无异议后再执行；用户可要求合并/拆分 commit
+3. **按变更意图分批**（见下节）：输出**分批提交计划**（纯文本），格式固定为：
+   - `提交类型：一句话标题`
+   - `内容：…`
+   - `影响文件：…`
+4. **等待确认（只确认一次）**：计划中必须列出**每个 commit 的 message 草案 + 文件清单**；用户确认后再开始执行。确认后应尽量用一轮连续命令完成所有 `git add` / `git commit` / `git push`，避免让用户反复操作
 5. **依次提交**：每个意图 `git add` → `git commit`（HEREDOC 写 message）
 6. **统一推送**：全部 commit 完成后 `git push`（首次用 `-u origin main`）
 7. **回报**：commit 列表 + `git branch -vv` 或 push 结果
@@ -70,8 +73,11 @@ alwaysApply: true
 
 ### Commit message
 
-- 中文或 conventional commits，说明 **why**，非仅罗列文件名
-- 示例：`feat(travel): 外置 POI 事实层，减少重复工具调用`
+- **全中文**：不要用英文句子（例：避免 `add / improve / workflow rule`）
+- **类型可用**：`feat` / `fix` / `docs` / `refactor` / `chore` / `test`
+- **作用域可选且中文**：用中文全角括号（`（…）`），如 `（travel）`、`（git）`、`（rag）`
+- **格式**：`类型（作用域）：中文标题` 或 `类型：中文标题`
+- **示例**：`chore（git）：添加基于意图的提交工作流规则`；`feat（travel）：添加 travel_facts 和证据优先的用户体验`
 
 ---
 
