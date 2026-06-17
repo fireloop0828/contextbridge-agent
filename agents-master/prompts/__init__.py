@@ -42,19 +42,17 @@ def load_general_system_travel_prompt() -> str:
     return _load_prompt_file(GENERAL_SYSTEM_TRAVEL_PATH)
 
 
-def build_system_prompt(app_mode: str) -> str:
-    """
-    按对话模式组装完整 System Prompt。
-
-    通用模式：general_system.md
-    旅行模式：general_system_travel.md + TRAVEL_MODE 头 + travel-planner.md（精简）
-    """
-    import travel_mode as tm
-
-    if app_mode != tm.APP_MODE_TRAVEL:
-        return load_general_system_prompt()
+def build_travel_system_prompt() -> str:
+    """旅行模式完整 System Prompt。"""
     base = load_general_system_travel_prompt()
     travel_doc = load_travel_planner_prompt()
     if not travel_doc:
         return base or load_general_system_prompt()
     return f"{base}\n\n----\n\n{_TRAVEL_MODE_HEADER}\n\n{travel_doc}"
+
+
+def build_system_prompt(app_mode: str) -> str:
+    """按模式 id 组装 System Prompt（委托 modes.registry）。"""
+    from modes.registry import build_system_prompt as registry_build
+
+    return registry_build(app_mode)

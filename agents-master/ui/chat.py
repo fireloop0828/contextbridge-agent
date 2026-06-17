@@ -6,8 +6,9 @@ import streamlit as st
 
 import travel_mode as tm
 import timing_log as tlog
+from modes import registry as modes
 from ui import get_app_module
-from ui.sidebar import mark_mode_segmented_sync_from_app
+from ui.sidebar import mark_mode_radio_sync_from_app
 from ui.travel_evidence import render_travel_provenance
 def print_message() -> None:
     """在页面上渲染对话历史（含工具调用折叠面板与导出下载）。"""
@@ -124,35 +125,35 @@ def render_chat() -> None:
     main = get_app_module()
     print_message()
 
-    _chat_placeholder = (
-        "🧳 描述旅行需求，或补充行程信息…"
-        if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL
-        else "💬 输入你的问题"
-    )
+    _chat_placeholder = modes.get_active_mode().chat_placeholder()
     user_query = st.chat_input(_chat_placeholder)
     if not user_query:
         return
 
     if st.session_state.session_initialized:
-        if (
-            st.session_state.get("app_mode") == tm.APP_MODE_GENERAL
-            and tm.detect_travel_intent(user_query)
-        ):
-            needs_reconnect = tm.enter_travel_mode(reset_intake=False)
-            st.session_state.travel_intake = tm.merge_intake_and_track_destination(
-                st.session_state.get("travel_intake") or tm.empty_intake(),
-                tm.extract_intake_from_user_message(user_query),
+        current_mode = st.session_state.get("app_mode", modes.DEFAULT_MODE_ID)
+        routed = modes.route_by_intent(user_query, current_mode_id=current_mode)
+        if routed:
+            target = modes.get_mode(routed)
+            needs_reconnect = modes.enter_mode(
+                routed,
+                reset=(routed == tm.APP_MODE_TRAVEL),
             )
-            mark_mode_segmented_sync_from_app()
+            if routed == tm.APP_MODE_TRAVEL:
+                st.session_state.travel_intake = tm.merge_intake_and_track_destination(
+                    st.session_state.get("travel_intake") or tm.empty_intake(),
+                    tm.extract_intake_from_user_message(user_query),
+                )
+            mark_mode_radio_sync_from_app()
             if not st.session_state.session_initialized:
-                main.reconnect_agent(spinner_label="正在进入旅行规划模式…")
+                main.reconnect_agent(spinner_label=f"正在进入{target.LABEL}…")
             elif needs_reconnect:
-                main.rebuild_agent_only(spinner_label="正在进入旅行规划模式…")
-            st.toast("已进入旅行规划模式", icon="🧳")
+                main.rebuild_agent_only(spinner_label=f"正在进入{target.LABEL}…")
+            st.toast(f"已进入{target.LABEL}", icon=target.branding().page_icon)
 
         query_timeout = st.session_state.timeout_seconds
         query_recursion = st.session_state.recursion_limit
-        if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL:
+        if modes.is_travel_mode():
             pending_query, _, phase_this_turn = handle_travel_user_message(user_query)
             query_timeout = tm.travel_timeout_seconds(
                 st.session_state.timeout_seconds, phase_this_turn
@@ -201,11 +202,7 @@ def render_chat() -> None:
         with st.chat_message("assistant", avatar="🤖"):
             from travel_facts import get_travel_facts
 
-            facts_live = (
-                get_travel_facts()
-                if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL
-                else None
-            )
+            facts_live = get_travel_facts() if modes.is_travel_mode() else None
             if facts_live:
                 render_travel_provenance(
                     facts_live, key_prefix="live", show_divider=True, expanded=False
@@ -242,7 +239,7 @@ def render_chat() -> None:
             phase_this_turn = None
             delivery_phase = None
             plan_ready = False
-            if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL:
+            if modes.is_travel_mode():
                 phase_this_turn = st.session_state.get("_travel_phase_this_turn")
                 final_text = finalize_travel_assistant_text(final_text)
                 delivery_phase = st.session_state.get("travel_phase", phase_this_turn)
@@ -281,13 +278,10 @@ def render_chat() -> None:
                         pass
 
             export_paths = main.extract_export_paths(final_tool)
-            if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL and not plan_ready:
+            if modes.is_travel_mode() and not plan_ready:
                 export_paths = []
 
-            if (
-                st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL
-                and plan_ready
-            ):
+            if modes.is_travel_mode() and plan_ready:
                 from travel_facts import format_facts_markdown_appendix, get_travel_facts
 
                 export_body = final_text
@@ -345,7 +339,7 @@ def render_chat() -> None:
             if export_paths:
                 assistant_msg["exports"] = export_paths
             if (
-                st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL
+                modes.is_travel_mode()
                 and facts_snapshot
                 and phase_this_turn
                 in (tm.PHASE_POI_SELECTION, tm.PHASE_GENERATING, tm.PHASE_REVISION)
@@ -357,7 +351,7 @@ def render_chat() -> None:
                     {"role": "assistant_tool", "content": final_tool}
                 )
             if (
-                st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL
+                modes.is_travel_mode()
                 and phase_this_turn
                 and final_tool.strip()
             ):

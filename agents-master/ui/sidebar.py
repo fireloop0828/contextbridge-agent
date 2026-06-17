@@ -7,8 +7,9 @@ import os
 
 import streamlit as st
 
-import travel_mode as tm
 import timing_log as tlog
+import travel_mode as tm
+from modes import registry as modes
 from session_store import (
     apply_snapshot,
     archive_current_session,
@@ -26,115 +27,55 @@ from session_store import (
 from ui import get_app_module
 from ui.display_labels import format_mcp_server_label
 
-MODE_LABEL_GENERAL = "通用模式"
-MODE_LABEL_TRAVEL = "旅行规划"
-MODE_LABEL_TO_APP = {
-    MODE_LABEL_GENERAL: tm.APP_MODE_GENERAL,
-    MODE_LABEL_TRAVEL: tm.APP_MODE_TRAVEL,
-}
-APP_MODE_TO_LABEL = {v: k for k, v in MODE_LABEL_TO_APP.items()}
 _LEGACY_MODE_LABELS = {
-    "💬 通用对话": MODE_LABEL_GENERAL,
-    "🧳 旅行规划": MODE_LABEL_TRAVEL,
-    "通用": MODE_LABEL_GENERAL,
-    "通用对话": MODE_LABEL_GENERAL,
-}
-
-MODE_SIDEBAR_INTRO: dict[str, str] = {
-    tm.APP_MODE_GENERAL: (
-        "多轮 ReAct 推理，按需调用已连接 MCP 工具，"
-        "适合开放问答、检索与文档导出等通用任务。"
-    ),
-    tm.APP_MODE_TRAVEL: (
-        "对话式旅行规划工作流：必玩推荐 → 需求采集 → 知识库攻略 →"
-        "高德路线规划 + 天气查询 + 住宿美食推荐 ，生成可下载 Markdown 行程。"
-    ),
+    "💬 通用对话": modes.get_mode(modes.DEFAULT_MODE_ID).LABEL,
+    "🧳 旅行规划": modes.get_mode(tm.APP_MODE_TRAVEL).LABEL,
+    "通用": modes.get_mode(modes.DEFAULT_MODE_ID).LABEL,
+    "通用对话": modes.get_mode(modes.DEFAULT_MODE_ID).LABEL,
+    "通用模式": modes.get_mode(modes.DEFAULT_MODE_ID).LABEL,
 }
 
 
-def _is_travel_flow_started() -> bool:
-    phase = st.session_state.get("travel_phase", tm.PHASE_INTAKE_1)
-    if phase != tm.PHASE_INTAKE_1:
-        return True
-    if st.session_state.get("travel_intake_user_turns", 0) > 0:
-        return True
-    intake = st.session_state.get("travel_intake") or tm.empty_intake()
-    if (intake.get("destination") or "").strip():
-        return True
-    return False
+def mark_mode_radio_sync_from_app() -> None:
+    st.session_state._sync_mode_radio_from_app = True
 
 
-def get_mode_sidebar_caption(app_mode: str) -> str:
-    if app_mode != tm.APP_MODE_TRAVEL:
-        return MODE_SIDEBAR_INTRO[tm.APP_MODE_GENERAL]
-    if not _is_travel_flow_started():
-        return MODE_SIDEBAR_INTRO[tm.APP_MODE_TRAVEL]
-
-    phase = st.session_state.get("travel_phase", tm.PHASE_INTAKE_1)
-    intake = st.session_state.get("travel_intake") or tm.empty_intake()
-    missing = tm.compute_missing_fields(intake)
-
-    if phase == tm.PHASE_POI_SELECTION:
-        dest = intake.get("destination", "") or "目的地"
-        return f"正在为「{dest}」推荐必玩景点，请在对话中勾选必去/想去。"
-    if phase in (tm.PHASE_INTAKE_1, tm.PHASE_INTAKE_2):
-        if missing:
-            return (
-                f"继续补充行程信息（尚缺 {len(missing)} 项），"
-                "如出行时间、人数、交通与偏好等。"
-            )
-        return "需求已齐全，即将为您生成攻略。"
-    if phase == tm.PHASE_REVISION:
-        return "攻略已生成，可继续提出修改意见，或下载 Markdown。"
-    return "正在生成攻略，请稍候…"
-
-
-def mark_mode_segmented_sync_from_app() -> None:
-    st.session_state._sync_mode_segmented_from_app = True
-
-
-def sync_mode_segmented_before_widget() -> None:
-    if not st.session_state.get("_sync_mode_segmented_from_app"):
+def sync_mode_radio_before_widget() -> None:
+    if not st.session_state.get("_sync_mode_radio_from_app"):
         return
-    st.session_state.mode_segmented = APP_MODE_TO_LABEL.get(
-        st.session_state.get("app_mode", tm.APP_MODE_GENERAL),
-        MODE_LABEL_GENERAL,
-    )
-    del st.session_state._sync_mode_segmented_from_app
+    active = modes.get_active_mode()
+    st.session_state.mode_radio = active.LABEL
+    del st.session_state._sync_mode_radio_from_app
 
 
-def _ensure_mode_segmented_initialized() -> None:
-    if "mode_segmented" not in st.session_state:
-        legacy = st.session_state.pop("mode_select", None)
+def _ensure_mode_radio_initialized() -> None:
+    if "mode_radio" not in st.session_state:
+        legacy = st.session_state.pop("mode_segmented", None) or st.session_state.pop(
+            "mode_select", None
+        )
         if legacy in _LEGACY_MODE_LABELS:
             legacy = _LEGACY_MODE_LABELS[legacy]
-        st.session_state.mode_segmented = legacy or APP_MODE_TO_LABEL.get(
-            st.session_state.get("app_mode", tm.APP_MODE_GENERAL),
-            MODE_LABEL_GENERAL,
-        )
+        active = modes.get_active_mode()
+        st.session_state.mode_radio = legacy or active.LABEL
         return
-    current = st.session_state.mode_segmented
+    current = st.session_state.mode_radio
     if current in _LEGACY_MODE_LABELS:
-        st.session_state.mode_segmented = _LEGACY_MODE_LABELS[current]
+        st.session_state.mode_radio = _LEGACY_MODE_LABELS[current]
 
 
-def _on_mode_segmented_change() -> None:
-    """仅更新 session 状态；勿在此调用 st.spinner / rebuild（会重复注册 widget key）。"""
-    label = st.session_state.get("mode_segmented", MODE_LABEL_GENERAL)
+def _on_mode_radio_change() -> None:
+    """仅更新 session 状态；勿在此调用 st.spinner / rebuild。"""
+    label = st.session_state.get("mode_radio", modes.list_mode_labels()[0])
     if label in _LEGACY_MODE_LABELS:
         label = _LEGACY_MODE_LABELS[label]
-    selected_app_mode = MODE_LABEL_TO_APP.get(label, tm.APP_MODE_GENERAL)
-    prev_app_mode = st.session_state.get("app_mode", tm.APP_MODE_GENERAL)
-    if selected_app_mode == prev_app_mode:
+    selected = modes.get_mode_by_label(label)
+    prev_id = st.session_state.get("app_mode", modes.DEFAULT_MODE_ID)
+    if selected.ID == prev_id:
         return
 
-    if selected_app_mode == tm.APP_MODE_TRAVEL:
-        needs_rebuild = tm.enter_travel_mode(reset_intake=True)
-        spinner = "正在切换至旅行规划模式…"
-    else:
-        needs_rebuild = tm.exit_travel_mode()
-        spinner = "正在切换至通用对话模式…"
-
+    reset = selected.ID == tm.APP_MODE_TRAVEL
+    needs_rebuild = modes.enter_mode(selected.ID, reset=reset)
+    spinner = f"正在切换至{selected.LABEL}…"
     if not st.session_state.session_initialized:
         st.session_state._pending_mode_switch = "reconnect"
     elif needs_rebuild:
@@ -145,7 +86,7 @@ def _on_mode_segmented_change() -> None:
 
 
 def _apply_pending_mode_switch() -> None:
-    """在主脚本流程中执行模式切换后的 Agent 重建（可安全使用 spinner）。"""
+    """在主脚本流程中执行模式切换后的 Agent 重建。"""
     pending = st.session_state.pop("_pending_mode_switch", None)
     if not pending:
         return
@@ -158,18 +99,18 @@ def _apply_pending_mode_switch() -> None:
 
 
 def _render_mode_segment() -> None:
-    sync_mode_segmented_before_widget()
-    _ensure_mode_segmented_initialized()
-    prev_app_mode = st.session_state.get("app_mode", tm.APP_MODE_GENERAL)
-    st.segmented_control(
+    sync_mode_radio_before_widget()
+    _ensure_mode_radio_initialized()
+    labels = modes.list_mode_labels()
+    prev_id = st.session_state.get("app_mode", modes.DEFAULT_MODE_ID)
+    st.radio(
         "模式",
-        options=[MODE_LABEL_GENERAL, MODE_LABEL_TRAVEL],
-        key="mode_segmented",
+        options=labels,
+        key="mode_radio",
         label_visibility="collapsed",
-        width="stretch",
-        on_change=_on_mode_segmented_change,
+        on_change=_on_mode_radio_change,
     )
-    st.caption(get_mode_sidebar_caption(prev_app_mode))
+    st.caption(modes.mode_sidebar_caption(prev_id))
 
 
 def _render_system_settings() -> None:
@@ -433,7 +374,7 @@ def _render_session_restore_banner() -> None:
                 apply_snapshot(snapshot)
                 st.session_state._session_restore_checked = True
                 st.session_state._pending_restore_rebuild = True
-                mark_mode_segmented_sync_from_app()
+                mark_mode_radio_sync_from_app()
                 st.success("✅ 已恢复会话。")
                 st.rerun()
     with col_discard:
@@ -459,7 +400,7 @@ def _render_memory_panel() -> None:
         except Exception as exc:
             st.caption(f"长期记忆暂不可用：{exc}")
 
-    if st.session_state.get("app_mode") == tm.APP_MODE_TRAVEL:
+    if modes.is_travel_mode():
         with st.expander("本轮旅行进度", expanded=False):
             st.markdown(format_session_state_markdown())
             st.caption(
@@ -484,7 +425,7 @@ def _render_memory_panel() -> None:
                         apply_snapshot(snapshot)
                         save_latest_autosave()
                         st.session_state._pending_restore_rebuild = True
-                        mark_mode_segmented_sync_from_app()
+                        mark_mode_radio_sync_from_app()
                         st.success(f"✅ 已从归档恢复：{label}")
                         st.rerun()
 

@@ -65,18 +65,14 @@ use_login = os.environ.get("USE_LOGIN", "false").lower() == "true"
 
 def get_main_page_branding() -> dict[str, str]:
     """根据当前对话模式返回页面标题、说明与浏览器标签文案。"""
-    if st.session_state.get("app_mode", tm.APP_MODE_GENERAL) == tm.APP_MODE_TRAVEL:
-        return {
-            "page_title": "旅行规划助手",
-            "page_icon": "🧳",
-            "title": "🧳 旅行规划助手",
-            "subtitle": "✨ 结合高德地图、RAG知识库、时间工具等实际情况，为您生成可下载的专属行程攻略。",
-        }
+    from modes.registry import branding
+
+    b = branding()
     return {
-        "page_title": "MCP 智能体",
-        "page_icon": "🧠",
-        "title": "💬 MCP 工具智能体",
-        "subtitle": "✨ 向支持 MCP 工具的 ReAct 智能体提问。",
+        "page_title": b.page_title,
+        "page_icon": b.page_icon,
+        "title": b.title,
+        "subtitle": b.subtitle,
     }
 
 
