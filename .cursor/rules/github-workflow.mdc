@@ -63,7 +63,7 @@ alwaysApply: true
 
 | 意图类型 | 常见路径 |
 |----------|----------|
-| 旅行模式 | `travel_*.py`、`prompts/travel-*` |
+| 旅行模式 | `modes/travel/**` |
 | 记忆与会话 | `session_store.py`、`ui/sidebar.py` |
 | UI / 聊天 | `ui/chat.py`、`ui/sidebar.py` |
 | MCP / 配置 | `config/`、`mcp_server_*.py`、`config.json` |

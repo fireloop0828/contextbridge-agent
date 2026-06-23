@@ -80,7 +80,7 @@
 
 | 模块 | 典型路径 | 用途 |
 |------|----------|------|
-| 旅行模式 | `travel_*.py`、`prompts/travel-*` | 检查旅行相关意图是否文件齐全 |
+| 旅行模式 | `modes/travel/**` | 检查旅行相关意图是否文件齐全 |
 | 记忆与会话 | `session_store.py`、`ui/sidebar.py` | 持久化、恢复、thread |
 | UI / 聊天 | `ui/chat.py`、`ui/sidebar.py` | 展示与交互 |
 | MCP / 配置 | `config/`、`mcp_server_*.py`、`config.json` | 工具接入 |

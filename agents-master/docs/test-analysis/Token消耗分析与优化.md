@@ -75,7 +75,7 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 
 | # | 优化项 | 决策 | 较原先节省（估算） | 针对根因 | 当前做法 | 关键文件 |
 |---|--------|------|-------------------|----------|----------|----------|
-| O1 | 旅行专用精简 Prompt | **✅** | ~4.8 万（16%） | §2.1 | `general_system_travel.md` + 精简 `travel-planner.md` | `prompts/` |
+| O1 | 旅行专用精简 Prompt | **✅** | ~4.8 万（16%） | §2.1 | `general_system_travel.md` + 精简 `travel-planner.md` | `modes/travel/` |
 | O2 | POI→intake reset thread | **✅** | ~11.6 万（39%） | §2.2 | POI 结束换 `thread_id` | `travel_mode.py`、`ui/chat.py` |
 | O3 | generating 时 reset thread | **↩** | —（约 5%～15% 潜力） | §2.2 | 已回退；与 UI/改稿协同未定型 | — |
 | O4 | Checkpoint 裁剪 | **⏸ 初版** | 潜力 5～12 万；**待实测** | §2.2 | 工具回合后 O7 入库 + **换 `thread_id`**（非 Message Trimmer） | `travel_tool_memory.py`、`ui/chat.py` |
@@ -171,7 +171,8 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 
 | 文件 | 变更性质 |
 |------|----------|
-| `prompts/general_system_travel.md` | O1 |
+| `modes/travel/general_system_travel.md` | O1 |
+| `modes/travel/travel-planner.md` | O1 |
 | `export_service.py` | O5 |
 | `app.py` | 自动导出、session 初始化 |
 | `travel_mode.py` | O2、O11、偏好合并 intake |

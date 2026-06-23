@@ -17,10 +17,10 @@
 - 文档导出（`write_markdown_document`）说明  
 - 通用回答步骤与来源格式
 
-旅行模式启动时，`travel_mode.build_system_prompt()` 会 **再拼接** `data/prompt/travel-planner.md`：
+旅行模式启动时，`modes/travel/prompts.build_system_prompt()` 会 **再拼接** `modes/travel/travel-planner.md`：
 
 ```text
-最终 System Prompt（旅行）= SYSTEM_PROMPT + <TRAVEL_MODE> 头 + travel-planner.md
+最终 System Prompt（旅行）= general_system_travel.md + <TRAVEL_MODE> 头 + travel-planner.md
 ```
 
 因此：**旅行专用流程写在 md 文件里；通用能力写在 app.py 的 SYSTEM_PROMPT 里**——这是「看起来 app.py Prompt 很多」的主要原因之一。
@@ -61,7 +61,7 @@
 | 层级               | 存储位置                                  | 何时生效           | 内容性质                          |
 | ---------------- | ------------------------------------- | -------------- | ----------------------------- |
 | 通用 System Prompt | `app.py` → `SYSTEM_PROMPT`            | Agent 创建时      | RAG、导出、通用指令                   |
-| 旅行 System Prompt | `data/prompt/travel-planner.md`       | 旅行模式 Agent 创建时 | 阶段行为、MD 模板、工具顺序               |
+| 旅行 System Prompt | `modes/travel/travel-planner.md` + `general_system_travel.md` | 旅行模式 Agent 创建时 | 阶段行为、MD 模板、工具顺序               |
 | 动态回合上下文          | `travel_mode.py` → `[TRAVEL_CONTEXT]` | **每一轮**用户消息前   | phase、intake 快照、本回合 checklist |
 
 
@@ -133,10 +133,10 @@ agents-master/
 │   ├── sidebar_mode.py         # 模式切换、caption
 │   ├── sidebar_exports.py      # 导出列表、重置、耗时测试
 │   └── chat.py                 # print_message、主输入循环
-├── travel_mode.py              # 保持现状
-├── timing_log.py               # 保持现状
-└── data/prompt/
-    └── travel-planner.md       # 已有
+├── modes/travel/
+│   ├── prompts.py
+│   ├── travel-planner.md
+│   └── general_system_travel.md
 ```
 
 ---
@@ -188,7 +188,7 @@ agents-master/
 
 ## 8. 一句话总结
 
-- **app.py Prompt 多**：通用底座 + 整站 UI + MCP 运行时都在此文件；旅行规则已在 `travel_mode.py` + `travel-planner.md`。  
+- **app.py Prompt 多**：通用底座 + 整站 UI + MCP 运行时都在此文件；旅行规则已在 `modes/travel/` + `travel-planner.md`。  
 - **app.py 偏大**：Streamlit 单体脚本 + 侧边栏 UI 堆叠；已有 partial 拆分（travel_mode、timing_log）。  
 - **下一步**：优先 UI 与 Prompt 外置，Agent session 次之；避免过度框架化。
 

@@ -6,9 +6,6 @@ import os
 
 PROMPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 GENERAL_SYSTEM_PATH = os.path.join(PROMPTS_DIR, "general_system.md")
-# 旅行 Prompt 已迁至 modes/travel/；以下路径仅供兼容旧引用
-GENERAL_SYSTEM_TRAVEL_PATH = os.path.join(PROMPTS_DIR, "general_system_travel.md")
-TRAVEL_PLANNER_PATH = os.path.join(PROMPTS_DIR, "travel-planner.md")
 
 
 def _load_prompt_file(path: str) -> str:
