@@ -1,108 +1,24 @@
 ---
-description: GitHub 半自动推送流程——安全、按变更意图分批 commit、功能完成提醒
+description: ContextBridge Agent 项目 Git 推送补充（通用流程见全局 Skill）
 alwaysApply: true
 ---
 
-# GitHub 推送工作流
+# ContextBridge Agent — Git 推送项目补充
 
-目标：**低摩擦、可控的半自动**。仅在用户明确要求时 commit / push；不自动推送。
+通用两阶段门禁见全局 Skill：`~/.cursor/skills/github-push-workflow/SKILL.md`（口令「提交并 push」时读取）。
 
-默认远程：`fireloop0828/contextbridge-agent`（私有），分支 `main`。
+## 本项目默认
 
----
+- 默认远程：`fireloop0828/contextbridge-agent`（私有）
+- 默认分支：`main`
+- 首次 push 可用：`git push -u origin main`
 
-## 安全红线（提交前必查）
+## 安全补充
 
-**禁止提交：**
+- 禁止提交：`rag-server/config/settings.yaml`（含真实 api_key 时）
+- 提交前扫描 `config.json` 的 MCP `env` 不得含明文 Key
 
-- `.env`、`rag-server/config/settings.yaml` 及任何含真实 `api_key` 的配置
-- `data/`、`logs/`、`cache/`、`.venv/`、`node_modules/`
-- 含 API Key、Token、密码的文件
-
-提交前扫描 `git diff`：`config.json` 的 MCP `env` 不得含明文 Key。
-
----
-
-## 口令：「提交并 push」——两阶段门禁（硬约束）
-
-> **「提交并 push」= 启动计划流程，不等于允许立即 commit/push。**
-> 意图再单一、文件再少，也**不得**跳过阶段 A。
-
-### 阶段 A：只出计划（收到口令后的第一条回复）
-
-**允许：** `git status`、`git diff`（staged + unstaged）、`git log -3`、安全扫描、输出提交计划。
-
-**禁止（同一条回复内）：** `git add`、`git commit`、`git push`，以及任何会写入 git 的操作。
-
-**必须输出**固定格式的提交计划（每个独立意图一条）：
-
-```text
-## 提交计划（待确认）
-
-### Commit 1
-- message 草案：`类型（作用域）：中文标题`
-- 内容：…
-- 影响文件：
-  - path/to/file1
-  - path/to/file2
-
-（若有 Commit 2、3… 同上结构）
-
----
-请确认后我再执行。可回复：确认 / 执行 / 按计划提交
-```
-
-**阶段 A 回复必须以「请确认」类语句结尾**，然后**停止**，等待用户下一条消息。
-
-### 阶段 B：确认后执行
-
-**仅当**以下全部满足，才可 `git add` → `git commit` → `git push`：
-
-1. 本会话**已输出过**完整提交计划（含每个 commit 的 message 草案 + 文件清单）
-2. 用户在**上一条或本条**消息中**明确确认**，例如：`确认`、`执行`、`好`、`按计划提交`、`OK`
-3. 安全扫描通过
-
-**不算确认（不得执行）：**
-
-- 单独一条「提交并 push」（这是阶段 A 的口令，不是确认）
-- 助手自行推断「意图 obvious / 只有 1 个 commit / 刚做完功能」
-- 用户未回复，助手在同一轮里计划 + 执行
-
-**确认后：** 尽量用一轮连续命令完成所有 add / commit / push；回报 commit 列表 + `git branch -vv` 或 push 结果。
-
-### Agent 执行前自检（commit/push 前必过）
-
-```
-□ 阶段 A 的计划已在本次对话中发给用户？
-□ 用户已明确确认（非单独「提交并 push」）？
-□ 本条回复不是阶段 A（即不是计划与 commit 同条发出）？
-□ 安全扫描通过？
-```
-
-任一项为否 → **只输出计划或提问，不执行 git 写入**。
-
-未收到口令时：**不** commit、**不** push。
-
----
-
-## 分批原则：变更意图优先
-
-**主依据**：读 diff，理解「这一坨改动在解决什么问题」——每个独立意图一个 commit。
-
-**辅助**：目录/模块边界仅用于命名和查漏，**不能**仅凭路径机械拆分。
-
-- **合并**：同一功能意图跨多模块（如 `travel_facts.py` + `travel_mode.py` + `ui/chat.py` + 对应 `docs/`）→ **一个 commit**
-- **拆分**：工作区并存多个**无关**意图（如旅行优化 + RAG 文档各做各的）→ **多个 commit**
-- **禁止**：同一功能因路径不同被拆成多个 commit；无关改动因「顺手」塞进一个 commit
-
-### 划分步骤
-
-1. 通读 diff，列出独立变更意图
-2. 每个文件归入唯一意图；存疑时询问用户
-3. 用模块表检查同一意图是否漏了 prompts / docs / tests
-4. **阶段 A** 输出计划 → **等确认** → **阶段 B** 执行
-
-### 模块表（辅助查漏）
+## 模块查漏表（辅助分批，非机械拆分依据）
 
 | 意图类型 | 常见路径 |
 |----------|----------|
@@ -113,31 +29,3 @@ alwaysApply: true
 | RAG 子项目 | `rag-server/**`（与 agents-master 不同意图时再拆） |
 | 文档 | `docs/**`（与功能同意图则同 commit） |
 | 脚本 | `scripts/**` |
-
-### Commit message
-
-- **全中文**：不要用英文句子（例：避免 `add / improve / workflow rule`）
-- **类型可用**：`feat` / `fix` / `docs` / `refactor` / `chore` / `test`
-- **作用域可选且中文**：用中文全角括号（`（…）`），如 `（travel）`、`（git）`、`（rag）`
-- **格式**：`类型（作用域）：中文标题` 或 `类型：中文标题`
-- **示例**：`chore（git）：添加基于意图的提交工作流规则`；`feat（travel）：添加 travel_facts 和证据优先的用户体验`
-
----
-
-## 习惯：功能点完成提醒
-
-当对话中一个**功能点/任务块**已落地（实现完成、测试通过、或用户表示「做完了」）：
-
-- 用一两句话总结本段改动
-- 轻量提醒：「若这版想留档，可以说 **提交并 push**」（会进入阶段 A，不会自动提交）
-- **不**自动提交；同一会话同一功能点**只提醒一次**
-
----
-
-## 明确不做
-
-- 保存/编辑后自动 commit 或 push
-- 未经用户确认的推送
-- 在阶段 A 同条回复里执行 commit / push（**最常见违规**）
-- 因「只有一个 commit」跳过确认
-- 为日常 push 依赖 Automations / GitHub MCP
