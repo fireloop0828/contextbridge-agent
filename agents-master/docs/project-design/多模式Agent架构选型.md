@@ -1,187 +1,115 @@
 # 多模式 Agent 架构选型
 
-> agents-master 扩展多垂直模式时的架构决策参考。**偏选型与设计**；文末「落地现状」记录已与代码对齐的实现快照。
+> agents-master 多垂直模式的架构说明与选型参考。**对外可讲版**：主线讲清「是什么、怎么跑、已落地什么」；细节与对比见附录。
 
 ## 目录
 
 - [TL;DR](#tldr)
-- [1. Prompt 还是模式包（Skill）](#1-prompt-还是模式包skill)
+- [1. Prompt 还是模式包](#1-prompt-还是模式包)
 - [2. 单 Agent 还是多 Agent](#2-单-agent-还是多-agent)
 - [3. LangGraph 与框架选型](#3-langgraph-与框架选型)
 - [4. 多模式架构设计](#4-多模式架构设计)
 - [5. 已注册模式](#5-已注册模式)
 - [6. 演进方向](#6-演进方向)
+- [附录](#附录)
 - [相关文档](#相关文档)
 
 ---
 
 ## TL;DR
 
-**背景**：单 ReAct Agent + MCP；多个垂直模式通过侧边栏 **radio** 切换，通用模式下支持话语自动识别切模式。
+**一句话**：单 ReAct Agent + MCP，多个垂直模式通过侧边栏切换；强流程由 Python 模式包编排，Prompt 只管本回合怎么说。
 
+**背景**：侧边栏 **radio** 切模式；通用模式下支持话语自动识别并切入对应模式。
 
-| 问题                 | 推荐                                     |
-| ------------------ | -------------------------------------- |
-| Prompt 还是模式包？      | **模式包（Skill/Mode）为主**；Prompt 是模式包的一部分  |
-| 单 Agent 还是多 Agent？ | **单 Agent + 模式切换**；多 Agent 仅在触发条件满足时升级 |
-| LangGraph 要不要上多节点？ | **继续单 Agent ReAct**；多节点图作为未来演进选项       |
+| 问题 | 推荐 |
+| --- | --- |
+| Prompt 还是模式包？ | **模式包为主**；Prompt 是模式包的一部分 |
+| 单 Agent 还是多 Agent？ | **单 Agent + 模式切换**；必要时再升级多 Agent |
+| LangGraph 要不要上多节点？ | **继续单 Agent ReAct**；多节点图作为未来选项 |
 
+**术语（Skill 两层，勿混淆）**：
+
+| 名称 | 是什么 | 在哪 |
+| --- | --- | --- |
+| **应用模式包**（本文亦称 Runtime Skill） | 用户聊天时的真实能力：`Prompt + 路由 + handler +（可选）状态机` | `agents-master/modes/<name>/` |
+| **Cursor Skill** | IDE 开发时的 SOP：教 Agent 如何改代码、维护规范 | `~/.cursor/skills/` 或 `.cursor/skills/` 下的 `SKILL.md` |
 
 **多模式最小设计**：`modes/registry`（注册表 + 路由器）+ 各模式包；UI 与意图走同一路由；单 Agent 复用 MCP 缓存，按模式换 Prompt / handler / `thread_id`。
 
-**落地快照（2026-06）**：旅行模式包收口完成——`modes/travel/` 含全部实现；根目录无 `travel_*.py`；外部经 `modes.registry` + `modes.travel.handler` 接入。
+**已落地（2026-06）**：三模式（通用 / 旅行 / 知识库问答）+ registry 路由；旅行重模式包收进 `modes/travel/`，外部仅经 `modes.registry` + `modes.travel.handler` 接入。
+
+**可复用原则**：旅行包已是完整的应用模式包，**不必为可复用而拆**；有第二个重流程或开发协作成本升高时，再补 Cursor Skill 或 `modes/common/`。见 [§6](#6-演进方向)。
 
 ---
 
-## 1. Prompt 还是模式包（Skill）
+## 1. Prompt 还是模式包
 
-**本质区别一句话**：
+**本质区别**：
 
-> *Prompt 约束的是 **模型行为**；Skill/模式包约束的是 **系统行为 + 模型行为**。*
+> *Prompt 约束 **模型行为**；模式包约束 **系统行为 + 模型行为**。*
 >
-> `Prompt ⊂ Skill`。Skill 激活后，Prompt 照样进 context；Skill 多出来的是 **工程层**。
+> `Prompt ⊂ 模式包`。模式包多出来的是工程层：路由、handler、阶段、预取、交付校验。
 
-### 问题定义
+| 维度 | 仅 Prompt | 模式包 |
+| --- | --- | --- |
+| 扩展成本 | 低（加 md） | 中（接口 + 注册） |
+| 流程可靠性 | 弱（靠模型自觉） | 强（Python 编排兜底） |
+| 适用场景 | 轻量、无状态 | 强流程、多阶段、预取/导出 |
 
-多模式扩展时，「换一段 System Prompt」是否足够？还是要把**激活条件、编排逻辑、状态边界**一并工程化封装？
+**推荐**：模式包作为多模式主组织方式。轻量模式只需 `mode.py` + Prompt + intent；**旅行等强流程**必须上 handler + 状态机——Python 管 phase、预取、导出，Prompt 管本回合行为。
 
-### 评估维度
+| 情况 | 选择 |
+| --- | --- |
+| 只换风格/模板，无状态 | 轻模式包 |
+| 有阶段流转、预取、交付校验 | 重模式包 + handler |
+| 需工具白名单且 prompt 不够 | 模式包 + 工具策略 |
 
+**当前落点**：
 
-| 维度      | 仅 Prompt   | 模式包（Skill/Mode）         |
-| ------- | ---------- | ----------------------- |
-| 扩展成本    | 低（加 md 文件） | 中（需定义模式接口 + 注册）         |
-| 流程可靠性   | 弱（靠模型自觉遵守） | 强（Python 编排兜底）          |
-| 状态/工具隔离 | 弱          | 可显式管理 phase、thread、工具策略 |
-| 可观测性    | 难追溯「为何这么走」 | 路由与 handler 可记录、可测      |
-| 适用场景    | 轻量、无状态     | 强流程、多阶段、预取/校验/导出        |
+| 模式 | 类型 | 入口 |
+| --- | --- | --- |
+| 通用 | 轻 | `modes/general/` |
+| 知识库问答 | 轻 | `modes/knowledge_qa/` |
+| 旅行 | 重 | `modes/travel/`（handler · state_machine · pipeline · prompts） |
 
-
-### 方案对比
-
-**A. 仅 Prompt**：切换 `system.md`，主链路不变。
-
-- 优点：实现快，适合只改语气与输出格式。
-- 缺点：阶段推进、工具约束、交付校验难稳定；逻辑易散在 UI 分支。
-
-**B. 模式包（Skill/Mode）**：`Prompt + 路由 + handler +（可选）工具策略`。
-
-- 优点：强流程可内聚；新增模式主要改模式包自身。
-- 缺点：需注册表与模式接口，前期有工程投入。
-
-**关系**：`Prompt ⊂ 模式包`。模式包是工程层可插拔单元，不是另一种智能。
-
-### 推荐与理由
-
-- **推荐 B 作为多模式主组织方式**；轻量模式可只实现 Prompt + 元信息 + intent，不必上状态机。
-- **旅行等强流程必须用模式包**——Python 管 phase、预取、导出；Prompt 只管本回合行为建议。
-
-### 触发条件
-
-
-| 情况                      | 选择              |
-| ----------------------- | --------------- |
-| 只换风格/模板，无状态、无工具约束       | 轻模式包（实质≈Prompt） |
-| 有阶段流转、预取、交付校验、thread 重置 | 重模式包 + handler  |
-| 需禁用/白名单工具且 prompt 不够    | 模式包 + 工具策略      |
-
-
-### 当前落点
-
-
-| 模式    | 类型   | 主要文件                                                                |
-| ----- | ---- | ------------------------------------------------------------------- |
-| 通用    | 轻模式包 | `modes/general/mode.py` → `prompts/general_system.md`               |
-| 知识库问答 | 轻模式包 | `modes/knowledge_qa/mode.py` + `system.md`                          |
-| 旅行    | 重模式包 | `modes/travel/`（state_machine、pipeline、handler、prompts） |
-
+**与 Cursor Skill 的关系**：应用模式包 = 运行时能力；Cursor Skill = 开发时可选补充（如 `github-push-workflow`），**不参与**用户侧编排。详见 [附录 A](#附录-a-两种-skill-分层)。
 
 ---
 
 ## 2. 单 Agent 还是多 Agent
 
-### 问题定义
+**推荐**：**单 Agent + 模式切换**——模式互斥、MCP 共用、切换时换 Prompt / `thread_id`，避免重复连 MCP。
 
-每个垂直模式是独立 Agent 实例，还是共用一个 Agent、切换 Prompt/handler？
+| 维度 | 单 Agent + 切换 | 多 Agent |
+| --- | --- | --- |
+| MCP 连接成本 | 低（tools 缓存复用） | 高 |
+| 模式互斥体验 | 自然 | 需管理多实例 |
+| 并行协作 | 不支持 | 支持 |
 
-### 评估维度
+多阶段状态机用 **单 Agent + handler** 即可，不需多 Agent 替代。
 
+| 情况 | 方向 |
+| --- | --- |
+| 互斥模式 + 串行 MCP（现状） | 维持单 Agent |
+| 同会话并行多角色 / 同轮多模型对比 | 考虑多 Agent 或多节点图 |
+| 工具必须硬隔离 | 按模式过滤 tools，或升级多 Agent |
 
-| 维度       | 单 Agent + 切换        | 多 Agent |
-| -------- | ------------------- | ------- |
-| MCP 连接成本 | 低（tools 缓存复用）       | 高       |
-| 模式互斥体验   | 自然（换 prompt/thread） | 需管理多实例  |
-| 并行协作     | 不支持                 | 支持      |
-| 工具/权限隔离  | 靠过滤或 prompt         | 可硬隔离    |
-
-
-### 方案对比
-
-**A. 单 Agent + 模式切换**：`create_react_agent`，切模式时 `rebuild_agent_only`，必要时换 `thread_id`。
-
-**B. 多 Agent**：每模式一实例，或 LangGraph 多角色节点。
-
-多阶段状态机用 **单 Agent + handler** 即可，不需多 Agent 替代状态机。
-
-### 推荐与理由
-
-- **推荐 A**：模式互斥、工具共用、切换可换 checkpoint——与现状一致。
-- 模式增至多个时仍用**单 Agent + 注册表**，避免重复连 MCP。
-
-### 触发条件
-
-
-| 情况                | 升级方向                    |
-| ----------------- | ----------------------- |
-| 同会话并行多角色          | 多 Agent 或 LangGraph 多节点 |
-| 同轮多模型对比           | 多 Agent                 |
-| 工具必须硬隔离           | 多 Agent 或按模式过滤 tools    |
-| 互斥模式 + 串行 MCP（现状） | 维持单 Agent               |
-
-
-### 当前落点
-
-- `rebuild_agent_only`：切模式/模型只重建 Agent，不重连 MCP。
-- 旅行 `should_reset_agent_thread_o9`：POI 结束进 intake/generating 时换 `thread_id`。
+**当前落点**：`rebuild_agent_only` 切模式/模型不重连 MCP；旅行在 POI→intake 等节点换 `thread_id`。
 
 ---
 
 ## 3. LangGraph 与框架选型
 
-### 问题定义
+**推荐**：**维持单 Agent ReAct**（`create_react_agent` + `ToolNode` + `MemorySaver`）。复杂度在模式编排与 MCP，不在图拓扑；模式扩展靠**模式包**，不靠增加 LangGraph 节点数。
 
-LangGraph 是否「大材小用」？何时需要多节点图？
+| 方案 | 匹配度 | 说明 |
+| --- | --- | --- |
+| LangGraph 单 Agent ReAct | **高（现状）** | 工具循环、checkpoint、流式 |
+| LangGraph 多节点 | 中（未来） | 并行、主管路由 |
+| 固定 Chain 流水线 | 低 | 不适配 ReAct + MCP |
 
-### 评估维度
-
-
-| 框架                      | 强项                 | 匹配度                |
-| ----------------------- | ------------------ | ------------------ |
-| LangGraph 单 Agent ReAct | 工具循环、checkpoint、流式 | **高（现状）**          |
-| LangGraph 多节点           | 并行、主管路由            | 中（未来）              |
-| LangChain Chain         | 固定流水线              | 低                  |
-| CrewAI / Dify 等         | 协作 demo / 低代码      | 低（难深度 MCP + 自研状态机） |
-
-
-### 推荐与理由
-
-- **推荐维持单 Agent ReAct**；复杂度在模式编排与 MCP，不在图拓扑。
-- 模式扩展靠**模式包**，不靠增加 LangGraph 节点数。
-
-### 触发条件
-
-
-| 情况                | 考虑升级      |
-| ----------------- | --------- |
-| 主管路由多专职子 Agent    | 多节点       |
-| 同轮并行多路 MCP / 多模型  | 多节点或子图    |
-| 互斥模式 + 串行 MCP（现状） | 维持单 Agent |
-
-
-### 当前落点
-
-- `app.py`：`create_react_agent` + `ToolNode` + `MemorySaver`。
-- 旅行 phase 与预取在 **LangGraph 之外**的 Python 编排层完成。
+旅行 phase 与预取在 **LangGraph 之外**的 Python 编排层（`handler` / `pipeline`）完成。
 
 ---
 
@@ -189,9 +117,9 @@ LangGraph 是否「大材小用」？何时需要多节点图？
 
 ### 设计目标
 
-- **扩展**：新增模式主要改模式包 + 注册表一行，不扩散 `if app_mode`。
-- **一致**：UI 切换与意图自动切换走**同一路由器**。
-- **不退化**：单 Agent、MCP 缓存、旅行 phase/thread/预取/导出保持不变。
+- **扩展**：新增模式 = 模式包 + 注册表一行，不扩散 `if app_mode`
+- **一致**：UI 切换与意图自动切换走**同一路由器**
+- **不退化**：单 Agent、MCP 缓存、旅行 phase/预取/导出保持不变
 
 ### 最小抽象
 
@@ -207,7 +135,7 @@ LangGraph 是否「大材小用」？何时需要多节点图？
   detect_intent / on_enter / on_exit
 ```
 
-**主链路（固定）**：
+### 主链路
 
 ```text
 用户输入 → route_by_intent（可选）→ enter_mode
@@ -217,104 +145,114 @@ LangGraph 是否「大材小用」？何时需要多节点图？
         → UI 展示
 ```
 
-### UI 设计约定
+### UI 与路由
 
+| 元素 | 来源 |
+| --- | --- |
+| 模式选项 | `registry.list_mode_labels()`，radio |
+| 页面标题 / 副标题 | `mode.branding()` |
+| 输入 placeholder | `mode.chat_placeholder()` |
+| 模式说明 | `mode.description()`；旅行进行中用 `sidebar_caption()` |
 
-| 元素             | 来源                                                |
-| -------------- | ------------------------------------------------- |
-| 模式选项           | `registry.list_mode_labels()`，**radio** 展示        |
-| 页面标题 / 副标题     | `mode.branding()`                                 |
-| 输入 placeholder | `mode.chat_placeholder()`                         |
-| 模式说明           | `mode.description()`；旅行进行中用动态 `sidebar_caption()` |
-| 旅行专属 UI        | 证据横幅、进度面板——仍绑定 `is_travel_mode()`                 |
+**意图路由**：仅在通用模式下扫描 `detect_intent`；按注册顺序匹配（**旅行优先于知识库问答**）；匹配后 `enter_mode` + 同步 radio + 按需 `rebuild_agent_only`。
 
-
-**意图路由规则**：
-
-- 仅在 **通用模式** 下扫描 `detect_intent`。
-- 按注册顺序匹配：**旅行优先于知识库问答**（避免「去杭州查攻略」误进 QA）。
-- 匹配后 `enter_mode` + 同步 radio + `rebuild_agent_only`（若 Prompt 变化）。
-
-### 非目标（当前阶段）
-
-- 多 Agent、LangGraph 多节点图。
-- 按模式硬隔离 MCP Server。
+**非目标（当前）**：多 Agent、LangGraph 多节点图、按模式硬隔离 MCP Server。
 
 ---
 
 ## 5. 已注册模式
 
-### 通用模式（轻）
+### 通用（轻）
 
-- **id**：`general`
-- **能力**：开放问答 + 全量 MCP 工具（RAG、时间、导出等）。
-- **intent**：无（作为默认回落模式）。
+- **id**：`general` — 开放问答 + 全量 MCP；无 intent，作默认回落。
 
-### 知识库问答（轻）——插件化验收模式
+### 知识库问答（轻）
 
-- **id**：`knowledge_qa`
-- **能力**：专注 RAG 三件套（`list_collections` / `query_knowledge_hub` / `get_document_summary`）；独立 `system.md`。
-- **intent 示例**：知识库、检索、collection、RAG、文档、资料…
-- **设计意义**：验证「加第 2 个模式 = 新模式包 + 注册表注册」，主链路无需改分支。
+- **id**：`knowledge_qa` — 专注 RAG 三件套；独立 `system.md`。
+- **意义**：验证「加模式 = 新模式包 + 注册」，主链路无需改分支。
 
-### 旅行规划（重）——模式包样板
+### 旅行（重）——强流程样板
+
+旅行是**应用模式包**的参考实现：`Prompt + 路由 + handler + 状态机` 已落地，不是「待 Skill 化」的旧设计。
 
 ```text
-Python 编排  → phase、intake、[TRAVEL_CONTEXT]、预取 facts、导出校验
-Prompt       → System Prompt + 阶段 checklist
-ReAct Agent  → LLM 自主调 MCP（RAG / 高德 / 导出）
+Python 编排  → phase、intake、预取 facts、导出校验
+Prompt       → travel-planner.md 阶段规范
+ReAct Agent  → 调 MCP；预取阶段少重复调工具
 ```
 
+**三条设计亮点**（对外介绍用）：
 
-| 控制项    | 层                                    |
-| ------ | ------------------------------------ |
-| 阶段流转   | `modes/travel/state_machine.py` |
-| MCP 预取 | `modes/travel/pipeline.py` |
-| 回合编排入口 | `modes/travel/handler.py` ← `ui/chat` |
-| 本回合行为  | Prompt                               |
-| 工具调用   | ReAct Agent                          |
+1. **边界收口**：`ui/chat` 旅行回合只经 `handler`；不散落 `if app_mode`。
+2. **编排层预取**：`pipeline` 先拉高德/RAG/天气/路线，Agent 用角标写叙述——省 Token、降编造。
+3. **单 Agent 切换**：共用 MCP；关键节点换 `thread_id`，不必多 Agent。
 
+文件职责与目录细节见 [旅行规划-职责分层与步骤依据(实现)](./旅行规划-职责分层与步骤依据(实现).md)。
 
-对未来强流程模式的启发：状态机与预取放 handler，Prompt 管「怎么说」，Agent 管「调工具」。
+**新增强流程模式**：复制 handler +（可选）state_machine + pipeline 骨架；Prompt 管「怎么说」，Agent 管「补调工具」。
 
 ---
 
 ## 6. 演进方向
 
-### 已完成（多模式 + 旅行模式包收口）
+### 已完成
 
-1. `modes/registry` + 三模式（通用 / 旅行 / 知识库问答）。
-2. UI radio + `route_by_intent` 意图路由。
-3. 旅行模式包 `modes/travel/`：`state_machine` · `pipeline` · `facts` · `tool_memory` · `handler` · `prompts`。
-4. `ui/chat` 旅行回合只经 `handler`；根目录已删除全部 `travel_*.py`。
+- 三模式 + `modes/registry` 路由（UI radio + `route_by_intent`）
+- 旅行重模式包 `modes/travel/` 收口，外部经 `handler` 接入
 
-### 后续（可选，非阻塞）
+### 可复用演进（有需求再做）
 
-| 项 | 说明 |
-| --- | --- |
-| 工具策略 | 按模式过滤 MCP tools（如 QA 仅 RAG） |
-| `session_store` 精简 | 更多用 `is_travel_mode()`，少直接读 travel session 键 |
-| 多 Agent / 多节点 | 见 §2、§3 触发条件 |
+| 层级 | 时机 | 做法 |
+| --- | --- | --- |
+| L1 Cursor Skill | 改 travel 常踩坑、需统一 prompt 规范 | 增 `.cursor/skills/...`；不改 Python |
+| L2 `modes/common/` | 第二个重流程需复用解析/预取 | 抽纯函数，原路径 re-export |
+| L3 新垂直模式 | 新产品意图（如 GitHub 推送） | 轻：`mode.py` + md；重：参照旅行样板 |
 
+**封装前三问**：（1）运行时要执行？→ 留 Python；（2）只教 IDE 怎么改？→ Cursor Skill；（3）`ui/chat` 调用链变不变？→ 不变则先 L1 后 L2。
 
-### 目录目标形态
+### 后续（可选）
+
+- 按模式过滤 MCP tools（如 QA 仅 RAG）
+- `session_store` 精简，多用 `is_travel_mode()`
+- 多 Agent / 多节点（见 §2、§3 触发条件）
+
+---
+
+## 附录
+
+### 附录 A：两种 Skill 分层
 
 ```text
-modes/travel/
-├── mode.py              # 注册表元信息
-├── handler.py           # ui/chat 唯一编排入口
-├── state_machine.py     # phase / intake / context
-├── pipeline.py          # MCP 预取
-├── facts.py             # travel_facts
-├── tool_memory.py       # 工具轮次记忆
-├── prompts.py + *.md
+Cursor Skill（IDE）     →  教 Agent 如何改代码、写 commit
+        ↕ 互补
+应用模式包（运行时）    →  用户聊天时的真实行为
 ```
+
+| 层级 | 位置 | 旅行现状 |
+| --- | --- | --- |
+| Cursor Skill | `~/.cursor/skills/`、`.cursor/skills/` | 可选（如 `travel-mode-dev`） |
+| 应用模式包 | `modes/travel/` | **已落地** |
+
+与本仓库 GitHub 推送分工一致：`.cursor/rules/github-workflow.mdc`（项目默认）+ `github-push-workflow` Skill（口令 SOP）。
+
+### 附录 B：为何强流程不用「纯 Prompt / 纯 Cursor Skill」
+
+若把旅行等能力全部交给 Prompt 或 Cursor `SKILL.md`、少写 Python：
+
+| 维度 | 纯 Prompt / Cursor Skill | 当前重模式包（旅行） |
+| --- | --- | --- |
+| 阶段推进 | 靠模型自觉，易跳步 | `state_machine` 硬约束 |
+| MCP 调用 | 模型每轮自调，易超限、费 Token | `pipeline` 预取 + 角标引用 |
+| 交付校验 | 难保证导出一致 | Python 校验 |
+| thread / 记忆 | 难控 checkpoint | `tool_memory`、换 `thread_id` |
+
+**结论**：强流程本该是 Python 模式包；Cursor Skill 是开发时补充，不能替代 `handler` / `state_machine` / `pipeline`。
 
 ---
 
 ## 相关文档
 
-- [app.py 架构说明与拆分建议](./app.py架构说明与拆分建议.md)
-- [旅行规划-职责分层与步骤依据(实现)](./旅行规划-职责分层与步骤依据(实现).md)
+- [GitHub 推送模式目标分析](./GitHub推送模式目标分析.md)（轻工作流 vs 重模式包；Rule + Cursor Skill 分工）
+- [旅行规划-职责分层与步骤依据(实现)](./旅行规划-职责分层与步骤依据(实现).md)（旅行文件职责、目录、实现细节）
 - [旅行规划-需求与架构(产品)](./旅行规划-需求与架构(产品).md)
-
+- [app.py 架构说明与拆分建议](./app.py架构说明与拆分建议.md)
