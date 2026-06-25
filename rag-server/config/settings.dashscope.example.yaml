@@ -4,7 +4,7 @@
 
 llm:
   provider: "openai"
-  model: "qwen-max"
+  model: "deepseek-v4-flash"
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   api_key: "sk-xxxxxxxx"
   temperature: 0.0
@@ -12,7 +12,7 @@ llm:
 
 embedding:
   provider: "openai"
-  model: "text-embedding-v3"
+  model: "qwen3.6-flash-2026-04-16"
   dimensions: 1024
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   api_key: "sk-xxxxxxxx"
@@ -45,6 +45,8 @@ rerank:
 evaluation:
   enabled: false
   provider: "custom"
+  # Ragas 评判专用（非 thinking 模型；主 llm 可为 deepseek-v4-flash）
+  llm_model: "qwen-plus"
   metrics:
     - "hit_rate"
     - "mrr"

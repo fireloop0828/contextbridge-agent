@@ -11,12 +11,18 @@ from src.libs.loader.base_loader import BaseLoader
 
 
 class TxtLoader(BaseLoader):
-    """Load UTF-8 text files into standardized Document objects."""
+    """Load UTF-8 plain text and Markdown files into standardized Document objects."""
+
+    _SUPPORTED_SUFFIXES = {".txt", ".md"}
 
     def load(self, file_path: str | Path) -> Document:
         path = self._validate_file(file_path)
-        if path.suffix.lower() != ".txt":
-            raise ValueError(f"File is not a .txt file: {path}")
+        suffix = path.suffix.lower()
+        if suffix not in self._SUPPORTED_SUFFIXES:
+            raise ValueError(
+                f"Unsupported text file type: {suffix}. "
+                f"Supported: {sorted(self._SUPPORTED_SUFFIXES)}"
+            )
 
         doc_hash = self._compute_file_hash(path)
         doc_id = f"doc_{doc_hash[:16]}"
@@ -31,7 +37,7 @@ class TxtLoader(BaseLoader):
 
         metadata: Dict[str, Any] = {
             "source_path": str(path),
-            "doc_type": "txt",
+            "doc_type": "md" if suffix == ".md" else "txt",
             "doc_hash": doc_hash,
             "title": path.stem,
         }

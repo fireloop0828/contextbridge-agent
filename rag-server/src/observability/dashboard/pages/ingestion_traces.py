@@ -106,7 +106,9 @@ def render() -> None:
                 ])
 
             # ── Diagnostics ───────────────────────────────────
-            _render_ingestion_diagnostics(stages_by_name, load_d, split_d, transform_d, embed_d, upsert_d)
+            _render_ingestion_diagnostics(
+                trace, stages_by_name, load_d, split_d, transform_d, embed_d, upsert_d,
+            )
 
             st.divider()
 
@@ -150,6 +152,7 @@ def render() -> None:
 
 
 def _render_ingestion_diagnostics(
+    trace: Dict[str, Any],
     stages_by_name: Dict[str, Any],
     load_d: Dict[str, Any],
     split_d: Dict[str, Any],
@@ -171,11 +174,16 @@ def _render_ingestion_diagnostics(
             "upsert": "💾 写入",
         }
         names = "、".join(missing_labels.get(m, m) for m in missing)
+        meta = trace.get("metadata", {}) or {}
+        meta_error = str(meta.get("error", "")).strip()
         if "load" in missing:
-            st.error(
+            detail = (
                 f"**流水线不完整 — 缺少阶段：{names}。** "
                 "加载阶段失败或被跳过，文档可能已损坏或格式不受支持。"
             )
+            if meta_error:
+                detail += f"\n\n**错误详情：** {meta_error}"
+            st.error(detail)
         else:
             st.warning(
                 f"**流水线不完整 — 缺少阶段：{names}。** "

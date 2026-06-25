@@ -13,6 +13,7 @@ from pathlib import Path
 
 import streamlit as st
 
+from src.ingestion.document_manager import source_display_name
 from src.observability.dashboard.services.data_service import DataService
 
 
@@ -117,8 +118,8 @@ def render() -> None:
     st.subheader(f"📄 文档列表 ({len(docs)})")
 
     for idx, doc in enumerate(docs):
-        source_name = Path(doc["source_path"]).name
-        label = f"📑 {source_name}  —  {doc['chunk_count']} 个分块 · {doc['image_count']} 张图片"
+        display_name = source_display_name(doc["source_path"])
+        label = f"📑 {display_name}  —  {doc['chunk_count']} 个分块 · {doc['image_count']} 张图片"
         with st.expander(label, expanded=(len(docs) == 1)):
             # ── Document metadata ──────────────────────────────────
             col_a, col_b, col_c = st.columns(3)
@@ -126,7 +127,7 @@ def render() -> None:
             col_b.metric("图片数", doc["image_count"])
             col_c.metric("知识库", doc.get("collection", "—"))
             st.caption(
-                f"**来源：** {doc['source_path']}  ·  "
+                f"**文件名：** {display_name}  ·  "
                 f"**哈希：** `{doc['source_hash'][:16]}…`  ·  "
                 f"**处理时间：** {doc.get('processed_at', '—')}"
             )

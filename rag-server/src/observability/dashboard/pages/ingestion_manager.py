@@ -13,6 +13,7 @@ from tempfile import NamedTemporaryFile
 
 import streamlit as st
 
+from src.ingestion.document_manager import source_display_name
 from src.observability.dashboard.services.data_service import DataService
 
 
@@ -57,14 +58,24 @@ def _run_ingestion(
 
     try:
         pipeline = IngestionPipeline(settings, collection=collection)
-        pipeline.run(
+        result = pipeline.run(
             file_path=tmp_path,
             trace=trace,
             on_progress=on_progress,
+            source_path=uploaded_file.name,
         )
+        if not result.success:
+            error_msg = result.error or "未知错误"
+            status_text.error(f"入库失败：{error_msg}")
+            return
         progress_bar.progress(1.0, text="✅ 完成")
         status_text.success(f"已成功将 **{uploaded_file.name}** 入库到知识库 **{collection}**。")
     except Exception as exc:
+        trace.metadata["error"] = str(exc)
+        trace.record_stage("load", {
+            "error": str(exc),
+            "method": Path(uploaded_file.name).suffix.lstrip(".") or "unknown",
+        })
         status_text.error(f"入库失败：{exc}")
     finally:
         TraceCollector().collect(trace)
@@ -178,10 +189,11 @@ def render() -> None:
         return
 
     for idx, doc in enumerate(docs):
+        display_name = source_display_name(doc["source_path"])
         col_info, col_btn = st.columns([4, 1])
         with col_info:
             st.markdown(
-                f"**{doc['source_path']}** — "
+                f"**{display_name}** — "
                 f"知识库：`{doc.get('collection', '—')}` | "
                 f"分块：{doc['chunk_count']} | "
                 f"图片：{doc['image_count']}"

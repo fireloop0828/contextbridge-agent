@@ -5,10 +5,11 @@ from __future__ import annotations
 from pathlib import Path
 
 from src.libs.loader.base_loader import BaseLoader
+from src.libs.loader.markitdown_loader import MarkItDownLoader
 from src.libs.loader.pdf_loader import PdfLoader
 from src.libs.loader.txt_loader import TxtLoader
 
-SUPPORTED_EXTENSIONS = {".pdf", ".txt"}
+SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".md", ".docx"}
 
 
 def get_loader_for_path(
@@ -22,8 +23,10 @@ def get_loader_for_path(
     if suffix == ".pdf":
         storage = image_storage_dir or f"data/images/{collection}"
         return PdfLoader(extract_images=True, image_storage_dir=storage)
-    if suffix == ".txt":
+    if suffix in {".txt", ".md"}:
         return TxtLoader()
+    if suffix == ".docx":
+        return MarkItDownLoader()
     raise ValueError(
         f"Unsupported file type: {suffix}. Supported: {sorted(SUPPORTED_EXTENSIONS)}"
     )

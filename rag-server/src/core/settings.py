@@ -144,6 +144,8 @@ class EvaluationSettings:
     enabled: bool
     provider: str
     metrics: List[str]
+    # Ragas 专用：thinking 模型（如 deepseek-v4-flash）不支持 tool_choice 结构化输出
+    llm_model: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -272,6 +274,7 @@ class Settings:
                 enabled=_require_bool(evaluation, "enabled", "evaluation"),
                 provider=_require_str(evaluation, "provider", "evaluation"),
                 metrics=[str(item) for item in _require_list(evaluation, "metrics", "evaluation")],
+                llm_model=evaluation.get("llm_model"),
             ),
             observability=ObservabilitySettings(
                 log_level=_require_str(observability, "log_level", "observability"),

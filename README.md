@@ -39,6 +39,18 @@ cp config/settings.dashscope.example.yaml config/settings.yaml
 # 编辑 settings.yaml，将 api_key 改为你的百炼 Key（与 agents-master/.env 中 DASHSCOPE_API_KEY 一致）
 ```
 
+启动 **RAG 控制台**（Streamlit 可视化管理面板，文档摄取 / 数据浏览 / 链路追踪等）：
+
+```bash
+# 默认 http://localhost:8501（与 agents-master 的 streamlit run app.py 对称）
+streamlit run dashboard.py
+
+# 与主应用同机时换端口
+python scripts/start_dashboard.py --port 8502
+```
+
+主应用与 RAG 控制台默认均占用 `8501`，同时运行时请为 RAG 控制台指定其他端口。更多页面说明见 `rag-server/docs/管理面板指南.md`。
+
 ### 3. 高德地图 MCP（旅行模式）
 
 ```bash

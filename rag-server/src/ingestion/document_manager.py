@@ -19,6 +19,13 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 
+def source_display_name(source_path: str) -> str:
+    """Return the user-facing document name from a stored source path."""
+    from pathlib import Path
+
+    return Path(str(source_path).replace("\\", "/")).name
+
+
 # ---------------------------------------------------------------------------
 # Result data-classes
 # ---------------------------------------------------------------------------

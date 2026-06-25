@@ -36,14 +36,18 @@ class TraceService:
     def list_traces(
         self,
         trace_type: Optional[str] = None,
-        limit: int = 100,
+        limit: Optional[int] = 100,
+        keyword: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """Return traces in reverse-chronological order.
 
         Args:
             trace_type: Filter by ``trace_type`` field (e.g.
                 ``"ingestion"`` or ``"query"``).  ``None`` = all.
-            limit: Maximum number of traces to return.
+            limit: Maximum number of traces to return.  ``None`` = no cap
+                (useful when searching the full history).
+            keyword: Case-insensitive substring filter on query text,
+                collection, chunk content, trace_id, etc.
 
         Returns:
             List of trace dicts (newest first).
@@ -53,9 +57,14 @@ class TraceService:
         if trace_type:
             traces = [t for t in traces if t.get("trace_type") == trace_type]
 
+        if keyword and keyword.strip():
+            traces = [t for t in traces if self.matches_keyword(t, keyword)]
+
         # Newest first
         traces.sort(key=lambda t: t.get("started_at", ""), reverse=True)
 
+        if limit is None:
+            return traces
         return traces[:limit]
 
     def get_trace(self, trace_id: str) -> Optional[Dict[str, Any]]:
@@ -92,6 +101,61 @@ class TraceService:
                 }
             )
         return timings
+
+    @staticmethod
+    def matches_keyword(trace: Dict[str, Any], keyword: str) -> bool:
+        """Return whether *trace* matches a case-insensitive keyword.
+
+        Searches user-facing fields only (query text, collection, chunk
+        content, trace_id, etc.) — not raw stage names or JSON keys.
+        """
+        kw = keyword.strip().lower()
+        if not kw:
+            return True
+
+        for text in TraceService._iter_searchable_texts(trace):
+            if text and kw in str(text).lower():
+                return True
+        return False
+
+    @staticmethod
+    def _iter_searchable_texts(trace: Dict[str, Any]):
+        """Yield human-meaningful strings from a trace for keyword search."""
+        yield trace.get("trace_id", "")
+        yield trace.get("started_at", "")
+
+        meta = trace.get("metadata") or {}
+        if not isinstance(meta, dict):
+            return
+
+        yield meta.get("query", "")
+        yield meta.get("collection", "")
+        yield meta.get("source", "")
+
+        for result in meta.get("final_results") or []:
+            if not isinstance(result, dict):
+                continue
+            yield result.get("text", "")
+            yield result.get("title", "")
+            yield result.get("source", "")
+            yield result.get("chunk_id", "")
+
+        for stage in trace.get("stages") or []:
+            if not isinstance(stage, dict):
+                continue
+            data = stage.get("data") or {}
+            if not isinstance(data, dict):
+                continue
+            yield data.get("original_query", "")
+            for item in data.get("keywords") or []:
+                yield item
+            for chunk in data.get("chunks") or []:
+                if not isinstance(chunk, dict):
+                    continue
+                yield chunk.get("text", "")
+                yield chunk.get("title", "")
+                yield chunk.get("source", "")
+                yield chunk.get("chunk_id", "")
 
     # ------------------------------------------------------------------
     # Internal helpers

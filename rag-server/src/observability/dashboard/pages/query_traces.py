@@ -32,26 +32,30 @@ def render() -> None:
     st.header("🔎 检索记录")
 
     svc = TraceService()
-    traces = svc.list_traces(trace_type="query")
-
-    if not traces:
-        st.info("尚无检索记录。请先通过 MCP 或命令行发起一次查询。")
-        return
 
     # ── Keyword filter ─────────────────────────────────────────────
     keyword = st.text_input(
         "按关键词搜索",
         value="",
         key="qt_keyword",
+        placeholder="查询内容、知识库名、分块文本、trace ID…",
+        help="在查询文本、知识库、检索结果分块、trace ID 等字段中搜索（不区分大小写）",
     )
-    if keyword.strip():
-        kw = keyword.strip().lower()
-        traces = [
-            t
-            for t in traces
-            if kw in str(t.get("metadata", {})).lower()
-            or kw in str(t.get("stages", [])).lower()
-        ]
+
+    # Search scans full history; default list caps at 100 newest traces.
+    list_limit = None if keyword.strip() else 100
+    traces = svc.list_traces(
+        trace_type="query",
+        limit=list_limit,
+        keyword=keyword or None,
+    )
+
+    if not traces:
+        if keyword.strip():
+            st.info(f"没有匹配「{keyword.strip()}」的检索记录。")
+        else:
+            st.info("尚无检索记录。请先通过 MCP 或命令行发起一次查询。")
+        return
 
     st.subheader(f"📋 检索历史 ({len(traces)})")
 
@@ -333,10 +337,12 @@ def _evaluate_single_trace(
         settings = load_settings()
 
         # Override evaluation settings to force Ragas (frozen dataclass, use replace)
+        eval_cfg = settings.evaluation
         ragas_eval = EvaluationSettings(
             enabled=True,
             provider="ragas",
             metrics=["faithfulness", "answer_relevancy", "context_precision"],
+            llm_model=getattr(eval_cfg, "llm_model", None),
         )
         settings = dc_replace(settings, evaluation=ragas_eval)
         evaluator = EvaluatorFactory.create(settings)
@@ -442,10 +448,26 @@ def _retrieve_chunks(
         return []
 
 
+def _format_ragas_error(raw: str) -> str:
+    """Translate common Ragas / DashScope errors into actionable Chinese hints."""
+    if "tool_choice" in raw and "thinking mode" in raw:
+        return (
+            "当前主模型为 thinking 模式（如 deepseek-v4-flash），与 Ragas 结构化输出不兼容。"
+            "请在 settings.yaml 的 evaluation.llm_model 中指定非 thinking 模型（如 qwen-plus），"
+            "然后重试。"
+        )
+    if "AllocationQuota.FreeTierOnly" in raw or "free quota has been exhausted" in raw.lower():
+        return (
+            "百炼免费额度已用尽（403）。请开通按量付费或关闭「仅使用免费额度」，"
+            "或在 evaluation.llm_model 中换用仍有额度的模型。"
+        )
+    return raw
+
+
 def _display_eval_metrics(result: Dict[str, Any]) -> None:
     """Display evaluation result (metrics or error)."""
     if "error" in result:
-        st.error(f"❌ 评估失败：{result['error']}")
+        st.error(f"❌ 评估失败：{_format_ragas_error(result['error'])}")
         return
 
     metrics = result.get("metrics", {})

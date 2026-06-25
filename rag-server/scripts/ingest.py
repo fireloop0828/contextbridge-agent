@@ -116,7 +116,7 @@ def discover_files(path: str, extensions: List[str] = None) -> List[Path]:
         List of file paths to process
     """
     if extensions is None:
-        extensions = [".pdf", ".txt"]
+        extensions = [".pdf", ".txt", ".md", ".docx"]
     
     path = Path(path)
     

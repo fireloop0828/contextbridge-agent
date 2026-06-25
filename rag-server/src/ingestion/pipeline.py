@@ -196,6 +196,7 @@ class IngestionPipeline:
         file_path: str,
         trace: Optional[TraceContext] = None,
         on_progress: Optional[Callable[[str, int, int], None]] = None,
+        source_path: Optional[str] = None,
     ) -> PipelineResult:
         """Execute the full ingestion pipeline on a file.
         
@@ -206,11 +207,14 @@ class IngestionPipeline:
                 invoked when each pipeline stage completes.  *current* is
                 the 1-based index of the completed stage; *total* is the
                 number of stages (currently 6).
+            source_path: Logical document path for storage and display
+                (e.g. original upload filename).  Defaults to *file_path*.
         
         Returns:
             PipelineResult with success status and statistics
         """
         file_path = Path(file_path)
+        record_path = source_path.strip() if source_path and source_path.strip() else str(file_path)
         stages: Dict[str, Any] = {}
         _total_stages = 6
 
@@ -258,6 +262,7 @@ class IngestionPipeline:
                 image_storage_dir=self._image_storage_dir,
             )
             document = loader.load(str(file_path))
+            document.metadata["source_path"] = record_path
             _elapsed = (time.monotonic() - _t0) * 1000.0
             load_method = document.metadata.get("doc_type", "unknown")
             
@@ -523,7 +528,7 @@ class IngestionPipeline:
             # ─────────────────────────────────────────────────────────────
             # Mark Success
             # ─────────────────────────────────────────────────────────────
-            self.integrity_checker.mark_success(file_hash, str(file_path), self.collection)
+            self.integrity_checker.mark_success(file_hash, record_path, self.collection)
             
             logger.info("\n" + "=" * 60)
             logger.info("✅ Pipeline completed successfully!")
@@ -544,7 +549,14 @@ class IngestionPipeline:
             
         except Exception as e:
             logger.error(f"❌ Pipeline failed: {e}", exc_info=True)
-            self.integrity_checker.mark_failed(file_hash, str(file_path), str(e))
+            if "file_hash" in locals():
+                self.integrity_checker.mark_failed(file_hash, record_path, str(e))
+            if trace is not None:
+                trace.metadata["error"] = str(e)
+                trace.record_stage("load", {
+                    "error": str(e),
+                    "method": file_path.suffix.lstrip(".") or "unknown",
+                })
             
             return PipelineResult(
                 success=False,

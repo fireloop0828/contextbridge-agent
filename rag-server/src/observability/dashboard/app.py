@@ -1,6 +1,6 @@
 """Modular RAG Dashboard – multi-page Streamlit application.
 
-Entry-point: ``streamlit run src/observability/dashboard/app.py``
+Entry-point: ``streamlit run dashboard.py``（根目录浅入口；实现保留在本模块）
 
 Pages are registered via ``st.navigation()`` and rendered by their
 respective modules under ``pages/``.  Pages not yet implemented show

@@ -29,13 +29,15 @@ SUPPORTED_METRICS = {FAITHFULNESS, ANSWER_RELEVANCY, CONTEXT_PRECISION}
 
 
 def _import_ragas() -> None:
-    """Validate that ragas is importable, raising a clear error if not."""
+    """Validate that ragas and its metric APIs are importable."""
     try:
-        import ragas  # noqa: F401
+        from ragas.metrics.collections import Faithfulness  # noqa: F401
+        from ragas.llms import llm_factory  # noqa: F401
     except ImportError as exc:
         raise ImportError(
-            "The 'ragas' package is required for RagasEvaluator. "
-            "Install it with: pip install ragas datasets"
+            "Ragas 评估依赖未就绪。请在 rag-server 虚拟环境中执行："
+            " pip install 'ragas>=0.3.9,<0.4' datasets"
+            f"（原始错误: {exc}）"
         ) from exc
 
 
@@ -192,6 +194,16 @@ class RagasEvaluator(BaseEvaluator):
 
         return scores
 
+    @staticmethod
+    def _make_async_openai_client(*, api_key: str, base_url: str | None) -> Any:
+        """Build AsyncOpenAI client, honouring OpenAI-compatible base_url (e.g. DashScope)."""
+        from openai import AsyncOpenAI
+
+        kwargs: Dict[str, Any] = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        return AsyncOpenAI(**kwargs)
+
     def _build_wrappers(self) -> tuple:
         """Build Ragas LLM and Embedding wrappers from project settings.
 
@@ -201,7 +213,7 @@ class RagasEvaluator(BaseEvaluator):
         Returns:
             Tuple of (llm_wrapper, embeddings_wrapper).
         """
-        from openai import AsyncAzureOpenAI, AsyncOpenAI
+        from openai import AsyncAzureOpenAI
         from ragas.llms import llm_factory
         from ragas.embeddings import OpenAIEmbeddings
 
@@ -227,14 +239,18 @@ class RagasEvaluator(BaseEvaluator):
                 api_version=getattr(llm_cfg, "api_version", None) or "2024-02-15-preview",
             )
         elif provider == "openai":
-            llm_client = AsyncOpenAI(api_key=llm_cfg.api_key)
+            llm_client = self._make_async_openai_client(
+                api_key=llm_cfg.api_key,
+                base_url=getattr(llm_cfg, "base_url", None),
+            )
         else:
             raise ValueError(
                 f"Unsupported LLM provider for Ragas: '{provider}'. "
                 "Supported: azure, openai"
             )
 
-        llm = llm_factory(llm_cfg.model, client=llm_client, max_tokens=8192)
+        ragas_model = self._resolve_ragas_llm_model(llm_cfg)
+        llm = llm_factory(ragas_model, client=llm_client, max_tokens=8192)
 
         # ── Embeddings ──
         emb_cfg = self.settings.embedding
@@ -254,7 +270,10 @@ class RagasEvaluator(BaseEvaluator):
                 api_version=getattr(emb_cfg, "api_version", None) or "2024-02-15-preview",
             )
         elif emb_provider == "openai":
-            emb_client = AsyncOpenAI(api_key=emb_cfg.api_key)
+            emb_client = self._make_async_openai_client(
+                api_key=emb_cfg.api_key,
+                base_url=getattr(emb_cfg, "base_url", None),
+            )
         else:
             raise ValueError(
                 f"Unsupported embedding provider for Ragas: '{emb_provider}'. "
@@ -264,6 +283,21 @@ class RagasEvaluator(BaseEvaluator):
         embeddings = OpenAIEmbeddings(model=emb_cfg.model, client=emb_client)
 
         return llm, embeddings
+
+    def _resolve_ragas_llm_model(self, llm_cfg: Any) -> str:
+        """Pick LLM model for Ragas (supports evaluation.llm_model override)."""
+        evaluation = getattr(self.settings, "evaluation", None)
+        override = getattr(evaluation, "llm_model", None) if evaluation else None
+        if override and str(override).strip():
+            model = str(override).strip()
+            if model != llm_cfg.model:
+                logger.info(
+                    "Ragas using evaluation.llm_model=%s (main llm.model=%s)",
+                    model,
+                    llm_cfg.model,
+                )
+            return model
+        return llm_cfg.model
 
     def _extract_texts(self, chunks: List[Any]) -> List[str]:
         """Extract text strings from various chunk representations.

@@ -217,6 +217,70 @@ class TestRagasEvaluatorEvaluate:
         assert "faithfulness" in result
 
 
+class TestRagasEvaluatorBuildWrappers:
+    """Tests for OpenAI-compatible client construction."""
+
+    def test_openai_client_uses_base_url_from_settings(self) -> None:
+        from src.observability.evaluation.ragas_evaluator import RagasEvaluator
+
+        settings = MagicMock()
+        settings.llm.provider = "openai"
+        settings.llm.api_key = "test-key"
+        settings.llm.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        settings.llm.azure_endpoint = None
+        settings.llm.model = "deepseek-v4-flash"
+        settings.evaluation.llm_model = None
+        settings.embedding.provider = "openai"
+        settings.embedding.api_key = "test-key"
+        settings.embedding.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        settings.embedding.azure_endpoint = None
+        settings.embedding.model = "text-embedding-v3"
+
+        evaluator = RagasEvaluator(settings=settings, metrics=["faithfulness"])
+
+        with patch(
+            "src.observability.evaluation.ragas_evaluator.RagasEvaluator._make_async_openai_client"
+        ) as mock_client_factory, patch("ragas.llms.llm_factory") as mock_llm_factory, patch(
+            "ragas.embeddings.OpenAIEmbeddings"
+        ):
+            mock_llm_factory.return_value = MagicMock()
+            evaluator._build_wrappers()
+
+        assert mock_client_factory.call_count == 2
+        for call in mock_client_factory.call_args_list:
+            assert call.kwargs["base_url"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        mock_llm_factory.assert_called_once()
+        assert mock_llm_factory.call_args.args[0] == "deepseek-v4-flash"
+
+    def test_build_wrappers_uses_evaluation_llm_model_override(self) -> None:
+        from src.observability.evaluation.ragas_evaluator import RagasEvaluator
+
+        settings = MagicMock()
+        settings.llm.provider = "openai"
+        settings.llm.api_key = "test-key"
+        settings.llm.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        settings.llm.azure_endpoint = None
+        settings.llm.model = "deepseek-v4-flash"
+        settings.evaluation.llm_model = "qwen-plus"
+        settings.embedding.provider = "openai"
+        settings.embedding.api_key = "test-key"
+        settings.embedding.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        settings.embedding.azure_endpoint = None
+        settings.embedding.model = "text-embedding-v3"
+
+        evaluator = RagasEvaluator(settings=settings, metrics=["faithfulness"])
+
+        with patch(
+            "src.observability.evaluation.ragas_evaluator.RagasEvaluator._make_async_openai_client"
+        ), patch("ragas.llms.llm_factory") as mock_llm_factory, patch(
+            "ragas.embeddings.OpenAIEmbeddings"
+        ):
+            mock_llm_factory.return_value = MagicMock()
+            evaluator._build_wrappers()
+
+        assert mock_llm_factory.call_args.args[0] == "qwen-plus"
+
+
 class TestRagasEvaluatorFactory:
     """Tests for factory integration."""
 

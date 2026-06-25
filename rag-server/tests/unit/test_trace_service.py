@@ -114,3 +114,64 @@ class TestTraceService:
         result = svc.list_traces()
         assert len(result) == 1
         assert result[0]["trace_id"] == "ok"
+
+    def test_list_with_keyword_filters_query_text(self, traces_file):
+        traces_file.write_text(
+            json.dumps(
+                {
+                    "trace_id": "q-beijing",
+                    "trace_type": "query",
+                    "started_at": "2025-01-04T00:00:00",
+                    "stages": [{"stage": "query_processing", "data": {"original_query": "北京天气"}}],
+                    "metadata": {"query": "北京天气", "collection": "default"},
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+            + json.dumps(
+                {
+                    "trace_id": "q-shanghai",
+                    "trace_type": "query",
+                    "started_at": "2025-01-05T00:00:00",
+                    "stages": [{"stage": "query_processing", "data": {"original_query": "上海旅游"}}],
+                    "metadata": {"query": "上海旅游", "collection": "default"},
+                },
+                ensure_ascii=False,
+            )
+            + "\n"
+        )
+        svc = TraceService(traces_file)
+        result = svc.list_traces(trace_type="query", keyword="北京", limit=None)
+        assert [t["trace_id"] for t in result] == ["q-beijing"]
+
+    def test_matches_keyword_ignores_stage_names(self):
+        trace = {
+            "trace_id": "t1",
+            "metadata": {"query": "产品定价策略"},
+            "stages": [
+                {"stage": "query_processing", "data": {"original_query": "产品定价策略"}},
+                {"stage": "dense_retrieval", "data": {"chunks": []}},
+            ],
+        }
+        assert TraceService.matches_keyword(trace, "dense") is False
+        assert TraceService.matches_keyword(trace, "query") is False
+        assert TraceService.matches_keyword(trace, "定价") is True
+
+    def test_matches_keyword_searches_trace_id_and_chunks(self):
+        trace = {
+            "trace_id": "abc-123-def",
+            "metadata": {
+                "query": "测试",
+                "final_results": [{"text": "向量数据库入门", "title": "Chroma 指南"}],
+            },
+            "stages": [
+                {
+                    "stage": "dense_retrieval",
+                    "data": {"chunks": [{"text": "BM25 稀疏检索说明"}]},
+                }
+            ],
+        }
+        assert TraceService.matches_keyword(trace, "abc-123") is True
+        assert TraceService.matches_keyword(trace, "向量数据库") is True
+        assert TraceService.matches_keyword(trace, "BM25") is True
+        assert TraceService.matches_keyword(trace, "不存在的关键词") is False

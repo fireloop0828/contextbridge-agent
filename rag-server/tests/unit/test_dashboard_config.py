@@ -137,6 +137,10 @@ class TestDashboardImports:
         app_path = Path("src/observability/dashboard/app.py")
         assert app_path.exists()
 
+    def test_dashboard_entry_exists(self) -> None:
+        entry_path = Path("dashboard.py")
+        assert entry_path.exists()
+
     def test_start_script_exists(self) -> None:
         script_path = Path("scripts/start_dashboard.py")
         assert script_path.exists()
