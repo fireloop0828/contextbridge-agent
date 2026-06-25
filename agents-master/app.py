@@ -131,7 +131,7 @@ if "session_initialized" not in st.session_state:
     )
     _default_models = get_available_models()
     st.session_state.selected_model = (
-        _default_models[0] if _default_models else "qwen3.7-plus"  # 默认模型
+        _default_models[0] if _default_models else "glm-5.1"  # 默认模型
     )
     st.session_state.recursion_limit = 100  # 递归调用上限，默认 100
 
