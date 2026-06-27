@@ -63,43 +63,6 @@ def render() -> None:
     )
     coll_arg = collection if collection else None
 
-    # ── Danger zone: clear all data ────────────────────────────────
-    st.divider()
-    with st.expander("⚠️ 危险操作", expanded=False):
-        st.warning(
-            "此操作将**永久删除**所有数据："
-            "ChromaDB 知识库、BM25 索引、图片、入库历史及运行记录。"
-        )
-        col_btn, col_status = st.columns([1, 2])
-        with col_btn:
-            if st.button("🗑️ 清空全部数据", type="primary", key="btn_clear_all"):
-                st.session_state["confirm_clear"] = True
-
-        if st.session_state.get("confirm_clear"):
-            st.error("确定要清空吗？此操作不可撤销！")
-            c1, c2, _ = st.columns([1, 1, 2])
-            with c1:
-                if st.button("✅ 确认，全部删除", key="btn_confirm_clear"):
-                    result = svc.reset_all()
-                    st.session_state["confirm_clear"] = False
-                    if result["errors"]:
-                        st.warning(
-                            f"已清空，但有 {len(result['errors'])} 个错误："
-                            + "；".join(result["errors"])
-                        )
-                    else:
-                        st.success(
-                            f"全部数据已清空！"
-                            f"已删除 {result['collections_deleted']} 个知识库。"
-                        )
-                    st.rerun()
-            with c2:
-                if st.button("❌ 取消", key="btn_cancel_clear"):
-                    st.session_state["confirm_clear"] = False
-                    st.rerun()
-
-    st.divider()
-
     # ── Document list ──────────────────────────────────────────────
     try:
         docs = svc.list_documents(coll_arg)

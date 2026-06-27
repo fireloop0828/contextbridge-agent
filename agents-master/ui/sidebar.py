@@ -121,7 +121,7 @@ def _render_system_settings() -> None:
             "⚠️ 未配置 API 密钥。请在 .env 中设置 DASHSCOPE_API_KEY（百炼）、"
             "ANTHROPIC_API_KEY 或 OPENAI_API_KEY。"
         )
-        available_models = ["glm-5.1"]
+        available_models = ["qwen3.7-plus"]
 
     model_pending = (
         st.session_state.selected_model

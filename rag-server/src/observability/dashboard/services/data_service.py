@@ -198,6 +198,7 @@ class DataService:
         Returns a summary dict with counts of what was deleted.
         """
         import shutil
+        import time
         from src.core.settings import load_settings, resolve_path
         import chromadb
         from chromadb.config import Settings as ChromaSettings
@@ -212,6 +213,26 @@ class DataService:
         }
 
         settings = load_settings()
+
+        # 0. Best-effort backup of local state (traces + sqlite) before deletion.
+        # Note: Large vector DB directories are not backed up here to avoid slow copies.
+        try:
+            backup_root = resolve_path(f"logs/reset_backups/{time.strftime('%Y%m%d-%H%M%S')}")
+            backup_root.mkdir(parents=True, exist_ok=True)
+
+            traces_file = resolve_path("logs/traces.jsonl")
+            if traces_file.exists():
+                shutil.copy2(traces_file, backup_root / "traces.jsonl")
+
+            integrity_db = resolve_path("data/db/ingestion_history.db")
+            if integrity_db.exists():
+                shutil.copy2(integrity_db, backup_root / "ingestion_history.db")
+
+            img_db = resolve_path("data/db/image_index.db")
+            if img_db.exists():
+                shutil.copy2(img_db, backup_root / "image_index.db")
+        except Exception as exc:
+            summary["errors"].append(f"Backup: {exc}")
 
         # 1. Delete all ChromaDB collections
         try:

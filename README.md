@@ -24,7 +24,7 @@ cp .env.example .env   # 填入 DASHSCOPE_API_KEY、AMAP_MAPS_API_KEY 等
 streamlit run app.py
 ```
 
-默认访问：http://localhost:8501
+默认访问：[http://localhost:8501](http://localhost:8501)
 
 ### 2. RAG 服务（rag-server，可选但推荐）
 
@@ -62,14 +62,46 @@ npm install   # 安装 @amap/amap-maps-mcp-server，避免 npx 冷启动
 
 ## 密钥与配置约定
 
-| 文件 | 是否入库 | 说明 |
-|------|----------|------|
-| `agents-master/.env` | ❌ | 从 `.env.example` 复制，本地填写 |
-| `agents-master/config.json` | ✅ | MCP 服务定义，不含 API Key |
-| `rag-server/config/settings.yaml` | ❌ | 从 `settings.dashscope.example.yaml` 复制 |
-| `agents-master/data/`、`rag-server/logs/` | ❌ | 运行时数据 |
+
+| 文件                                       | 是否入库 | 说明                                     |
+| ---------------------------------------- | ---- | -------------------------------------- |
+| `agents-master/.env`                     | ❌    | 从 `.env.example` 复制，本地填写               |
+| `agents-master/config.json`              | ✅    | MCP 服务定义，不含 API Key                    |
+| `rag-server/config/settings.yaml`        | ❌    | 从 `settings.dashscope.example.yaml` 复制 |
+| `agents-master/data/`、`rag-server/logs/` | ❌    | 运行时数据                                  |
+
 
 **切勿将真实 API Key 提交到 Git。**
+
+### 两套主配置如何对应
+
+主应用与 RAG 服务各自维护一份本地配置；百炼 Key 通常两处填**同一把**（`agents-master/.env` 的 `DASHSCOPE_API_KEY` 与 `rag-server/config/settings.yaml` 的 `api_key`）。
+
+```
+agents-master/.env
+  DASHSCOPE_API_KEY   →  聊天模型（glm-5.1、qwen-max 等，见 config/models.py）
+  DASHSCOPE_BASE_URL  →  百炼 OpenAI 兼容端点
+  DASHSCOPE_EMBEDDING_MODEL  →  记忆向量（可选，默认 text-embedding-v3）
+  AMAP_MAPS_API_KEY   →  旅行模式高德 MCP
+  FEISHU_APP_ID / FEISHU_APP_SECRET  →  飞书文档 MCP（可选）
+  ANTHROPIC_API_KEY / OPENAI_API_KEY  →  可选，启用对应 Claude / GPT 模型
+
+rag-server/config/settings.yaml
+  llm.api_key / llm.model           →  RAG 查询、分块精炼、元数据等 LLM
+  embedding.api_key / embedding.model  →  向量入库与稠密检索
+  vision_llm.*                      →  图像描述（默认 enabled: false）
+  evaluation.llm_model              →  Ragas 评估专用模型（须非 thinking 模型）
+  rerank.model                      →  重排序模型（启用 rerank 时）
+```
+
+
+| 用途               | 改哪里                                                    |
+| ---------------- | ------------------------------------------------------ |
+| 侧边栏聊天模型          | `agents-master/.env` + `config/models.py` 中的模型列表       |
+| 长期记忆 Embedding   | `agents-master/.env`（`DASHSCOPE_*`）                    |
+| 知识库检索与入库         | `rag-server/config/settings.yaml`（`llm` / `embedding`） |
+| 旅行 POI / 天气 / 路线 | `agents-master/.env`（`AMAP_MAPS_API_KEY`）              |
+
 
 ## 开发文档
 

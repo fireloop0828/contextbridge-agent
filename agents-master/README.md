@@ -156,15 +156,15 @@ cp config/settings.dashscope.example.yaml config/settings.yaml
 
 ```bash
 # 仍在 rag-server 目录，venv 已激活
-mkdir -p data/documents
-# 复制你的 PDF/文档到 data/documents/，或使用示例：
+# 旅行知识库源文件见 data/sources/travel_plan/（lists、food、prep、cities）
+# 亦可用示例 PDF 试跑：
 python scripts/ingest.py \
   --path tests/fixtures/sample_documents/simple.pdf \
   --collection travel_plan
 
-# 批量导入 data/documents 下所有 PDF/TXT
+# 批量导入旅行源文档（在 rag-server 目录下执行）
 python scripts/ingest.py \
-  --path data/documents \
+  --path data/sources/travel_plan \
   --collection travel_plan \
   --force
 ```
