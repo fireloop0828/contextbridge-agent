@@ -60,6 +60,7 @@ class QueryResult:
         generated_answer: The generated answer (if applicable).
         metrics: Evaluation metrics for this query.
         elapsed_ms: Time taken for retrieval + evaluation.
+        warnings: Non-fatal issues (e.g. composite sub-evaluator failures).
     """
 
     query: str
@@ -67,6 +68,7 @@ class QueryResult:
     generated_answer: Optional[str] = None
     metrics: Dict[str, float] = field(default_factory=dict)
     elapsed_ms: float = 0.0
+    warnings: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -86,6 +88,7 @@ class EvalReport:
     total_elapsed_ms: float = 0.0
     evaluator_name: str = ""
     test_set_path: str = ""
+    warnings: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise report to dictionary."""
@@ -97,6 +100,7 @@ class EvalReport:
                 k: round(v, 4) for k, v in self.aggregate_metrics.items()
             },
             "query_count": len(self.query_results),
+            "warnings": list(self.warnings),
             "query_results": [
                 {
                     "query": qr.query,
@@ -104,6 +108,7 @@ class EvalReport:
                     "generated_answer": qr.generated_answer,
                     "metrics": {k: round(v, 4) for k, v in qr.metrics.items()},
                     "elapsed_ms": round(qr.elapsed_ms, 1),
+                    "warnings": list(qr.warnings),
                 }
                 for qr in self.query_results
             ],
@@ -241,6 +246,7 @@ class EvalRunner:
 
         report.total_elapsed_ms = (time.monotonic() - t0) * 1000.0
         report.aggregate_metrics = self._aggregate_metrics(report.query_results)
+        report.warnings = self._collect_warnings(report.query_results)
 
         logger.info(
             "Evaluation complete: %d queries, aggregate=%s",
@@ -301,6 +307,9 @@ class EvalRunner:
                 ground_truth=ground_truth,
             )
             qr.metrics = metrics
+            last_errors = getattr(self.evaluator, "last_errors", None)
+            if last_errors:
+                qr.warnings.extend(str(e) for e in last_errors)
         except Exception as exc:
             logger.warning("Evaluation failed for '%s': %s", test_case.query[:40], exc)
             qr.metrics = {}
@@ -409,3 +418,15 @@ class EvalRunner:
             averages[key] = sum(values) / len(values) if values else 0.0
 
         return averages
+
+    @staticmethod
+    def _collect_warnings(results: List[QueryResult]) -> List[str]:
+        """Deduplicate warnings from all query results."""
+        seen: set[str] = set()
+        ordered: List[str] = []
+        for qr in results:
+            for msg in qr.warnings:
+                if msg not in seen:
+                    seen.add(msg)
+                    ordered.append(msg)
+        return ordered

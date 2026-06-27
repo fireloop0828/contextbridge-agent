@@ -101,3 +101,32 @@ class TestEvaluationPanelImport:
         )
 
         assert DEFAULT_GOLDEN_SET == Path("tests/fixtures/golden_test_set.json")
+
+    def test_resolve_evaluation_metrics_ragas(self) -> None:
+        from types import SimpleNamespace
+
+        from src.observability.dashboard.pages.evaluation_panel import (
+            RAGAS_METRICS,
+            _resolve_evaluation_metrics,
+        )
+
+        eval_settings = SimpleNamespace(metrics=["hit_rate", "mrr", "faithfulness"])
+        assert _resolve_evaluation_metrics("ragas", eval_settings) == RAGAS_METRICS
+
+    def test_metric_labels_and_legend(self) -> None:
+        from src.observability.dashboard.pages.evaluation_panel import (
+            _format_metric_summary,
+            _metric_help,
+            _metric_label,
+            _metric_legend,
+        )
+
+        assert _metric_label("hit_rate") == "hit_rate"
+        assert _metric_label("faithfulness") == "faithfulness"
+        assert "忠实度" in _metric_help("faithfulness")
+        assert "期望分块" in _metric_help("hit_rate")
+        assert _format_metric_summary({"hit_rate": 1.0, "mrr": 0.5}) == (
+            "hit_rate: 1.000 · mrr: 0.500"
+        )
+        assert "hit_rate" in _metric_legend(["hit_rate", "mrr"])
+        assert "命中率" in _metric_legend(["hit_rate", "mrr"])

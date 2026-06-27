@@ -23,6 +23,79 @@ logger = logging.getLogger(__name__)
 DEFAULT_GOLDEN_SET = Path("tests/fixtures/golden_test_set.json")
 # Evaluation results history file
 EVAL_HISTORY_PATH = Path("logs/eval_history.jsonl")
+EVAL_HISTORY_DISPLAY_LIMIT = 30
+
+# Ragas LLM-as-Judge metrics (aligned with query_traces single-trace evaluation)
+RAGAS_METRICS = ["faithfulness", "answer_relevancy", "context_precision"]
+CUSTOM_METRICS = ["hit_rate", "mrr"]
+DEFAULT_COMPOSITE_BACKENDS = ["custom", "ragas"]
+
+# metric_key -> (中文名, 简洁释义)；展示时保留英文指标名，释义中含中文名
+METRIC_INFO: Dict[str, tuple[str, str]] = {
+    "hit_rate": ("命中率", "期望分块是否出现在检索结果中"),
+    "mrr": ("MRR", "首个命中分块排名的倒数，越靠前越高"),
+    "faithfulness": ("忠实度", "回答是否基于检索上下文、无编造"),
+    "answer_relevancy": ("答案相关性", "回答与问题的语义相关程度"),
+    "context_precision": ("上下文精确度", "相关分块在检索结果中的排序质量"),
+}
+
+
+def _metric_label(metric_key: str) -> str:
+    """Display name: keep original English metric key."""
+    return metric_key
+
+
+def _metric_help(metric_key: str) -> str:
+    """Tooltip/caption: 中文名 + 简洁释义."""
+    info = METRIC_INFO.get(metric_key)
+    if info:
+        zh_name, desc = info
+        return f"{zh_name}：{desc}"
+    return metric_key
+
+
+def _format_metric_summary(metrics: Dict[str, float]) -> str:
+    """Build expander subtitle from per-query metrics."""
+    if not metrics:
+        return "无指标"
+    return " · ".join(f"{k}: {v:.3f}" for k, v in sorted(metrics.items()))
+
+
+def _metric_legend(metric_keys: List[str]) -> str:
+    """One-line legend: English key（中文名）：释义."""
+    parts = []
+    for k in sorted(metric_keys):
+        info = METRIC_INFO.get(k)
+        if info:
+            zh_name, desc = info
+            parts.append(f"**{k}**（{zh_name}）：{desc}")
+        else:
+            parts.append(f"**{k}**")
+    return " · ".join(parts)
+
+
+def _resolve_evaluation_metrics(backend: str, eval_settings: Any) -> List[str]:
+    """Pick metrics list for the selected evaluation backend."""
+    if backend == "ragas":
+        return list(RAGAS_METRICS)
+    raw = list(getattr(eval_settings, "metrics", None) or [])
+    if backend == "custom":
+        custom = [m for m in raw if m in CUSTOM_METRICS]
+        return custom or list(CUSTOM_METRICS)
+    if backend == "composite":
+        custom = [m for m in raw if m in CUSTOM_METRICS]
+        if not custom:
+            custom = list(CUSTOM_METRICS)
+        return custom + [m for m in RAGAS_METRICS if m not in custom]
+    return raw
+
+
+def _resolve_evaluation_backends(backend: str, eval_settings: Any) -> List[str]:
+    """Pick composite sub-backends; default to custom + ragas."""
+    if backend != "composite":
+        return list(getattr(eval_settings, "backends", None) or [])
+    configured = list(getattr(eval_settings, "backends", None) or [])
+    return configured or list(DEFAULT_COMPOSITE_BACKENDS)
 
 
 def render() -> None:
@@ -44,17 +117,30 @@ def render() -> None:
             options=["custom", "ragas", "composite"],
             index=0,
             key="eval_backend",
-            help="选择使用的评估后端。",
+            help=(
+                "选择使用的评估后端：\n"
+                "- custom：评测检索召回（hit_rate / MRR，依赖 expected_chunk_ids）\n"
+                "- ragas：评测回答质量（LLM-as-Judge，依赖填写 Answer / reference_answer）\n"
+                "- composite：组合执行（同时输出两类指标）"
+            ),
         )
 
     # Show info/warning based on selected backend
-    if backend in ("custom", "composite"):
-        st.info(
-            "ℹ️ **Custom Evaluator** 尚未完成数据集准备，当前仅为预留接口。"
-            "Custom Evaluator 需要在 Golden Test Set 中填写 `expected_chunk_ids` "
-            "作为 ground truth 才能计算 hit_rate / MRR 指标。"
-            "目前建议使用 **ragas** 后端进行评估。",
-            icon="🚧",
+    if backend == "custom":
+        st.caption(
+            "custom：用于**检索回归**（hit_rate / MRR）。"
+            "需要在黄金测试集中为每道题填写 `expected_chunk_ids` 作为 ground truth。"
+        )
+    elif backend == "ragas":
+        st.caption(
+            "ragas：用于**回答质量评估**（LLM-as-Judge），输出 "
+            "**Faithfulness / Answer Relevancy / Context Precision**。"
+            "已启用中文评判优化（`ragas_chinese_prompts`）。单题约 2–5 分钟。"
+        )
+    elif backend == "composite":
+        st.caption(
+            "composite：同时跑 **custom（检索 hit_rate / MRR）** 与 **ragas（回答质量三项）**。"
+            "需填写 Answer；默认子后端为 custom + ragas（可在 settings.yaml 的 `evaluation.backends` 调整）。"
         )
 
     with col2:
@@ -68,9 +154,37 @@ def render() -> None:
         )
 
     with col3:
-        collection = st.text_input(
+        try:
+            from src.core.settings import load_settings as _load_settings
+
+            _default_collection = _load_settings().vector_store.collection_name
+        except Exception:
+            _default_collection = ""
+        # Use a dropdown to avoid typos and keep consistent with other pages.
+        try:
+            from src.observability.dashboard.services.data_service import DataService
+
+            _collections = DataService().list_collections()
+        except Exception:
+            _collections = []
+        if not isinstance(_collections, list):
+            _collections = []
+
+        collections = [c for c in _collections if isinstance(c, str) and c.strip()]
+        collections = sorted(set(collections))
+        if _default_collection and _default_collection not in collections:
+            collections.insert(0, _default_collection)
+        if "default" not in collections:
+            collections.insert(0, "default")
+
+        default_index = 0
+        if _default_collection and _default_collection in collections:
+            default_index = collections.index(_default_collection)
+
+        collection = st.selectbox(
             "知识库（可选）",
-            value="",
+            options=collections,
+            index=default_index,
             key="eval_collection",
             help="将检索限制在指定知识库（collection）内。",
         )
@@ -91,10 +205,32 @@ def render() -> None:
             "请创建包含测试查询与期望结果的 JSON 文件。"
             "格式参考 `tests/fixtures/golden_test_set.json`。"
         )
+    else:
+        # Backend-specific sanity hints (non-blocking)
+        try:
+            preview_cases = _load_golden_queries(golden_path)
+        except Exception:
+            preview_cases = []
+
+        if backend == "custom" and preview_cases:
+            missing = sum(1 for tc in preview_cases if not (tc.get("expected_chunk_ids") or []))
+            if missing:
+                st.warning(
+                    f"⚠️ custom 评测依赖 `expected_chunk_ids`：当前有 **{missing}/{len(preview_cases)}** 条未填写，"
+                    "这些用例的 hit_rate / mrr 将为 0。"
+                )
+            else:
+                st.success("✅ 已检测到所有用例均填写 `expected_chunk_ids`，可计算 hit_rate / mrr。")
+        if backend == "composite":
+            st.info(
+                "ℹ️ composite 默认同时执行 custom + ragas，汇总检索与回答质量指标。"
+                "可在 `settings.yaml` 的 `evaluation.backends` 调整子后端。",
+                icon="🧩",
+            )
 
     # ── Answer Input Section (for Ragas) ───────────────────────────
     user_answers: Dict[int, str] = {}
-    if backend == "ragas" and golden_path.exists():
+    if backend in ("ragas", "composite") and golden_path.exists():
         st.divider()
         st.subheader("✏️ 填写回答")
         st.caption(
@@ -188,7 +324,7 @@ def _run_evaluation(
     # ── Display results ────────────────────────────────────────────
     st.success("✅ 评测完成！")
 
-    _render_aggregate_metrics(report_dict)
+    _render_aggregate_metrics(report_dict, backend=backend)
     _render_query_details(report_dict)
 
     # Save to history
@@ -218,10 +354,16 @@ def _execute_evaluation(
     # Override evaluator provider from UI selection — build a new full
     # Settings object so that RagasEvaluator can still access .llm / .embedding.
     eval_settings = settings.evaluation
+    metrics = _resolve_evaluation_metrics(backend, eval_settings)
+    backends = _resolve_evaluation_backends(backend, eval_settings)
     overridden_eval = type(eval_settings)(
         enabled=True,
         provider=backend,
-        metrics=eval_settings.metrics if hasattr(eval_settings, "metrics") else [],
+        metrics=metrics,
+        llm_model=getattr(eval_settings, "llm_model", None),
+        ragas_max_context_chunks=getattr(eval_settings, "ragas_max_context_chunks", 3),
+        ragas_chinese_prompts=getattr(eval_settings, "ragas_chinese_prompts", True),
+        backends=backends if backend == "composite" else getattr(eval_settings, "backends", None),
     )
     # Replace only the evaluation sub-config in the full settings
     settings_with_override = dc_replace(settings, evaluation=overridden_eval)
@@ -229,7 +371,7 @@ def _execute_evaluation(
     evaluator = EvaluatorFactory.create(settings_with_override)
 
     # Try to create HybridSearch (optional – works without if not configured)
-    target_collection = collection or "default"
+    target_collection = collection or settings.vector_store.collection_name
     hybrid_search = _try_create_hybrid_search(settings, target_collection)
 
     # Create reranker if enabled
@@ -305,7 +447,10 @@ def _try_create_hybrid_search(settings: Any, collection: str = "default") -> Any
         return None
 
 
-def _render_aggregate_metrics(report: Dict[str, Any]) -> None:
+def _render_aggregate_metrics(
+    report: Dict[str, Any],
+    backend: Optional[str] = None,
+) -> None:
     """Display aggregate metrics as metric cards."""
     st.subheader("📊 汇总指标")
 
@@ -319,8 +464,33 @@ def _render_aggregate_metrics(report: Dict[str, Any]) -> None:
     for idx, (name, value) in enumerate(sorted(agg.items())):
         with cols[idx % len(cols)]:
             st.metric(
-                label=name.replace("_", " ").title(),
+                label=_metric_label(name),
                 value=f"{value:.4f}",
+                help=_metric_help(name),
+            )
+
+    st.caption(_metric_legend(list(agg.keys())))
+
+    report_warnings = report.get("warnings") or []
+    if report_warnings:
+        from src.observability.evaluation.ragas_evaluator import format_ragas_error
+
+        for msg in report_warnings[:5]:
+            st.warning(format_ragas_error(msg))
+        if len(report_warnings) > 5:
+            st.caption(f"另有 {len(report_warnings) - 5} 条警告，见各题详情。")
+
+    evaluator_name = str(report.get("evaluator_name", "") or "")
+    is_composite = backend == "composite" or "composite" in evaluator_name.lower()
+    if is_composite:
+        expected = set(CUSTOM_METRICS + RAGAS_METRICS)
+        missing = expected - set(agg.keys())
+        if missing:
+            st.warning(
+                "composite 评测未产出部分指标：**"
+                + "、".join(sorted(missing))
+                + "**。常见原因：Ragas 子评估失败（API 配额/密钥、未填写 Answer 等）。"
+                "请展开各题详情查看具体警告。"
             )
 
     st.caption(
@@ -343,13 +513,7 @@ def _render_query_details(report: Dict[str, Any]) -> None:
         query = qr.get("query", "—")
         elapsed = qr.get("elapsed_ms", 0)
         metrics = qr.get("metrics", {})
-
-        # Build metric summary for the expander label
-        metric_summary = " · ".join(
-            f"{k}: {v:.3f}" for k, v in sorted(metrics.items())
-        )
-        if not metric_summary:
-            metric_summary = "无指标"
+        metric_summary = _format_metric_summary(metrics)
 
         with st.expander(
             f"**Q{idx + 1}**: {query[:80]} — {elapsed:.0f} ms — {metric_summary}",
@@ -360,7 +524,17 @@ def _render_query_details(report: Dict[str, Any]) -> None:
                 mcols = st.columns(min(len(metrics), 4))
                 for midx, (mname, mval) in enumerate(sorted(metrics.items())):
                     with mcols[midx % len(mcols)]:
-                        st.metric(mname, f"{mval:.4f}")
+                        st.metric(
+                            _metric_label(mname),
+                            f"{mval:.4f}",
+                            help=_metric_help(mname),
+                        )
+                st.caption(_metric_legend(list(metrics.keys())))
+
+            for warn in qr.get("warnings") or []:
+                from src.observability.evaluation.ragas_evaluator import format_ragas_error
+
+                st.warning(format_ragas_error(warn))
 
             # Retrieved chunks
             chunks = qr.get("retrieved_chunk_ids", [])
@@ -390,21 +564,36 @@ def _render_history() -> None:
 
     # Show recent runs as a table
     rows = []
-    for entry in history[-10:]:  # last 10 runs
-        rows.append(
-            {
-                "时间": entry.get("timestamp", "—"),
-                "评测器": entry.get("evaluator_name", "—"),
-                "查询数": entry.get("query_count", 0),
-                "耗时 (ms)": round(entry.get("total_elapsed_ms", 0)),
-                **{
-                    k: round(v, 4)
-                    for k, v in entry.get("aggregate_metrics", {}).items()
-                },
-            }
+    metric_keys_seen: set[str] = set()
+    for entry in history[-EVAL_HISTORY_DISPLAY_LIMIT:]:
+        agg = entry.get("aggregate_metrics", {})
+        metric_keys_seen.update(agg.keys())
+        row: Dict[str, Any] = {
+            "时间": entry.get("timestamp", "—"),
+            "评测器": entry.get("evaluator_name", "—"),
+            "查询数": entry.get("query_count", 0),
+            "耗时 (ms)": round(entry.get("total_elapsed_ms", 0)),
+        }
+        for k, v in agg.items():
+            row[k] = round(v, 4)
+        rows.append(row)
+
+    column_config: Dict[str, Any] = {
+        "时间": st.column_config.TextColumn("时间"),
+        "评测器": st.column_config.TextColumn("评测器"),
+        "查询数": st.column_config.NumberColumn("查询数"),
+        "耗时 (ms)": st.column_config.NumberColumn("耗时 (ms)"),
+    }
+    for key in sorted(metric_keys_seen):
+        column_config[key] = st.column_config.NumberColumn(
+            key,
+            help=_metric_help(key),
+            format="%.4f",
         )
 
-    st.dataframe(rows, use_container_width=True)
+    st.dataframe(rows, use_container_width=True, column_config=column_config)
+    if metric_keys_seen:
+        st.caption(_metric_legend(list(metric_keys_seen)))
 
 
 def _save_to_history(report: Dict[str, Any]) -> None:

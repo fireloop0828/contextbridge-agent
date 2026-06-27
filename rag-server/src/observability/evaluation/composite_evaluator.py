@@ -19,6 +19,16 @@ from src.libs.evaluator.base_evaluator import BaseEvaluator
 
 logger = logging.getLogger(__name__)
 
+_CUSTOM_BACKEND_METRICS = ("hit_rate", "mrr")
+_RAGAS_BACKEND_METRICS = ("faithfulness", "answer_relevancy", "context_precision")
+
+
+def _short_error_message(exc: Exception) -> str:
+    """Compress verbose provider errors for UI warnings."""
+    from src.observability.evaluation.ragas_evaluator import format_ragas_error
+
+    return format_ragas_error(str(exc))
+
 
 class CompositeEvaluator(BaseEvaluator):
     """Evaluator that composes multiple evaluators and merges metrics.
@@ -62,6 +72,7 @@ class CompositeEvaluator(BaseEvaluator):
         """
         self.settings = settings
         self.kwargs = kwargs
+        self._last_errors: List[str] = []
 
         if evaluators is not None:
             self._evaluators: List[BaseEvaluator] = list(evaluators)
@@ -85,6 +96,11 @@ class CompositeEvaluator(BaseEvaluator):
     def evaluators(self) -> List[BaseEvaluator]:
         """Return the list of composed evaluators."""
         return list(self._evaluators)
+
+    @property
+    def last_errors(self) -> List[str]:
+        """Errors from the most recent evaluate() call (partial failures)."""
+        return list(self._last_errors)
 
     def evaluate(
         self,
@@ -116,6 +132,7 @@ class CompositeEvaluator(BaseEvaluator):
 
         merged: Dict[str, float] = {}
         errors: List[str] = []
+        self._last_errors = []
 
         for evaluator in self._evaluators:
             name = type(evaluator).__name__
@@ -146,9 +163,11 @@ class CompositeEvaluator(BaseEvaluator):
                 )
 
             except Exception as exc:
-                msg = f"{name} failed: {exc}"
-                logger.warning(msg)
+                msg = f"{name} failed: {_short_error_message(exc)}"
+                logger.warning("%s failed: %s", name, exc)
                 errors.append(msg)
+
+        self._last_errors = errors
 
         if not merged and errors:
             raise RuntimeError(
@@ -193,9 +212,9 @@ class CompositeEvaluator(BaseEvaluator):
         if evaluation is None:
             return []
 
-        backends = getattr(evaluation, "backends", None)
-        if not backends:
-            return []
+        backends = getattr(evaluation, "backends", None) or ["custom", "ragas"]
+
+        from dataclasses import is_dataclass, replace as dc_replace
 
         from src.libs.evaluator.evaluator_factory import EvaluatorFactory
 
@@ -206,17 +225,9 @@ class CompositeEvaluator(BaseEvaluator):
                 continue  # avoid infinite recursion / no-ops
 
             try:
-                # Create a mock settings with provider overridden
-                from unittest.mock import MagicMock
-
-                sub_settings = MagicMock(wraps=settings)
-                sub_eval = MagicMock()
-                sub_eval.enabled = True
-                sub_eval.provider = backend_name
-                sub_eval.metrics = getattr(evaluation, "metrics", [])
-                sub_eval.backends = []  # prevent recursion
-                sub_settings.evaluation = sub_eval
-
+                sub_settings = CompositeEvaluator._build_sub_settings(
+                    settings, evaluation, backend_name
+                )
                 evaluator = EvaluatorFactory.create(sub_settings, **kwargs)
                 evaluators.append(evaluator)
                 logger.info("CompositeEvaluator: loaded backend '%s'", backend_name)
@@ -228,3 +239,53 @@ class CompositeEvaluator(BaseEvaluator):
                 )
 
         return evaluators
+
+    @staticmethod
+    def _metrics_for_backend(backend_name: str, evaluation: Any) -> List[str]:
+        """Pick metrics list appropriate for a sub-backend."""
+        raw = [
+            str(m).strip().lower()
+            for m in (getattr(evaluation, "metrics", None) or [])
+        ]
+        if backend_name == "custom":
+            picked = [m for m in raw if m in _CUSTOM_BACKEND_METRICS]
+            return picked or list(_CUSTOM_BACKEND_METRICS)
+        if backend_name == "ragas":
+            picked = [m for m in raw if m in _RAGAS_BACKEND_METRICS]
+            return picked or list(_RAGAS_BACKEND_METRICS)
+        return raw
+
+    @staticmethod
+    def _build_sub_settings(settings: Any, evaluation: Any, backend_name: str) -> Any:
+        """Build settings for a sub-evaluator (dataclass or MagicMock)."""
+        from dataclasses import is_dataclass, replace as dc_replace
+
+        sub_metrics = CompositeEvaluator._metrics_for_backend(backend_name, evaluation)
+        sub_kwargs = {
+            "provider": backend_name,
+            "enabled": True,
+            "backends": [],
+            "metrics": sub_metrics,
+        }
+        if is_dataclass(evaluation):
+            sub_eval = dc_replace(evaluation, **sub_kwargs)
+            if is_dataclass(settings):
+                return dc_replace(settings, evaluation=sub_eval)
+
+        from unittest.mock import MagicMock
+
+        sub_settings = MagicMock(wraps=settings)
+        sub_eval = MagicMock()
+        sub_eval.enabled = True
+        sub_eval.provider = backend_name
+        sub_eval.metrics = sub_metrics
+        sub_eval.backends = []
+        sub_eval.llm_model = getattr(evaluation, "llm_model", None)
+        sub_eval.ragas_max_context_chunks = getattr(
+            evaluation, "ragas_max_context_chunks", 3
+        )
+        sub_eval.ragas_chinese_prompts = getattr(
+            evaluation, "ragas_chinese_prompts", True
+        )
+        sub_settings.evaluation = sub_eval
+        return sub_settings

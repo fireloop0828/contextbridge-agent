@@ -104,6 +104,8 @@ class TestCompositeEvaluatorEvaluate:
 
         # FakeEvaluatorA succeeded, FailingEvaluator silently failed
         assert metrics == {"hit_rate": 1.0, "mrr": 0.5}
+        assert composite.last_errors
+        assert "FailingEvaluator" in composite.last_errors[0]
 
     def test_all_fail_raises_runtime_error(self) -> None:
         composite = CompositeEvaluator(evaluators=[FailingEvaluator()])

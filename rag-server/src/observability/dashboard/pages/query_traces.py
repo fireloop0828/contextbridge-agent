@@ -304,7 +304,7 @@ def _render_evaluate_button(trace: Dict[str, Any], idx: int) -> None:
         else:
             st.caption(
                 "使用 Ragas 评估 faithfulness、answer relevancy 和 context precision。"
-                "会调用 LLM，可能需要数秒。"
+                "每项指标会多次调用 LLM，单次评估通常需 1–3 分钟，属正常现象。"
             )
 
     # Show previous result from session state
@@ -343,12 +343,14 @@ def _evaluate_single_trace(
             provider="ragas",
             metrics=["faithfulness", "answer_relevancy", "context_precision"],
             llm_model=getattr(eval_cfg, "llm_model", None),
+            ragas_max_context_chunks=getattr(eval_cfg, "ragas_max_context_chunks", 3),
+            ragas_chinese_prompts=getattr(eval_cfg, "ragas_chinese_prompts", True),
         )
         settings = dc_replace(settings, evaluation=ragas_eval)
         evaluator = EvaluatorFactory.create(settings)
 
         # Re-run retrieval
-        collection = meta.get("collection", "default")
+        collection = meta.get("collection") or settings.vector_store.collection_name
         top_k = meta.get("top_k", 10)
         chunks = _retrieve_chunks(settings, query, top_k, collection)
 
@@ -450,18 +452,9 @@ def _retrieve_chunks(
 
 def _format_ragas_error(raw: str) -> str:
     """Translate common Ragas / DashScope errors into actionable Chinese hints."""
-    if "tool_choice" in raw and "thinking mode" in raw:
-        return (
-            "当前主模型为 thinking 模式（如 deepseek-v4-flash），与 Ragas 结构化输出不兼容。"
-            "请在 settings.yaml 的 evaluation.llm_model 中指定非 thinking 模型（如 qwen-plus），"
-            "然后重试。"
-        )
-    if "AllocationQuota.FreeTierOnly" in raw or "free quota has been exhausted" in raw.lower():
-        return (
-            "百炼免费额度已用尽（403）。请开通按量付费或关闭「仅使用免费额度」，"
-            "或在 evaluation.llm_model 中换用仍有额度的模型。"
-        )
-    return raw
+    from src.observability.evaluation.ragas_evaluator import format_ragas_error
+
+    return format_ragas_error(raw)
 
 
 def _display_eval_metrics(result: Dict[str, Any]) -> None:

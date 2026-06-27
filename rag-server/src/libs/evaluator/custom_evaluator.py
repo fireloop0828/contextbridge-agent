@@ -90,7 +90,10 @@ class CustomEvaluator(BaseEvaluator):
         metrics = getattr(getattr(settings, "evaluation", None), "metrics", None)
         if metrics is None:
             return []
-        return [str(metric) for metric in metrics]
+        # Be permissive: settings.yaml may include non-custom metrics (e.g. ragas).
+        # CustomEvaluator only runs what it supports and ignores the rest.
+        normalized = [str(metric).strip().lower() for metric in metrics]
+        return [m for m in normalized if m in self.SUPPORTED_METRICS]
 
     def _extract_ground_truth_ids(self, ground_truth: Optional[Any]) -> List[str]:
         """Extract ground truth ids from various input shapes."""
@@ -128,14 +131,15 @@ class CustomEvaluator(BaseEvaluator):
                         f"Expected one of {', '.join(self._ID_FIELDS)}"
                     )
                 continue
-            if hasattr(item, "id"):
-                ids.append(str(getattr(item, "id")))
-                continue
-
-            raise ValueError(
-                f"Unable to extract id from {label}[{index}] of type "
-                f"{type(item).__name__}"
-            )
+            for field in self._ID_FIELDS:
+                if hasattr(item, field):
+                    ids.append(str(getattr(item, field)))
+                    break
+            else:
+                raise ValueError(
+                    f"Unable to extract id from {label}[{index}] of type "
+                    f"{type(item).__name__}. Expected one of {', '.join(self._ID_FIELDS)}"
+                )
 
         return ids
 

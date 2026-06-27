@@ -106,6 +106,27 @@ class TestRagasEvaluatorValidation:
             evaluator.evaluate("query", [{"text": "ctx"}], generated_answer="   ")
 
 
+class TestRagasEvaluatorChineseHelpers:
+    def test_normalize_answer_strips_meta_prefix(self) -> None:
+        from src.observability.evaluation.ragas_evaluator import RagasEvaluator
+
+        raw = "根据知识库检索结果，北京有故宫。"
+        assert RagasEvaluator._normalize_answer(raw) == "北京有故宫。"
+
+    def test_limit_contexts(self) -> None:
+        from types import SimpleNamespace
+
+        from src.observability.evaluation.ragas_evaluator import RagasEvaluator
+
+        ev = RagasEvaluator(
+            settings=SimpleNamespace(
+                evaluation=SimpleNamespace(ragas_max_context_chunks=2)
+            ),
+            metrics=["faithfulness"],
+        )
+        assert ev._limit_contexts(["a", "b", "c"]) == ["a", "b"]
+
+
 class TestRagasEvaluatorTextExtraction:
     """Tests for _extract_texts helper."""
 
@@ -240,17 +261,25 @@ class TestRagasEvaluatorBuildWrappers:
 
         with patch(
             "src.observability.evaluation.ragas_evaluator.RagasEvaluator._make_async_openai_client"
-        ) as mock_client_factory, patch("ragas.llms.llm_factory") as mock_llm_factory, patch(
+        ) as mock_client_factory, patch(
+            "instructor.from_openai"
+        ) as mock_from_openai, patch(
+            "ragas.llms.InstructorLLM"
+        ) as mock_instructor_llm, patch(
             "ragas.embeddings.OpenAIEmbeddings"
         ):
-            mock_llm_factory.return_value = MagicMock()
+            mock_from_openai.return_value = MagicMock()
             evaluator._build_wrappers()
 
         assert mock_client_factory.call_count == 2
         for call in mock_client_factory.call_args_list:
             assert call.kwargs["base_url"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
-        mock_llm_factory.assert_called_once()
-        assert mock_llm_factory.call_args.args[0] == "deepseek-v4-flash"
+        mock_from_openai.assert_called_once()
+        from instructor import Mode
+
+        assert mock_from_openai.call_args.kwargs["mode"] == Mode.JSON
+        mock_instructor_llm.assert_called_once()
+        assert mock_instructor_llm.call_args.kwargs["model"] == "deepseek-v4-flash"
 
     def test_build_wrappers_uses_evaluation_llm_model_override(self) -> None:
         from src.observability.evaluation.ragas_evaluator import RagasEvaluator
@@ -272,13 +301,27 @@ class TestRagasEvaluatorBuildWrappers:
 
         with patch(
             "src.observability.evaluation.ragas_evaluator.RagasEvaluator._make_async_openai_client"
-        ), patch("ragas.llms.llm_factory") as mock_llm_factory, patch(
+        ), patch(
+            "instructor.from_openai"
+        ) as mock_from_openai, patch(
+            "ragas.llms.InstructorLLM"
+        ) as mock_instructor_llm, patch(
             "ragas.embeddings.OpenAIEmbeddings"
         ):
-            mock_llm_factory.return_value = MagicMock()
+            mock_from_openai.return_value = MagicMock()
             evaluator._build_wrappers()
 
-        assert mock_llm_factory.call_args.args[0] == "qwen-plus"
+        assert mock_instructor_llm.call_args.kwargs["model"] == "qwen-plus"
+
+
+class TestRagasErrorFormatting:
+    def test_format_tool_choice_error(self) -> None:
+        from src.observability.evaluation.ragas_evaluator import format_ragas_error
+
+        raw = "tool_choice parameter does not support being set to required"
+        msg = format_ragas_error(raw)
+        assert "tool_choice" in msg or "JSON" in msg
+        assert "百炼" in msg
 
 
 class TestRagasEvaluatorFactory:

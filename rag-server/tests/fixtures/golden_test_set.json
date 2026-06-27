@@ -1,36 +1,67 @@
 {
-  "description": "Golden test set for Modular RAG MCP Server evaluation. Contains test queries with expected chunk IDs for IR metrics and optional reference answers for LLM-as-Judge metrics.",
-  "version": "1.0",
+  "description": "travel_plan 知识库专用黄金测试集（中文）。覆盖景点、治安、签证、主题推荐等已入库文档，供效果评测与 Ragas 评估使用。评测时请指定 collection=travel_plan。expected_chunk_ids 于 2026-06-25 对照 live 检索校准（重新入库后文档哈希前缀会变，需不定期复核）。",
+  "version": "2.1",
+  "collection": "travel_plan",
   "test_cases": [
     {
-      "query": "What is Modular RAG?",
-      "expected_chunk_ids": [],
-      "expected_sources": [],
-      "reference_answer": "Modular RAG is a Retrieval-Augmented Generation system built with modular, pluggable components that can be configured and swapped independently."
+      "query": "北京有哪些值得去的景点？",
+      "expected_chunk_ids": [
+        "6b36dbeb_0000_e5696ace"
+      ],
+      "expected_sources": [
+        "全国值得去的景点汇总（全面版）"
+      ],
+      "reference_answer": "北京值得去的景点包括：故宫博物院（明清皇家宫殿、世界现存最大木质古建筑群）、八达岭/慕田峪长城、颐和园（皇家园林）、天坛公园（明清祭天圣地）、圆明园遗址公园、香山公园等，均收录于全国景点汇总中的华北地区北京市条目。"
     },
     {
-      "query": "How to configure Azure OpenAI?",
-      "expected_chunk_ids": [],
-      "expected_sources": [],
-      "reference_answer": "Configure Azure OpenAI by setting the provider to 'azure' in settings.yaml, along with the deployment_name, azure_endpoint, api_version, and api_key fields."
+      "query": "全球旅行治安等级分为几级？一级相对安全是什么意思？",
+      "expected_chunk_ids": [
+        "4a4df77c_0000_32081d4d"
+      ],
+      "expected_sources": [
+        "全球旅行治安等级与建议（全面版）"
+      ],
+      "reference_answer": "全球旅行治安按四级划分供规划参考。「一级·相对安全」指整体治安良好、暴力犯罪率低、警察与应急体系可靠，正常防范扒窃、诈骗即可，适合家庭、独行及夜间步行（仍须常识性警惕）。出行前还应查询中国领事服务网、外交部领事直通车等官方提示。"
     },
     {
-      "query": "What is hybrid search and how does it work?",
-      "expected_chunk_ids": [],
-      "expected_sources": [],
-      "reference_answer": "Hybrid search combines dense retrieval (semantic embeddings) and sparse retrieval (BM25 keyword matching), then fuses results using Reciprocal Rank Fusion (RRF) for better recall."
+      "query": "日本京都和奈良有哪些推荐景点？",
+      "expected_chunk_ids": [
+        "ece9abb6_0000_f1ba76ac"
+      ],
+      "expected_sources": [
+        "全球值得去的景点汇总（全面版）"
+      ],
+      "reference_answer": "日本推荐景点中，京都可游览伏见稻荷大社（千本鸟居）、金阁寺、清水寺等；奈良可游览奈良公园（野生鹿群）、东大寺大佛殿等。上述内容见全球景点汇总东亚（除中国外）部分的日本条目。"
     },
     {
-      "query": "Explain the chunking strategy",
-      "expected_chunk_ids": [],
-      "expected_sources": [],
-      "reference_answer": "Documents are split into chunks using configurable strategies (recursive, semantic, or fixed-length). Chunks are then refined and enriched with metadata before storage."
+      "query": "中国护照去泰国旅游，入境和签证政策要注意什么？",
+      "expected_chunk_ids": [
+        "c2db4e64_0000_108b2e16"
+      ],
+      "expected_sources": [
+        "按入境与签证划分旅行地推荐（全面版）"
+      ],
+      "reference_answer": "该清单以中国护照持有人为主要参考，按入境手续类型分类推荐目的地。签证与免签政策变动频繁，出行前务必查询目的地驻华使领馆、国家移民管理局及外交部「领事直通车」最新公告；停留天数、入境口岸、往返机票/酒店证明等以对方国家当时规定为准，商务、工作、留学不适用旅游免签条款。"
     },
     {
-      "query": "What evaluation metrics are supported?",
-      "expected_chunk_ids": [],
-      "expected_sources": [],
-      "reference_answer": "The system supports hit_rate, MRR (custom metrics), and Ragas LLM-as-Judge metrics including faithfulness, answer_relevancy, and context_precision."
+      "query": "带老人出行，有哪些旅行友好目的地和建议？",
+      "expected_chunk_ids": [
+        "ac6234a4_0000_634c48b9"
+      ],
+      "expected_sources": [
+        "特殊人群旅行友好目的地与建议（全面版）"
+      ],
+      "reference_answer": "特殊人群旅行友好目的地清单按旅行者类型归纳设施较完善、政策相对包容或经验成熟的目的地，并给出行前与途中建议。「友好」为相对概念，同一国家内城市差异很大，预订与行前仍需结合老人身体状况、无障碍设施与医疗保障具体核实。"
+    },
+    {
+      "query": "想按自然风光主题选旅行地，知识库里怎么推荐？",
+      "expected_chunk_ids": [
+        "3d2aaa93_0000_e56bb1c8"
+      ],
+      "expected_sources": [
+        "按旅行主题推荐旅行地（全面版）"
+      ],
+      "reference_answer": "按旅行主题推荐旅行地清单按旅行动机与体验类型分类，每条含目的地与推荐理由，国内与国际并列。其中「自然风光与山水奇观」主题汇总了以山水、海岸、草原等自然景观见长的目的地，便于按主题规划行程。"
     }
   ]
 }

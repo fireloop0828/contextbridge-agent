@@ -146,6 +146,11 @@ class EvaluationSettings:
     metrics: List[str]
     # Ragas 专用：thinking 模型（如 deepseek-v4-flash）不支持 tool_choice 结构化输出
     llm_model: Optional[str] = None
+    # Ragas 中文优化：评判时最多使用几条检索分块；启用中文提示词与 AR 计分修正
+    ragas_max_context_chunks: int = 3
+    ragas_chinese_prompts: bool = True
+    # composite 专用：子评估器列表（默认 custom + ragas）
+    backends: Optional[List[str]] = None
 
 
 @dataclass(frozen=True)
@@ -275,6 +280,13 @@ class Settings:
                 provider=_require_str(evaluation, "provider", "evaluation"),
                 metrics=[str(item) for item in _require_list(evaluation, "metrics", "evaluation")],
                 llm_model=evaluation.get("llm_model"),
+                ragas_max_context_chunks=int(evaluation.get("ragas_max_context_chunks", 3)),
+                ragas_chinese_prompts=bool(evaluation.get("ragas_chinese_prompts", True)),
+                backends=(
+                    [str(item) for item in evaluation["backends"]]
+                    if isinstance(evaluation.get("backends"), list)
+                    else None
+                ),
             ),
             observability=ObservabilitySettings(
                 log_level=_require_str(observability, "log_level", "observability"),

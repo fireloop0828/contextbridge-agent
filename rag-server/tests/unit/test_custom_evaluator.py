@@ -112,6 +112,19 @@ class TestEvaluatorFactory:
 class TestCustomEvaluatorBoundary:
     """Boundary tests for CustomEvaluator."""
 
+    def test_extract_chunk_id_from_object(self) -> None:
+        """RetrievalResult uses chunk_id, not id."""
+        from types import SimpleNamespace
+
+        evaluator = CustomEvaluator(metrics=["hit_rate"])
+        item = SimpleNamespace(chunk_id="abc_0001", text="hello")
+        metrics = evaluator.evaluate(
+            "q",
+            [item],
+            ground_truth={"ids": ["abc_0001"]},
+        )
+        assert metrics["hit_rate"] == 1.0
+
     def test_hit_rate_first_position(self) -> None:
         """Hit at position 1 should give MRR = 1.0."""
         evaluator = CustomEvaluator(metrics=["hit_rate", "mrr"])
