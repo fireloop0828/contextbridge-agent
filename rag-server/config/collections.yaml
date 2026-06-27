@@ -1,0 +1,27 @@
+# 知识库（collection）注册表 — 供 list_collections 向 Agent 展示说明，辅助选库。
+#
+# 新增知识库时：
+#   1. 入库：ingest --collection <name>
+#   2. 在本文件 collections 下增加同名条目（description 必填）
+#   3. 重启 MCP / agents-master，使 list_collections 读到新说明
+#
+# 仅配置未入库的库不会出现在 list_collections 中（以 Chroma 实际集合为准）。
+
+collections:
+  travel_plan:
+    description: "旅行攻略知识库：景点汇总、热门线路、签证入境、治安、主题推荐、特殊人群、自然灾害、非遗美食与饮食注意、通用行前实操清单、城市深度攻略等。"
+    use_when: "用户问旅行规划、目的地攻略、签证、出行安全、线路景点、美食推荐、忌口过敏、行前准备时使用。"
+    topics:
+      - travel
+      - visa
+      - safety
+      - itinerary
+
+  agent_notes:
+    description: "学习笔记与参考文档；项目内部文档整理完成后一并纳入（持续扩充）。"
+    use_when: "用户问学习资料、技术概念、或已入库的 agent_notes 主题时使用。"
+    topics:
+      - rag
+      - mcp
+      - ops
+      - evaluation

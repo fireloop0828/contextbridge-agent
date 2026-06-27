@@ -451,11 +451,24 @@ class TestFormatResponse:
         tool_with_config: ListCollectionsTool
     ) -> None:
         """Test formatting single collection."""
+        from src.core.collection_catalog import CollectionCatalogEntry
+
         collections = [CollectionInfo(name="docs", count=50)]
-        result = tool_with_config.format_response(collections)
+        catalog = {
+            "docs": CollectionCatalogEntry(
+                name="docs",
+                description="测试库",
+                use_when="测试场景",
+                topics=["test"],
+            )
+        }
+        result = tool_with_config.format_response(collections, catalog=catalog)
         
         assert "## Available Collections (1 total)" in result
         assert "1. **docs** - 50 documents" in result
+        assert "说明：测试库" in result
+        assert "适用：测试场景" in result
+        assert "主题：test" in result
     
     def test_format_multiple_collections(
         self,
@@ -463,12 +476,13 @@ class TestFormatResponse:
         sample_collections: List[CollectionInfo]
     ) -> None:
         """Test formatting multiple collections."""
-        result = tool_with_config.format_response(sample_collections)
+        result = tool_with_config.format_response(sample_collections, catalog={})
         
         assert "## Available Collections (3 total)" in result
         assert "1. **knowledge_hub** - 150 documents" in result
         assert "2. **documents** - 75 documents" in result
         assert "3. **test_collection** - 0 documents" in result
+        assert "未在 config/collections.yaml 注册" in result
     
     def test_format_with_metadata(
         self,
@@ -482,8 +496,7 @@ class TestFormatResponse:
                 metadata={"category": "papers", "year": 2024},
             )
         ]
-        result = tool_with_config.format_response(collections)
-        
+        result = tool_with_config.format_response(collections, catalog={})
         assert "**research**" in result
         assert "30 documents" in result
         assert "category=papers" in result
@@ -505,9 +518,7 @@ class TestFormatResponse:
                 },
             )
         ]
-        result = tool_with_config.format_response(collections)
-        
-        # Internal metadata should be filtered
+        result = tool_with_config.format_response(collections, catalog={})
         assert "hnsw:space" not in result
         assert "_internal" not in result
         # User metadata should be visible
@@ -519,7 +530,7 @@ class TestFormatResponse:
     ) -> None:
         """Test formatting when count is None."""
         collections = [CollectionInfo(name="no_count")]
-        result = tool_with_config.format_response(collections)
+        result = tool_with_config.format_response(collections, catalog={})
         
         assert "1. **no_count**" in result
         assert "documents" not in result  # No count shown

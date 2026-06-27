@@ -32,8 +32,9 @@ TOOL_DESCRIPTION = """List all available document collections in the knowledge b
 
 Returns information about each collection including:
 - Collection name
-- Document count (if include_stats=true)
-- Collection metadata
+- Document/chunk count (if include_stats=true)
+- **Description and usage hints** from config/collections.yaml (for Agent routing)
+- Collection metadata from the vector store (if any)
 
 Use this tool to discover available collections before querying.
 """
@@ -233,21 +234,35 @@ class ListCollectionsTool:
     
     def format_response(
         self,
-        collections: List[CollectionInfo]
+        collections: List[CollectionInfo],
+        catalog: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Format collections list as a readable string.
         
         Args:
             collections: List of CollectionInfo objects.
+            catalog: Optional pre-loaded catalog (name → CollectionCatalogEntry).
             
         Returns:
             Formatted string suitable for MCP response.
         """
+        from src.core.collection_catalog import (
+            CollectionCatalogEntry,
+            load_collection_catalog,
+        )
+
+        if catalog is None:
+            catalog = load_collection_catalog()
+
         if not collections:
             return "No collections found in the knowledge base."
         
         lines = [
-            f"## Available Collections ({len(collections)} total)\n"
+            f"## Available Collections ({len(collections)} total)",
+            "",
+            "选库提示：根据「说明」「适用场景」选择与用户问题最匹配的 **collection**，"
+            "再调用 query_knowledge_hub(..., collection=库名)。",
+            "",
         ]
         
         for i, coll in enumerate(collections, 1):
@@ -267,6 +282,16 @@ class ListCollectionsTool:
                     line += f" ({meta_str})"
             
             lines.append(line)
+
+            entry: Optional[CollectionCatalogEntry] = catalog.get(coll.name)
+            if entry is not None:
+                lines.append(f"   - 说明：{entry.description}")
+                if entry.use_when:
+                    lines.append(f"   - 适用：{entry.use_when}")
+                if entry.topics:
+                    lines.append(f"   - 主题：{', '.join(entry.topics)}")
+            else:
+                lines.append("   - 说明：（未在 config/collections.yaml 注册，请仅依据库名判断）")
         
         return "\n".join(lines)
     
