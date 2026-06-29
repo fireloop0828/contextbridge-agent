@@ -186,7 +186,7 @@
   - `cwd` 设为 `../rag-server`（与 agents-master 同级）。
   - `resolve_mcp_config()` 将相对路径解析为基于 agents-master 的绝对路径，并优先使用 `rag-server/.venv/bin/python`。
   - **使用的技术 / 改动文件**：`agents-master/config.json`；`agents-master/config/mcp_config.py`；说明见 [外接集成设计.md](../project-design/外接集成设计.md) §5。
-- **结果 / 待验证**：`get_tools()` 能列出 `query_knowledge_hub` 等三件套。
+- **结果 / 待验证**：`get_tools()` 能列出 rag-server 经 MCP 注册的三件套 Tool（含 `query_knowledge_hub`）。
 
 ---
 
