@@ -136,6 +136,19 @@
 
 ---
 
+### [2026-06-30] PDF 明明有图，入库却显示 0 图片（PyMuPDF 未安装）
+
+- **现象**：`面试八股笔记.pdf` 等含大量截图/示意图的 PDF，在「文档入库」成功后列表显示 **图片：0**；入库 Trace / 终端日志为 `Images extracted: 0`、`Indexed 0 images`；「知识浏览」展开该文档也无图片预览。
+- **原因**：`PdfLoader` 依赖 **PyMuPDF**（`import fitz`）做图片抽取；当前运行环境未安装时 `PYMUPDF_AVAILABLE=False`，加载阶段直接跳过抽图并打 warning：`PyMuPDF not available, skipping image extraction`。文本仍正常入库，但不会产生 `[IMAGE: id]` 占位，后续 `ImageCaptioner` 也找不到可 caption 的图片。
+- **处理**：
+  - 在 **与 Streamlit / ingest 相同的 Python 环境** 安装：`python3 -m pip install -U pymupdf`，验证 `python3 -c "import fitz"` 无报错。
+  - 安装后需 **重新入库** 该 PDF：因 `ingestion_history.db` 已将该文件 hash 记为 `success`，直接再传可能被 `should_skip` 跳过；推荐在「文档入库」列表 **先删除该文档**（清向量/BM25/图片索引/入库记录），再上传入库到目标 collection。
+  - 或 CLI 强制：`python scripts/ingest.py --path <pdf> --collection <name> --force`（若仍遇 skip，配合先删文档更稳）。
+  - **使用的技术 / 改动文件**：`pdf_loader.py`（`_extract_and_process_images`、PyMuPDF 可用性检测）；`pipeline.py` Stage 2 加载 + Stage 6c 图片索引；`image_captioner.py`（依赖 chunk 内 `[IMAGE: id]`）。
+- **结果 / 待验证**：重装依赖并删后重入库后，日志出现 `Extracted N images`；面板文档行 **图片数 > 0**；`data/images/{collection}/{doc_hash}/` 有落盘文件；含图 query 可经 caption 进入检索（需 `vision_llm.enabled=true`）。
+
+---
+
 ## Dashboard
 
 ### [2026-06-15] 改了 `settings.yaml` 里 rerank 开关，行为没变
@@ -173,6 +186,19 @@
   - 支持单条 **Ragas 评估**（需用户填 Answer），与批量 Golden Set 评估互补。
   - **使用的技术 / 改动文件**：`query_traces.py`；`data_service.py`（读 `traces.jsonl`）；`dashboard.py` 路由。
 - **结果 / 待验证**：主链路排障基本不必手抠 JSONL；评估类问题仍见 [RAG评估调优专题.md](./RAG评估调优专题.md)。
+
+---
+
+### [2026-06-30] 知识浏览切到 agent_notes，分块内容却像 travel_plan
+
+- **现象**：「知识浏览」先打开 `travel_plan` 看过分块，再切换到 `agent_notes` 时，文档列表文件名/分块数正确，但展开后 **分块正文全是旅行库内容**；元数据 JSON 与当前文档一致，仅 `text_area` 展示文本错位。
+- **原因**：分块展示使用 `st.text_area(..., key=f"chunk_text_{idx}_{cidx}")`。Streamlit 组件 key 在 `session_state` 中跨 rerun 保留；切换 collection 后 **文档序号 idx 仍从 0 起**，key 与上一轮相同，控件复用旧 state 中的 value，导致显示上一库文本。后端 `DataService.get_chunks(source_hash, collection)` 实际取数正确，属 **展示层 widget state 污染**，非入库串库。
+- **处理**：
+  - 将 `text_area` 的 key 改为包含 **collection + doc_hash + chunk_id**，避免跨库/跨文档复用，例如 `chunk_text_{collection}_{source_hash[:8]}_{chunk_id}`。
+  - 用户侧若未更新代码：切换知识库后 **硬刷新页面** 可临时规避。
+  - 排障时可对照「入库记录」该文档的 split 阶段 chunk 文本，或查 Chroma `agent_notes` metadata 的 `source_path`，确认数据层无误。
+  - **使用的技术 / 改动文件**：`data_browser.py`（分块 `st.text_area` 的 `key`）；读路径 `DataService.get_chunks` → `DocumentManager` / Chroma `where={"doc_hash": source_hash}`。
+- **结果 / 待验证**：修复后 `travel_plan` ↔ `agent_notes` 来回切换，分块正文与元数据、文件名一致；`agent_notes` 下 `面试八股笔记.pdf` 等显示 Agent 笔记内容而非旅行文档。
 
 ---
 

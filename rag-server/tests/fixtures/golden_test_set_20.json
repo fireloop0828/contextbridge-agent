@@ -1,6 +1,6 @@
 {
-  "description": "travel_plan 知识库回归测试集（20 题）。覆盖 8 份已入库文档：国内/国外景点、治安、签证、特殊人群、主题推荐、热门线路、自然灾害。评测时请指定 collection=travel_plan。expected_chunk_ids 于 2026-06-27 对照 live 检索（top-1）校准；重新入库后哈希前缀会变，需不定期复核。",
-  "version": "1.0",
+  "description": "travel_plan 知识库回归测试集（25 题）。覆盖原 8 份清单 + 美食与饮食注意 + 通用行前实操清单 + 城市深度攻略（武汉/洛阳/桂林）。评测时请指定 collection=travel_plan。expected_chunk_ids 于 2026-06-30 对照 live 检索（fusion top-1）校准；重新入库后哈希前缀会变，需不定期复核。",
+  "version": "2.0",
   "collection": "travel_plan",
   "test_cases": [
     {
@@ -122,6 +122,36 @@
       "expected_chunk_ids": ["ac6234a4_0003_2c7a0fd5"],
       "expected_sources": ["特殊人群旅行友好目的地与建议（全面版）"],
       "reference_answer": "带婴幼儿与儿童家庭推荐新加坡、韩国首尔、泰国普吉/华欣家庭度假村、日本、中国台湾等。建议选亲子设施完善的酒店、控制每日强度、婴儿车与辅食携带须符合航司与海关规定，海滩与泳池须成人看护。"
+    },
+    {
+      "query": "北京烤鸭和涮羊肉有什么非遗美食推荐？",
+      "expected_chunk_ids": ["9b849867_0000_5815dd6f"],
+      "expected_sources": ["美食与饮食注意（全面版）"],
+      "reference_answer": "华北地区非遗/代表性美食包括北京烤鸭、涮羊肉、炸酱面等；烤鸭宜选老字号或口碑店，豆汁口味特殊可先小份试吃。文档按地区汇总非遗美食与地方特色，供行程美食章节引用。"
+    },
+    {
+      "query": "旅行时花生或坚果严重过敏要注意什么？",
+      "expected_chunk_ids": ["9b849867_0004_e580f4a8"],
+      "expected_sources": ["美食与饮食注意（全面版）"],
+      "reference_answer": "花生/坚果过敏常见于酱料、甜品、亚洲炒菜油与冰淇淋配料；应备抗过敏药，说明 severe allergy，避免共用油炸锅。文档列有常见过敏原隐藏来源与中英文沟通话术。"
+    },
+    {
+      "query": "出发前证件和护照需要准备哪些？",
+      "expected_chunk_ids": ["44bae802_0000_a9344d2e"],
+      "expected_sources": ["通用行前实操清单"],
+      "reference_answer": "通用行前清单建议备身份证/护照、签证签注、机票酒店订单、保险保单等，并做云端与纸质备份；国际行注意护照有效期通常需≥6个月（以目的地要求为准）。"
+    },
+    {
+      "query": "武汉三日游黄鹤楼东湖经典动线怎么安排？",
+      "expected_chunk_ids": ["3a3f9e3a_0000_599a8a35"],
+      "expected_sources": ["travel-plan-武汉_x.md"],
+      "reference_answer": "武汉城市深度攻略含黄鹤楼、东湖等经典动线与逐日安排，可结合行程总览与市内交通章节规划；具体开放时间与预约规则出行前核实。"
+    },
+    {
+      "query": "洛阳龙门石窟白马寺怎么玩？",
+      "expected_chunk_ids": ["496eaa65_0000_b4146606"],
+      "expected_sources": ["travel-plan-洛阳.md"],
+      "reference_answer": "洛阳深度攻略覆盖龙门石窟、白马寺等核心景点与推荐动线、停留建议；门票与闭馆日请以景区当日公告为准。"
     }
   ]
 }

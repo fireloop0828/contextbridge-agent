@@ -1,11 +1,26 @@
-# 知识库（collection）注册表 — 供 list_collections 向 Agent 展示说明，辅助选库。
+# 知识库（collection）注册表
 #
-# 新增知识库时：
-#   1. 入库：ingest --collection <name>
-#   2. 在本文件 collections 下增加同名条目（description 必填）
-#   3. 重启 MCP / agents-master，使 list_collections 读到新说明
+# 用途
+# - 供 MCP Tool `list_collections` 展示每个 collection 的「说明 / 适用场景 / 主题」，帮助 Agent 选库。
+# - 说明信息来自本文件；实际可用的 collection 仍以 ChromaDB 中已入库的集合为准。
 #
-# 仅配置未入库的库不会出现在 list_collections 中（以 Chroma 实际集合为准）。
+# 新增 / 维护一个知识库（执行路径）
+# 1) 准备源文档（建议放在 `rag-server/data/sources/<collection>/`；仅本地保存，`data/` 默认不入 Git）
+# 2) 入库（创建/更新 Chroma collection）
+#    - Dashboard：Ingestion Manager 上传/指定路径，collection 填 <name>
+#    - 或 CLI：`python scripts/ingest.py --path <path> --collection <name> [--force]`
+# 3) 注册（本文件）
+#    - 在 `collections:` 下新增同名条目（key 必须与 ingest 的 `--collection` 完全一致）
+#    - `description` 必填；建议补 `use_when`、`topics`
+# 4) 生效验证
+#    - 重启 rag-server MCP 进程（通常重启 agents-master/重连 MCP 即可）
+#    - 调用 `list_collections` 检查是否出现库名 + 说明（并确认 chunk/doc 数 > 0）
+#
+# 常见注意事项
+# - 只改本文件但未入库：`list_collections` 可能不会列出该库（以 Chroma 实库为准）
+# - 只入库但未注册：库会出现，但提示“未在 collections.yaml 注册”，Agent 容易选错库
+# - 改名：请使用 `scripts/rename_collection.py`，并同步更新本文件的 key
+# - 旅行模式选库：agents-master 旅行链路通常用自身 `pick_rag_collection()`，不依赖本注册表
 
 collections:
   travel_plan:
@@ -18,8 +33,8 @@ collections:
       - itinerary
 
   agent_notes:
-    description: "学习笔记与参考文档；项目内部文档整理完成后一并纳入（持续扩充）。"
-    use_when: "用户问学习资料、技术概念、或已入库的 agent_notes 主题时使用。"
+    description: "学习与项目参考：需求/架构/外接集成/评估体系设计、RAG 测试排障与评估调优记录、Agent 面试与八股笔记等（已入库 8 份，持续扩充）。"
+    use_when: "用户问本仓库 RAG 实现、MCP 集成、配置排障、评估指标、面试技术概念时使用；勿用于旅行攻略类问题。"
     topics:
       - rag
       - mcp
