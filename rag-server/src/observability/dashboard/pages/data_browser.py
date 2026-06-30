@@ -125,7 +125,9 @@ def render() -> None:
                             value=text,
                             height=_height,
                             disabled=True,
-                            key=f"chunk_text_{idx}_{cidx}",
+                            # Key must include collection+doc identity, otherwise switching
+                            # collections will reuse stale widget state and show wrong chunk text.
+                            key=f"chunk_text_{collection}_{doc['source_hash'][:8]}_{chunk_id}",
                             label_visibility="collapsed",
                         )
                         # Expandable metadata

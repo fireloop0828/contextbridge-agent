@@ -105,12 +105,43 @@ class DataService:
 
         Each dict has keys: source_path, source_hash, collection,
         chunk_count, image_count, processed_at.
+
+        When *collection* is omitted, documents from all collections are
+        returned.  Chunk counts are resolved per document's own collection
+        (Chroma is collection-scoped).
         """
-        self._ensure_stores(collection)
         from dataclasses import asdict
 
-        docs = self._manager.list_documents(collection)
-        return [asdict(d) for d in docs]
+        if collection is not None:
+            self._ensure_stores(collection)
+            docs = self._manager.list_documents(collection)
+            return [asdict(d) for d in docs]
+
+        # Multi-collection list: bind Chroma per collection so chunk_count
+        # is not always read from the default store (which yields 0 for
+        # docs ingested into travel_plan, agent_notes, etc.).
+        from src.core.settings import resolve_path
+        from src.libs.loader.file_integrity import SQLiteIntegrityChecker
+
+        integrity = SQLiteIntegrityChecker(
+            db_path=str(resolve_path("data/db/ingestion_history.db"))
+        )
+        records = integrity.list_processed()
+        if not records:
+            return []
+
+        collections = sorted(
+            {rec.get("collection") or "default" for rec in records}
+        )
+        all_docs: List[Dict[str, Any]] = []
+        for coll in collections:
+            self._ensure_stores(coll)
+            all_docs.extend(
+                asdict(d) for d in self._manager.list_documents(coll)
+            )
+
+        all_docs.sort(key=lambda d: d.get("processed_at") or "")
+        return all_docs
 
     def get_document_detail(
         self, doc_id: str, collection: Optional[str] = None

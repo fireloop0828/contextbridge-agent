@@ -69,6 +69,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-else:
-    # When run directly via `streamlit run app.py`
-    main()

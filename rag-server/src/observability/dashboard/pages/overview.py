@@ -7,7 +7,6 @@ Displays:
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any, Dict
 
 import streamlit as st
@@ -83,17 +82,3 @@ def render() -> None:
             "**未找到知识库或 ChromaDB 不可用。** "
             "请前往「文档入库」页面上传并入库文档。"
         )
-
-    # ── Trace file statistics ──────────────────────────────────────
-    st.subheader("📈 运行记录")
-
-    from src.core.settings import resolve_path
-    traces_path = resolve_path("logs/traces.jsonl")
-    if traces_path.exists():
-        line_count = sum(1 for _ in traces_path.open(encoding="utf-8"))
-        if line_count > 0:
-            st.metric("记录总数", line_count)
-        else:
-            st.info("尚无运行记录。请先完成一次入库或检索。")
-    else:
-        st.info("尚无运行记录。请先完成一次入库或检索。")
