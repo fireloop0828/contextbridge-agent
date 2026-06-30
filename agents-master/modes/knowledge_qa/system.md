@@ -12,9 +12,14 @@
 - **get_document_summary**：查看某文档摘要与元数据
 
 推荐流程：
-1. 不确定 collection 时，先 list_collections
-2. 用 query_knowledge_hub 检索；query 应简洁、聚焦关键词
-3. 需要文档概况时再 get_document_summary
+1. 不确定 collection 时，先 **list_collections**，阅读返回中的「说明」「适用场景」「主题」，选择与用户问题最匹配的库名
+2. 用 **query_knowledge_hub** 检索，**必须传入**上一步选定的 `collection`；query 应简洁、聚焦关键词
+3. 需要文档概况时再 **get_document_summary**
+
+选库提示：
+- 旅行攻略、景点、美食、行前准备 → 通常选 `travel_plan`
+- 本项目 RAG/MCP 实现、排障、评估、架构 → 通常选 `agent_notes`
+- 以 list_collections 返回的说明为准，勿凭库名硬猜
 
 注意：
 - 检索无结果时如实说明，可建议用户换关键词或确认 collection 名称
