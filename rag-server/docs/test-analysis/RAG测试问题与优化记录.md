@@ -50,7 +50,7 @@
 - **原因**：**collection 不一致**。向量与 BM25 按 collection 分目录存储；`query_knowledge_hub` 未传 `collection` 时回退 MCP 配置默认 `travel_plan`，而 Dashboard / `settings.yaml` 的 `vector_store.collection_name` 可能是 `default`；两边默认值来源不同，容易查错库。
 - **处理**：
   - 约定业务库名（旅行场景用 `travel_plan`），入库、评测、MCP 调用**显式传同一 collection**。
-  - Agent 侧先 `list_collections` 再 `query_knowledge_hub(..., collection="travel_plan")`（见 [外接集成设计.md](../project-design/外接集成设计.md) §3.7）。
+  - Agent 侧先 `list_collections` 再 `query_knowledge_hub(..., collection="travel_plan")`（见 [外接集成设计.md](../project-design/外接集成设计.md) §3.5）。
   - 历史库从 `knowledge_hub` 迁移时用 `scripts/rename_collection.py --old knowledge_hub --new travel_plan` 保留数据。
   - **使用的技术 / 改动文件**：`query_knowledge_hub.py`（`default_collection="travel_plan"`）；`evaluation_panel.py` collection 下拉；`rename_collection.py`。
 - **结果 / 待验证**：三处（入库、评测、MCP）collection 对齐后检索与 hit_rate 恢复正常。
@@ -218,8 +218,8 @@
 ### [2026-06-27] Agent 选库只靠 collection 名不靠谱 → 注册表 + 分场景定库
 
 - **现象**：
-  - 计划扩 **`agent_notes`** 等多库后，知识库问答模式靠 `list_collections` 选库，但返回只有 **库名 + 分块数**，模型常凭 `travel_plan` 等名字猜，易选错或漏传 `collection`。
-  - 同一轮对话里若模型**不传** `collection`：`query_knowledge_hub` 默认 **`travel_plan`（硬编码）**，`get_document_summary` 默认 **`settings.yaml` 的 collection_name`**——两工具可能查**不同库**。
+  - 计划扩 `**agent_notes`** 等多库后，知识库问答模式靠 `list_collections` 选库，但返回只有 **库名 + 分块数**，模型常凭 `travel_plan` 等名字猜，易选错或漏传 `collection`。
+  - 同一轮对话里若模型**不传** `collection`：`query_knowledge_hub` 默认 `**travel_plan`（硬编码）**，`get_document_summary` 默认 `**settings.yaml` 的 collection_name`**——两工具可能查**不同库**。
   - 旅行模式与问答模式行为不一致：旅行预取由代码传参，问答依赖模型自选，缺少统一「库说明」。
 - **原因**：
   - **MCP 连接参数不含 collection**（`config.json` 只有 cwd/command）；库名在**每次工具调用**里指定。
@@ -228,11 +228,11 @@
 - **处理**：
   - **厘清三种定库方式（最终形态）**：
 
-    | 场景 | 谁定 collection | 行为 |
-    |------|-----------------|------|
-    | **旅行模式预取** | agents-master 代码 `pick_rag_collection()` | `list_collections`（可缓存）→ 优先 `travel_plan` → `travel` → `default` → 列表首项；**显式**传入 `query_knowledge_hub(..., collection=…)` |
-    | **知识库问答** | ReAct 模型按 prompt | 先 `list_collections` 看**说明与适用场景** → 再 `query_knowledge_hub` **每次只选一个库**；跨库则多次 query |
-    | **模型漏传 collection** | rag-server 工具默认 | 检索 → `travel_plan`；摘要 → yaml（待后续统一为同一配置源） |
+    | 场景                  | 谁定 collection                            | 行为                                                                                                                        |
+    | ------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+    | **旅行模式预取**          | agents-master 代码 `pick_rag_collection()` | `list_collections`（可缓存）→ 优先 `travel_plan` → `travel` → `default` → 列表首项；**显式**传入 `query_knowledge_hub(..., collection=…)` |
+    | **知识库问答**           | ReAct 模型按 prompt                         | 先 `list_collections` 看**说明与适用场景** → 再 `query_knowledge_hub` **每次只选一个库**；跨库则多次 query                                       |
+    | **模型漏传 collection** | rag-server 工具默认                          | 检索 → `travel_plan`；摘要 → yaml（待后续统一为同一配置源）                                                                                 |
 
   - **最小改动落地：知识库注册表**
     - 新增 `config/collections.yaml`：`description`（必填）、`use_when`、`topics`。
@@ -248,6 +248,3 @@
   - 旅行预取仍走代码绑 `travel_plan`（当前单库数据下行为不变）。
   - `agent_notes` 入库并注册后，用项目类问题（如「Hybrid Search 怎么做的」）抽测是否选中正确库。
 
----
-
-**文档状态**：✅ 首期已撰写（检索 5 · 入库 3 · Dashboard 3 · MCP 4）
