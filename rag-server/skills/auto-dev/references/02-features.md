@@ -29,16 +29,16 @@
     - 支持云端服务（OpenAI Embedding, Cohere Rerank）与本地模型（Sentence-Transformers, BGE）自由切换。
 
 - **RAG Pipeline 组件插拔**：
-    - **Loader（解析器）**：支持 PDF、Markdown、Code 等多种文档解析器独立替换；
-    - **Smart Splitter（切分策略）**：语义切分、定长切分、递归切分等策略可配置；
-    - **Transformation（元数据/图文增强逻辑）**：OCR、Image Captioning 等增强模块可独立配置。
+    - **Loader（解析器）**：已实现 PDF（MarkItDown + PyMuPDF 提图）、TXT、Markdown、DOCX（MarkItDown）；通过 `loader_factory` 按扩展名路由
+    - **Smart Splitter（切分策略）**：已实现 RecursiveCharacterTextSplitter；Semantic / FixedLen 为规划扩展
+    - **Transformation（元数据/图文增强）**：已实现 Image Captioning、Chunk Refinement、Metadata Enrichment；OCR 为规划扩展
 
 - **检索策略插拔 (Retrieval Strategy)**：
-    - 支持动态配置纯向量、纯关键词或混合检索模式；
-    - 支持灵活更换向量数据库后端（如从 Chroma 迁移至 Qdrant、Milvus）。
+    - 支持动态配置纯向量、纯关键词或混合检索模式 ✅
+    - 向量库后端当前仅 Chroma；Qdrant / Milvus 为规划扩展
 
 - **评估体系插拔 (Evaluation Framework)**：
-    - 评估模块不锁定单一指标，支持挂载不同的 Evaluator（如 Ragas, DeepEval）以适应不同的业务考核维度。
+    - 已实现 Ragas、Custom、Composite；DeepEval 为规划扩展
 
 这种设计确保开发者可以**零代码修改**即可进行 A/B 测试、成本优化或隐私迁移，使系统具备极强的生命力与环境适应性。
 
@@ -48,7 +48,7 @@
 - **工作原理**：
     - 我们的 Server 作为一个 **MCP Server** 运行，暴露一组标准的 `tools` 和 `resources` 接口。
     - **MCP Clients**（如 GitHub Copilot, ReSearch Agent, Claude Desktop 等）可以直接连接到这个 Server。
-    - **无缝接入**：当你在 GitHub Copilot 中提问时，Copilot 作为一个 MCP Host，能够自动发现并调用我们的 Server 提供的工具（如 `search_documentation`），获取我们内置的私有文档知识，然后结合这些上下文来回答你的问题。
+    - **无缝接入**：当你在 GitHub Copilot 中提问时，Copilot 作为一个 MCP Host，能够自动发现并调用我们的 Server 提供的工具（如 `query_knowledge_hub`），获取我们内置的私有文档知识，然后结合这些上下文来回答你的问题。
 - **优势**：
     - **零前端开发**：无需为知识库开发专门的 Chat UI，直接复用开发者已有的编辑器（VS Code）和 AI 助手。
     - **上下文互通**：Copilot 可以同时看到你的代码文件和我们的知识库内容，进行更深度的推理。

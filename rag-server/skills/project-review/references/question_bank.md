@@ -14,7 +14,7 @@
 | 1-03 | 项目整体分哪几层架构？每层职责是什么？ | ⭐ | 分层设计 | Ingestion Pipeline（摄取）/ Query Engine（检索）/ MCP Server（协议暴露）/ Dashboard（可视化） |
 | 1-04 | 为什么不用 LlamaIndex 或 LangChain 等现成框架，而要自研 Pipeline？ | ⭐⭐ | 架构决策 | 完全可控的可插拔架构，避免框架版本/依赖锁定，支持幂等设计、差量计算等自定义工程特性 |
 | 1-05 | 项目有哪 5 种可插拔组件？每种举一个具体的可替换例子 | ⭐⭐ | 可插拔架构 | LLM(Azure→Ollama)、Embedding(OpenAI→BGE)、VectorStore(Chroma→Qdrant)、Splitter、Reranker(CrossEncoder→LLM) |
-| 1-06 | 这个项目里有哪几类存储后端？各自存什么数据？ | ⭐⭐ | 数据存储 | Chroma(向量+metadata)、SQLite-IngestionHistory(文件哈希)、SQLite-ImageIndex(图片路径)、BM25(倒排索引/pickle)、本地文件(图片) |
+| 1-06 | 这个项目里有哪几类存储后端？各自存什么数据？ | ⭐⭐ | 数据存储 | Chroma(Dense向量+Chunk文本/metadata)、SQLite-IngestionHistory(文件哈希)、SQLite-ImageIndex(图片路径)、BM25(JSON倒排索引，`data/db/bm25/`)、本地文件(图片) |
 | 1-07 | 用户从 Copilot 发问到拿到答案，整个链路经过哪些关键步骤？ | ⭐⭐ | 端到端流程 | Copilot → MCP Host → MCP Server(stdio) → QueryEngine → HybridSearch → Rerank → Response构建 → 返回带引用结果 |
 | 1-08 | 项目的幂等性在哪里体现？为什么幂等很重要？ | ⭐⭐⭐ | 工程设计 | 文件Hash检查(早退)、ChunkID用hash组合生成、Upsert语义写入；避免重复索引，支持重跑不污染数据 |
 
@@ -171,8 +171,8 @@
 |---|------|------|---------|------------|
 | 9-01 | 为什么项目选择 SQLite 而不是 MySQL/PostgreSQL？ | ⭐ | 存储选型 | 零依赖部署(pip install)，无需数据库服务；本地优先设计；支持WAL并发；可后续迁移 |
 | 9-02 | WAL（Write-Ahead Logging）在 SQLite 中如何保证并发安全？ | ⭐⭐⭐ | 并发机制 | WAL模式下写入先记日志再合并，允许多Reader与1Writer并发；避免传统锁模式下的读写互斥 |
-| 9-03 | ChunkID 的生成算法是什么？为什么选择这种方式？ | ⭐⭐ | ID设计 | `hash(source_path + section_path + content_hash)`；确定性生成(无随机)，相同内容永远相同ID，支持幂等Upsert |
-| 9-04 | BM25 索引数据当前用什么格式持久化？有什么升级路径？ | ⭐⭐ | BM25持久化 | 当前使用 pickle 序列化；升级路径：迁移至 SQLite 存储倒排索引和IDF统计，提升可靠性和查询灵活性 |
+| 9-03 | ChunkID 的生成算法是什么？为什么选择这种方式？ | ⭐⭐ | ID设计 | `{source_path_hash}_{chunk_index:04d}_{content_hash[:8]}`；确定性生成(无随机)，内容变更则ID变更，支持幂等Upsert |
+| 9-04 | BM25 索引数据当前用什么格式持久化？有什么升级路径？ | ⭐⭐ | BM25持久化 | 当前使用 JSON 文件（`{collection}_bm25.json`）；升级路径：迁移至 SQLite 存储倒排索引和IDF统计，提升查询灵活性与可维护性 |
 | 9-05 | `delete_document` 操作为什么要清理 FileIntegrityDB？不清理会怎样？ | ⭐⭐⭐ | 数据一致性 | FileIntegrityDB记录"已成功处理"；不清理则下次摄取相同文件时触发早退跳过，无法重新摄入 |
 
 ---

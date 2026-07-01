@@ -162,7 +162,7 @@ D10. MCP Server 是以什么方式启动的？Client 怎么知道如何连接到
 
 E1. chunk_id 是怎么生成的？为什么不用 UUID？如果文件改了一行，受影响的 chunk_id 会变吗？
 E2. 删除文档时需要操作几个存储？只删 Chroma 会有什么问题？为什么这几个存储不能合并？
-E3. BM25 索引存在哪里？当前的存储方式（pickle）有什么局限？生产环境下可以怎么改进？
+E3. BM25 索引存在哪里？当前 JSON 文件存储有什么局限？生产环境下可以怎么改进？
 E4. `ingestion_history.db` 里存的是什么？它和 Chroma 里的 chunk 记录有什么区别？
 E5. Chroma 的 collection 是什么概念？多 collection 时 Hybrid Search 是跨 collection 还是指定 collection？
 E6. 如果两个文件内容完全一样（只是文件名不同），chunk_id 会相同吗？会有冲突吗？

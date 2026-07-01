@@ -24,7 +24,7 @@ A: BM25（稀疏检索）擅长精确关键词匹配，对专有名词（如 API
 A: k 是平滑因子，防止排名靠前的文档分数过度高估。k=60 是学术论文（Cormack et al. 2009）中的经验推荐值，实践中通常无需调整。调大 k 会使分数分布更均匀（减弱头部文档优势），调小 k 会使分数差异更大。
 
 **Q: 你们的 BM25 索引存在哪里？IDF 怎么算的？**  
-A: BM25 索引元数据存储在 `data/db/bm25/` 目录下（当前用 pickle，可迁移至 SQLite）。IDF 基于语料库中文档频率计算：`IDF(t) = ln((N - df + 0.5) / (df + 0.5) + 1)`，N 是总文档数，df 是包含词 t 的文档数。
+A: BM25 倒排索引持久化在 `data/db/bm25/` 目录下，按集合存为 JSON 文件（`{collection}_bm25.json`）。与 Chroma（仅存 Dense 向量）分离存储，Hybrid Search 并行查询后 RRF 融合。IDF 基于语料库中文档频率计算：`IDF(t) = ln((N - df + 0.5) / (df + 0.5) + 1)`，N 是总文档数，df 是包含词 t 的文档数。
 
 ---
 
@@ -55,17 +55,17 @@ A: 支持 Sentence-Transformers 系列的 Cross-Encoder 模型（如 `cross-enco
 Load → Split → Transform → Embed → Upsert
 ```
 
-1. **Load**：MarkItDown 将 PDF 转为 canonical Markdown；抽取 metadata（`source_path`, `doc_type`, `title`, `images` 等）；**前置 SHA256 哈希去重**（已处理过的文件直接跳过）
-2. **Split**：LangChain `RecursiveCharacterTextSplitter`，按 Markdown 结构（标题/段落/代码块）语义切分，产出带 `chunk_index`/`start_offset` 的 Chunk
+1. **Load**：`loader_factory` 按扩展名路由（PDF/TXT/MD/DOCX）；PDF 用 MarkItDown 转 Markdown + PyMuPDF 提图；抽取 metadata；**前置 SHA256 哈希去重**（已处理过的文件直接跳过）
+2. **Split**：LangChain `RecursiveCharacterTextSplitter`，按 Markdown 结构语义切分，产出带 `chunk_index` 的 Chunk
 3. **Transform**（三个 LLM 增强步骤）：
    - **ChunkRefiner**：LLM 合并逻辑相关但被物理切断的段落，去噪（页眉页脚/乱码）
    - **MetadataEnricher**：LLM 为每个 Chunk 生成 `Title`/`Summary`/`Tags`，注入 metadata
-   - **ImageCaptioner**：Vision LLM（GPT-4o）为图片生成文字描述，缝合进 Chunk 正文
-4. **Embed**：双路向量化（Dense embedding + BM25 sparse），按内容哈希差量计算（未变更的 Chunk 不重复调用 API）
-5. **Upsert**：写入 Chroma 向量库 + BM25 索引，幂等设计
+   - **ImageCaptioner**：Vision LLM 为图片生成文字描述，缝合进 Chunk 正文
+4. **Embed**：双路编码（Dense embedding + BM25 词频统计）；文件级 SHA256 跳过未变更文档（向量内容哈希复用为规划项）
+5. **Upsert**：Dense 写入 Chroma；Sparse 写入 BM25 JSON 索引；图片写入 `data/images/` + SQLite 索引
 
 ### 幂等性设计
-- **chunk_id 生成**：`hash(source_path + section_path + content_hash)` → 确定性哈希，相同内容永远相同 ID
+- **chunk_id 生成**：`{source_path_hash}_{chunk_index:04d}_{content_hash[:8]}` → 确定性 ID，内容变更则 ID 变更
 - **为什么不用 UUID**：UUID 随机，重复摄取同一文件会产生重复 chunk；确定哈希保证幂等 Upsert
 - **文件级去重**：SHA256 文件哈希 → 查 `ingestion_history.db`，已成功处理直接跳过
 

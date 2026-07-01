@@ -14,13 +14,13 @@
 
 设计要点：
 - **明确分层职责**：
-  - Loader：负责把原始文件解析为统一的 `Document` 对象（`text` + `metadata`；类型定义集中在 `src/core/types.py`）。**在当前阶段，仅实现 PDF 格式的 Loader。**
+  - Loader：负责把原始文件解析为统一的 `Document` 对象（`text` + `metadata`；类型定义集中在 `src/core/types.py`）。**当前已实现**：PDF、TXT、Markdown、DOCX（经 `loader_factory` 按扩展名选择 `PdfLoader` / `TxtLoader` / `MarkItDownLoader`）。
 		- 统一输出格式采用规范化 Markdown作为 `Document.text`：这样可以更好的配合后面的Splitte（Langchain RecursiveCharacterTextSplitte））方法产出高质量切块。
 		- Loader 同时抽取/补齐基础 metadata（如 `source_path`, `doc_type=pdf`, `page`, `title/heading_outline`, `images` 引用列表等），为定位、回溯与后续 Transform 提供依据。
 	- Splitter：基于 Markdown 结构（标题/段落/代码块等）与参数配置把 `Document` 切为若干 Chunk，保留原始位置与上下文引用。
-	- Transform：可插入的处理步骤（ImageCaptioning、OCR、code-block normalization、html-to-text cleanup 等），Transform 可以选择把额外信息追加到 chunk.text 或放入 chunk.metadata（推荐默认追加到 text 以保证检索覆盖）。
+	- Transform：可插入的处理步骤（ImageCaptioning、code-block normalization 等），Transform 可以选择把额外信息追加到 chunk.text 或放入 chunk.metadata（推荐默认追加到 text 以保证检索覆盖）。OCR 为规划扩展。
 	- Embed & Upsert：按批次计算 embedding，并上载到向量存储；支持向量 + metadata 上载，并提供幂等 upsert 策略（基于 id/hash）。
-	- Dedup & Normalize：在上载前运行向量/文本去重与哈希过滤，避免重复索引。
+	- Dedup & Normalize：**已实现**文件级 SHA256 增量跳过；chunk 级向量/文本去重与 `cache/` 目录为规划扩展。
 
 关键实现要素：
 
@@ -55,7 +55,7 @@
 	> |---------|-----------|------|---------------|
 	> | **文件完整性检查** | `data/db/ingestion_history.db` | 记录已处理文件的 SHA256 哈希，实现增量摄取 | `file_hash`, `status`, `processed_at` |
 	> | **图片索引映射** | `data/db/image_index.db` | 记录 image_id → 文件路径映射，支持图片检索与引用 | `image_id`, `file_path`, `collection` |
-	> | **BM25 索引元数据** | `data/db/bm25/` | 存储倒排索引和 IDF 统计信息（未来可扩展用 SQLite） | 当前使用 pickle，可迁移至 SQLite |
+	> | **BM25 索引** | `data/db/bm25/` | 存储倒排索引和 IDF 统计信息 | JSON 文件（`{collection}_bm25.json`） |
 	> 
 	> **设计优势**：
 	> - **零依赖部署**：无需安装 MySQL/PostgreSQL 等数据库服务，`pip install` 即可运行
@@ -66,7 +66,7 @@
 	> **升级路径**：当系统规模扩展至分布式场景时，可通过统一的抽象接口将 SQLite 替换为 PostgreSQL 或 Redis，无需修改上层业务逻辑。
 	
 	- **解析与标准化**：
-		- 当前范围：**仅实现 PDF -> canonical Markdown 子集** 的转换。
+		- 当前范围：**PDF** 使用 MarkItDown 转 Markdown + PyMuPDF 提取图片；**TXT/MD** 直读；**DOCX** 使用 MarkItDown。
 	- 技术选型（Python PDF -> Markdown）：
 		- **首选：MarkItDown**（作为默认 PDF 解析/转换引擎）。优点是直接产出 Markdown 形态文本，便于与后续 `RecursiveCharacterTextSplitter` 的 separators 配合。
 	- 输出标准 `Document`：`id|source|text(markdown)|metadata`。metadata 至少包含 `source_path`, `doc_type`, `title/heading_outline`, `page/slide`（如适用）, `images`（图片引用列表）。
@@ -96,20 +96,17 @@
 
 - **Embedding (双路向量化)**
 	- **差量计算 (Incremental Embedding / Cost Optimization)**：
-		- 策略：在调用昂贵的 Embedding API 之前，计算 Chunk 的内容哈希（Content Hash）。仅针对数据库中不存在的新内容哈希执行向量化计算，对于文件名变更但内容未变的片段，直接复用已有向量，显著降低 API 调用成本。
+		- 规划策略：在调用 Embedding API 之前，计算 Chunk 的内容哈希并复用已有向量。当前 `content_hash` 仅用于生成稳定 `chunk_id`，尚未实现向量缓存层。
 	- **核心策略**：为了支持高精度的混合检索（Hybrid Search），系统对每个 Chunk 并行执行双路编码计算。
 		- **Dense Embeddings（语义向量）**：调用 Embedding 模型（如 OpenAI text-embedding-3 或 BGE）生成高维浮点向量，捕捉文本的深层语义关联，解决“词不同意同”的检索难题。
 		- **Sparse Embeddings（稀疏向量）**：利用 BM25 编码器或 SPLADE 模型生成稀疏向量（Keyword Weights），捕捉精确的关键词匹配信息，解决专有名词查找问题。
 	- **批处理优化**：所有计算均采用 `batch_size` 驱动的批处理模式，最大化 CPU 利用率并减少网络 RTT。
 
 - **Upsert & Storage (索引存储)**
-	- **存储后端**：统一使用向量数据库（如 Chroma/Qdrant）作为存储引擎，同时持久化存储 Dense Vector、Sparse Vector 以及 Transform 阶段生成的富 Metadata。
-	- **All-in-One 存储策略**：执行原子化存储，每条记录同时包含：
-		1. **Index Data**: 用于计算相似度的 Dense Vector 和 Sparse Vector。
-		2. **Payload Data**: 完整的 Chunk 原始文本 (Content) 及 Metadata。
-		**机制优势**：确保检索命中 ID 后能立即取回对应的正文内容，无需额外的查库操作 (Lookup)，保障了 Retrieve 阶段的毫秒级响应。
+	- **存储架构（当前实现）**：Dense 向量与 Chunk Metadata 存入 **Chroma**；Sparse/BM25 倒排索引存入 **`data/db/bm25/*.json`**（与 Chroma 分离，由 `HybridSearch` 并行查询后 RRF 融合）。
+	- **Chroma 记录内容**：Dense Vector + 完整 Chunk 文本与 Metadata（检索命中后无需二次查库）。
 - **幂等性设计 (Idempotency)**：
-		- 为每个 Chunk 生成全局唯一的 `chunk_id`，生成算法采用确定的哈希组合：`hash(source_path + section_path + content_hash)`。
+		- 为每个 Chunk 生成全局唯一的 `chunk_id`，生成算法：`{source_path_hash}_{chunk_index:04d}_{content_hash[:8]}`。
 		- 写入时采用 "Upsert"（更新或插入）语义，确保同一文档即使被多次处理，数据库中也永远只有一份最新副本，彻底避免重复索引问题。
 	- **原子性保证**：以 Batch 为单位进行事务性写入，确保索引状态的一致性。
 
@@ -147,13 +144,10 @@
 本模块实现核心的 RAG 检索引擎，采用 **“多阶段过滤 (Multi-stage Filtering)”** 架构，负责接收已消歧的独立查询（Standalone Query），并精准召回 Top-K 最相关片段。
 
 - **Query Processing (查询预处理)**
-	- **核心假设**：输入 Query 已由上游（Client/MCP Host）完成会话上下文补全（De-referencing），不仅如此，还进行了指代消歧。
-	- **查询转换 (Transformation) 与扩张策略 (Expansion Strategy)**：
-		- **Keyword Extraction**：利用 NLP 工具提取 Query 中的关键实体与动词（去停用词），生成用于稀疏检索的 Token 列表。
-		- **Query Expansion **：
-			- 系统可做 Synonym/Alias Expansion（同义词/别名/缩写扩展），默认策略采用“**扩展融入稀疏检索、稠密检索保持单次**”以控制成本与复杂度。
-			- **Sparse Route (BM25)**：将“关键词 + 同义词/别名”合并为一个查询表达式（逻辑上按 `OR` 扩展），**只执行一次稀疏检索**。原始关键词可赋予更高权重以抑制语义漂移。
-			- **Dense Route (Embedding)**：使用原始 query（或轻度改写后的语义 query）生成 embedding，**只执行一次稠密检索**；默认不为每个同义词单独触发额外的向量检索请求。
+	- **核心假设**：输入 Query 已由上游（Client/MCP Host）完成会话上下文补全（De-referencing）与指代消歧；本模块不维护多轮会话状态。
+	- **当前实现**：关键词提取（jieba + 英文分词）、中英文停用词过滤、`key:value` 元数据 filter 解析（如 `collection:docs`）。
+	- **规划扩展 (Query Expansion)**：
+		- Synonym/Alias Expansion（同义词/别名/缩写扩展）：Sparse 路 OR 扩展、Dense 路保持单次 embedding，详见原设计草案；`ProcessedQuery.expanded_terms` 字段已预留。
 
 - **Hybrid Search Execution (双路混合检索)**
 	- **并行召回 (Parallel Execution)**：
@@ -643,7 +637,6 @@ Dashboard 基于 Streamlit 构建多页面应用（`st.navigation`），提供�
 - **评估运行**：选择评估后端（Ragas / Custom / All）与 golden test set，点击运行。
 - **指标展示**：以表格和图表展示 hit_rate、mrr、faithfulness 等指标。
 - **历史趋势**：对比不同时间的评估结果，观察策略调整的效果。
-- **注意**：评估面板在 Phase H 实现，Phase G 完成后该页面显示"评估模块尚未启用"的占位提示。
 
 **Dashboard 技术架构**：
 

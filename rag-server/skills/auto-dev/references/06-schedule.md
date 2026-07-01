@@ -22,7 +22,7 @@
 6. **阶段 F：Trace 基础设施与打点**
    - 目的：增强 TraceContext，实现结构化日志持久化，在 Ingestion + Query 双链路打点，添加 Pipeline 进度回调。
 7. **阶段 G：可视化管理平台 Dashboard**
-   - 目的：搭建 Streamlit 六页面管理平台（系统总览 / 数据浏览 / Ingestion 管理 / Ingestion 追踪 / Query 追踪 / 评估占位），实现 DocumentManager 跨存储协调。
+   - 目的：搭建 Streamlit 六页面管理平台（系统总览 / 数据浏览 / Ingestion 管理 / Ingestion 追踪 / Query 追踪 / 评估面板），实现 DocumentManager 跨存储协调。
 8. **阶段 H：评估体系**
    - 目的：实现 RagasEvaluator + CompositeEvaluator + EvalRunner，启用评估面板页面，建立 golden test set 回归基线。
 9. **阶段 I：端到端验收与文档收口**
@@ -41,7 +41,7 @@
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| A1 | 初始化目录树与最小可运行入口 | [x] | 2026-01-26 | 目录结构、配置文件、main.py 已创建 |
+| A1 | 初始化目录树与最小可运行入口 | [x] | 2026-01-26 | 目录结构、配置文件、`main.py`（委托 `mcp_server.server`）已创建 |
 | A2 | 引入 pytest 并建立测试目录约定 | [x] | 2026-01-26 | pytest 配置、tests/ 目录结构、22 个冒烟测试 |
 | A3 | 配置加载与校验（Settings） | [x] | 2026-01-26 | 配置加载、校验与单元测试 |
 
@@ -102,7 +102,7 @@
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| E1 | MCP Server 入口与 Stdio 约束 | [x] | 2026-02-04 | server.py 使用官方 MCP SDK + stdio + 2集成测试 |
+| E1 | MCP Server 入口与 Stdio 约束 | [x] | 2026-02-04 | `src/mcp_server/server.py` + `main.py` 入口 + 官方 MCP SDK |
 | E2 | Protocol Handler 协议解析与能力协商 | [x] | 2026-02-04 | ProtocolHandler类+tool注册+错误处理+20单元测试 |
 | E3 | query_knowledge_hub Tool | [x] | 2026-02-04 | ResponseBuilder+CitationGenerator+Tool注册+24单元测试+2集成测试 |
 | E4 | list_collections Tool | [x] | 2026-02-04 | ListCollectionsTool+CollectionInfo+ChromaDB集成+41单元测试+2集成测试 |
@@ -189,7 +189,7 @@
 - **实现类/函数**：为当前项目创建一个虚拟环境模块。
  - **验收标准**：
   - 目录结构与 DEV_SPEC 5.2 一致（至少把对应目录创建出来）。
-  - `config/prompts/` 目录存在，且三个 prompt 文件可被读取（即使只是占位文本）。
+  - `config/prompts/` 目录存在，且 prompt 文件可被读取（含 `metadata_enrichment.txt`）。
   - 能导入关键顶层包（与目录结构一一对应）：
     - `python -c "import mcp_server; import core; import ingestion; import libs; import observability"`
   - 可以启动虚拟环境模块
@@ -505,12 +505,13 @@
   - **职责边界说明**：
     - `libs.splitter`：纯文本切分工具（`str → List[str]`），不涉及业务对象
     - `DocumentChunker`：业务适配器（`Document对象 → List[Chunk对象]`），添加业务逻辑
-  - **5 个增值功能**：
+  - **6 个增值功能**：
     1. **Chunk ID 生成**：为每个文本片段生成唯一且确定性的 ID（格式：`{doc_id}_{index:04d}_{hash_8chars}`）
     2. **元数据继承**：将 Document.metadata 复制到每个 Chunk.metadata（source_path, doc_type, title 等）
     3. **添加 chunk_index**：记录 chunk 在文档中的序号（从 0 开始），用于排序和定位
     4. **建立 source_ref**：记录 Chunk.source_ref 指向父 Document.id，支持溯源
-    5. **类型转换**：将 libs.splitter 的 `List[str]` 转换为符合 core.types 契约的 `List[Chunk]` 对象
+    5. **图片引用按需分发**：扫描每个 chunk 文本中的 `[IMAGE: {id}]` 占位符，从 `Document.metadata["images"]` 中提取该 chunk 实际引用的 ImageRef，写入 `chunk.metadata["images"]`（仅含该 chunk 引用的子集）和 `chunk.metadata["image_refs"]`（image_id 列表）。无占位符的 chunk 不含 `images` 字段。⚠️ 不可简单整体继承或丢弃文档级 `images`，否则下游 C7 ImageCaptioner 将无法定位图片路径。
+    6. **类型转换**：将 libs.splitter 的 `List[str]` 转换为符合 core.types 契约的 `List[Chunk]` 对象
 - **修改文件**：
   - `src/ingestion/chunking/document_chunker.py`
   - `src/ingestion/chunking/__init__.py`
@@ -519,13 +520,14 @@
   - `DocumentChunker` 类
   - `__init__(settings: Settings)`：通过 SplitterFactory 获取配置的 splitter 实例
   - `split_document(document: Document) -> List[Chunk]`：完整的转换流程
-  - `_generate_chunk_id(doc_id: str, index: int) -> str`：生成稳定 Chunk ID
-  - `_inherit_metadata(document: Document, chunk_index: int) -> dict`：元数据继承逻辑
+  - `_generate_chunk_id(doc_id: str, index: int, text: str) -> str`：生成稳定 Chunk ID
+  - `_inherit_metadata(document: Document, chunk_index: int, chunk_text: str) -> dict`：元数据继承 + 图片引用按需分发逻辑（需要 chunk_text 来扫描 `[IMAGE: id]` 占位符）
 - **验收标准**：
   - **配置驱动**：通过修改 settings.yaml 中的 splitter 配置（如 chunk_size），产出的 chunk 数量和长度发生相应变化
   - **ID 唯一性**：每个 Chunk 的 ID 在整个文档中唯一
   - **ID 确定性**：同一 Document 对象重复切分产生相同的 Chunk ID 序列
   - **元数据完整性**：Chunk.metadata 包含所有 Document.metadata 字段 + chunk_index 字段
+  - **图片分发正确性**：含 `[IMAGE: id]` 占位符的 chunk 其 `metadata["images"]` 仅包含该 chunk 引用的图片子集；不含占位符的 chunk 无 `images` 字段；`metadata["image_refs"]` 列表与占位符一致
   - **溯源链接**：所有 Chunk.source_ref 正确指向父 Document.id
   - **类型契约**：输出的 Chunk 对象符合 `core/types.py` 中的 Chunk 定义（可序列化、字段完整）
 - **测试方法**：`pytest -q tests/unit/test_document_chunker.py`（使用 FakeSplitter 隔离测试，无需真实 LLM/外部依赖）。
@@ -1251,7 +1253,7 @@
 - **M2（完成阶段 C）**：离线摄取链路可用，能构建本地索引。
 - **M3（完成阶段 D+E）**：在线查询 + MCP tools 可用，可在 Copilot/Claude 中调用。
 - **M4（完成阶段 F）**：Ingestion + Query 双链路可追踪，JSON Lines 持久化。
-- **M5（完成阶段 G）**：六页面可视化管理平台就绪（评估面板为占位），数据可浏览、可管理、链路可追踪。
+- **M5（完成阶段 G+H）**：六页面可视化管理平台就绪（含评估面板），数据可浏览、可管理、链路可追踪。
 - **M6（完成阶段 H+I）**：评估体系完整 + E2E 验收通过 + 文档完善，形成"面试/教学/演示"可复现项目。
 
 

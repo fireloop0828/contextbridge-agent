@@ -1,7 +1,9 @@
 <!-- Dev specification skeleton for the project. Fill sections with details later. -->
 # Developer Specification (DEV_SPEC)
 
-> 版本：0.1 — 文档结构草案
+> 版本：1.0 — 实现完成（截至 2026-02-24，阶段 A–I 全部验收）
+>
+> **启动入口**：`python main.py` 或 `mcp-server`（校验配置后启动 stdio MCP）；Dashboard：`streamlit run dashboard.py`
 
 ## 目录
 
@@ -12,6 +14,17 @@
 - 系统架构与模块设计
 - 项目排期
 - 可扩展性与未来展望
+
+### 实现状态速查（与代码对齐）
+
+| 类别 | 已实现 | 接口已留 / 规划中 |
+|------|--------|-------------------|
+| 检索 | Hybrid Search、RRF、Rerank、Metadata filter | 同义词扩展、分层检索 |
+| 摄取 | PDF/TXT/MD/DOCX Loader、Recursive Split、Transform、双路编码 | OCR、Semantic/Fixed Splitter、Embedding 缓存 |
+| 存储 | Chroma（Dense）、BM25 JSON 倒排索引、SQLite 元数据 | Qdrant/Milvus、cache/ 目录 |
+| MCP | `query_knowledge_hub`、`list_collections`、`get_document_summary` | — |
+| 评估 | Ragas、Custom、Composite、EvalRunner | DeepEval |
+| Provider | OpenAI/Azure/Ollama/DeepSeek LLM & Embedding；CrossEncoder/LLM Rerank | BGE、Cohere Rerank |
 
 ---
 
@@ -28,11 +41,12 @@
 
 #### 1️⃣ 实战驱动学习 (Learn by Doing)
 项目架构本身就是 RAG 面试题的"**活体答案**"。我们将经典面试考点直接融入代码设计，通过动手实践来巩固理论知识：
-- 分层检索 (Hierarchical Retrieval)
-- Hybrid Search (BM25 + Dense Embedding)
-- Rerank 重排序机制
-- Embedding 策略与优化
-- RAG 性能评测 (Ragas/DeepEval)
+- Hybrid Search (BM25 + Dense Embedding) ✅
+- Rerank 重排序机制 ✅
+- Embedding 策略与优化 ✅
+- RAG 性能评测 (Ragas + Custom) ✅
+- 分层检索 (Hierarchical Retrieval) — 规划扩展，见 §7
+- DeepEval 评估 — 规划扩展，见 §7
 
 #### 2️⃣ 开箱即用与深度扩展并重 (Plug-and-Play & Extensible)
 - **开箱即用**：提供 MCP 标准接口，可直接对接 Copilot/Claude，拿到项目即可运行体验。
@@ -92,16 +106,16 @@
     - 支持云端服务（OpenAI Embedding, Cohere Rerank）与本地模型（Sentence-Transformers, BGE）自由切换。
 
 - **RAG Pipeline 组件插拔**：
-    - **Loader（解析器）**：支持 PDF、Markdown、Code 等多种文档解析器独立替换；
-    - **Smart Splitter（切分策略）**：语义切分、定长切分、递归切分等策略可配置；
-    - **Transformation（元数据/图文增强逻辑）**：OCR、Image Captioning 等增强模块可独立配置。
+    - **Loader（解析器）**：已实现 PDF（MarkItDown + PyMuPDF 提图）、TXT、Markdown、DOCX（MarkItDown）；通过 `loader_factory` 按扩展名路由
+    - **Smart Splitter（切分策略）**：已实现 RecursiveCharacterTextSplitter；Semantic / FixedLen 为规划扩展
+    - **Transformation（元数据/图文增强）**：已实现 Image Captioning、Chunk Refinement、Metadata Enrichment；OCR 为规划扩展
 
 - **检索策略插拔 (Retrieval Strategy)**：
-    - 支持动态配置纯向量、纯关键词或混合检索模式；
-    - 支持灵活更换向量数据库后端（如从 Chroma 迁移至 Qdrant、Milvus）。
+    - 支持动态配置纯向量、纯关键词或混合检索模式 ✅
+    - 向量库后端当前仅 Chroma；Qdrant / Milvus 为规划扩展
 
 - **评估体系插拔 (Evaluation Framework)**：
-    - 评估模块不锁定单一指标，支持挂载不同的 Evaluator（如 Ragas, DeepEval）以适应不同的业务考核维度。
+    - 已实现 Ragas、Custom、Composite；DeepEval 为规划扩展
 
 这种设计确保开发者可以**零代码修改**即可进行 A/B 测试、成本优化或隐私迁移，使系统具备极强的生命力与环境适应性。
 
@@ -111,7 +125,7 @@
 - **工作原理**：
     - 我们的 Server 作为一个 **MCP Server** 运行，暴露一组标准的 `tools` 和 `resources` 接口。
     - **MCP Clients**（如 GitHub Copilot, ReSearch Agent, Claude Desktop 等）可以直接连接到这个 Server。
-    - **无缝接入**：当你在 GitHub Copilot 中提问时，Copilot 作为一个 MCP Host，能够自动发现并调用我们的 Server 提供的工具（如 `search_documentation`），获取我们内置的私有文档知识，然后结合这些上下文来回答你的问题。
+    - **无缝接入**：当你在 GitHub Copilot 中提问时，Copilot 作为一个 MCP Host，能够自动发现并调用我们的 Server 提供的工具（如 `query_knowledge_hub`），获取我们内置的私有文档知识，然后结合这些上下文来回答你的问题。
 - **优势**：
     - **零前端开发**：无需为知识库开发专门的 Chat UI，直接复用开发者已有的编辑器（VS Code）和 AI 助手。
     - **上下文互通**：Copilot 可以同时看到你的代码文件和我们的知识库内容，进行更深度的推理。
@@ -182,13 +196,13 @@
 
 设计要点：
 - **明确分层职责**：
-  - Loader：负责把原始文件解析为统一的 `Document` 对象（`text` + `metadata`；类型定义集中在 `src/core/types.py`）。**在当前阶段，仅实现 PDF 格式的 Loader。**
+  - Loader：负责把原始文件解析为统一的 `Document` 对象（`text` + `metadata`；类型定义集中在 `src/core/types.py`）。**当前已实现**：PDF、TXT、Markdown、DOCX（经 `loader_factory` 按扩展名选择 `PdfLoader` / `TxtLoader` / `MarkItDownLoader`）。
 		- 统一输出格式采用规范化 Markdown作为 `Document.text`：这样可以更好的配合后面的Splitte（Langchain RecursiveCharacterTextSplitte））方法产出高质量切块。
 		- Loader 同时抽取/补齐基础 metadata（如 `source_path`, `doc_type=pdf`, `page`, `title/heading_outline`, `images` 引用列表等），为定位、回溯与后续 Transform 提供依据。
 	- Splitter：基于 Markdown 结构（标题/段落/代码块等）与参数配置把 `Document` 切为若干 Chunk，保留原始位置与上下文引用。
-	- Transform：可插入的处理步骤（ImageCaptioning、OCR、code-block normalization、html-to-text cleanup 等），Transform 可以选择把额外信息追加到 chunk.text 或放入 chunk.metadata（推荐默认追加到 text 以保证检索覆盖）。
+	- Transform：可插入的处理步骤（ImageCaptioning、code-block normalization 等），Transform 可以选择把额外信息追加到 chunk.text 或放入 chunk.metadata（推荐默认追加到 text 以保证检索覆盖）。OCR 为规划扩展。
 	- Embed & Upsert：按批次计算 embedding，并上载到向量存储；支持向量 + metadata 上载，并提供幂等 upsert 策略（基于 id/hash）。
-	- Dedup & Normalize：在上载前运行向量/文本去重与哈希过滤，避免重复索引。
+	- Dedup & Normalize：**已实现**文件级 SHA256 增量跳过；chunk 级向量/文本去重与 `cache/` 目录为规划扩展。
 
 关键实现要素：
 
@@ -223,7 +237,7 @@
 	> |---------|-----------|------|---------------|
 	> | **文件完整性检查** | `data/db/ingestion_history.db` | 记录已处理文件的 SHA256 哈希，实现增量摄取 | `file_hash`, `status`, `processed_at` |
 	> | **图片索引映射** | `data/db/image_index.db` | 记录 image_id → 文件路径映射，支持图片检索与引用 | `image_id`, `file_path`, `collection` |
-	> | **BM25 索引元数据** | `data/db/bm25/` | 存储倒排索引和 IDF 统计信息（未来可扩展用 SQLite） | 当前使用 pickle，可迁移至 SQLite |
+	> | **BM25 索引** | `data/db/bm25/` | 存储倒排索引和 IDF 统计信息 | JSON 文件（`{collection}_bm25.json`） |
 	> 
 	> **设计优势**：
 	> - **零依赖部署**：无需安装 MySQL/PostgreSQL 等数据库服务，`pip install` 即可运行
@@ -234,7 +248,7 @@
 	> **升级路径**：当系统规模扩展至分布式场景时，可通过统一的抽象接口将 SQLite 替换为 PostgreSQL 或 Redis，无需修改上层业务逻辑。
 	
 	- **解析与标准化**：
-		- 当前范围：**仅实现 PDF -> canonical Markdown 子集** 的转换。
+		- 当前范围：**PDF** 使用 MarkItDown 转 Markdown + PyMuPDF 提取图片；**TXT/MD** 直读；**DOCX** 使用 MarkItDown。
 	- 技术选型（Python PDF -> Markdown）：
 		- **首选：MarkItDown**（作为默认 PDF 解析/转换引擎）。优点是直接产出 Markdown 形态文本，便于与后续 `RecursiveCharacterTextSplitter` 的 separators 配合。
 	- 输出标准 `Document`：`id|source|text(markdown)|metadata`。metadata 至少包含 `source_path`, `doc_type`, `title/heading_outline`, `page/slide`（如适用）, `images`（图片引用列表）。
@@ -264,20 +278,17 @@
 
 - **Embedding (双路向量化)**
 	- **差量计算 (Incremental Embedding / Cost Optimization)**：
-		- 策略：在调用昂贵的 Embedding API 之前，计算 Chunk 的内容哈希（Content Hash）。仅针对数据库中不存在的新内容哈希执行向量化计算，对于文件名变更但内容未变的片段，直接复用已有向量，显著降低 API 调用成本。
+		- 规划策略：在调用 Embedding API 之前，计算 Chunk 的内容哈希并复用已有向量。当前 `content_hash` 仅用于生成稳定 `chunk_id`，尚未实现向量缓存层。
 	- **核心策略**：为了支持高精度的混合检索（Hybrid Search），系统对每个 Chunk 并行执行双路编码计算。
 		- **Dense Embeddings（语义向量）**：调用 Embedding 模型（如 OpenAI text-embedding-3 或 BGE）生成高维浮点向量，捕捉文本的深层语义关联，解决“词不同意同”的检索难题。
 		- **Sparse Embeddings（稀疏向量）**：利用 BM25 编码器或 SPLADE 模型生成稀疏向量（Keyword Weights），捕捉精确的关键词匹配信息，解决专有名词查找问题。
 	- **批处理优化**：所有计算均采用 `batch_size` 驱动的批处理模式，最大化 CPU 利用率并减少网络 RTT。
 
 - **Upsert & Storage (索引存储)**
-	- **存储后端**：统一使用向量数据库（如 Chroma/Qdrant）作为存储引擎，同时持久化存储 Dense Vector、Sparse Vector 以及 Transform 阶段生成的富 Metadata。
-	- **All-in-One 存储策略**：执行原子化存储，每条记录同时包含：
-		1. **Index Data**: 用于计算相似度的 Dense Vector 和 Sparse Vector。
-		2. **Payload Data**: 完整的 Chunk 原始文本 (Content) 及 Metadata。
-		**机制优势**：确保检索命中 ID 后能立即取回对应的正文内容，无需额外的查库操作 (Lookup)，保障了 Retrieve 阶段的毫秒级响应。
+	- **存储架构（当前实现）**：Dense 向量与 Chunk Metadata 存入 **Chroma**；Sparse/BM25 倒排索引存入 **`data/db/bm25/*.json`**（与 Chroma 分离，由 `HybridSearch` 并行查询后 RRF 融合）。
+	- **Chroma 记录内容**：Dense Vector + 完整 Chunk 文本与 Metadata（检索命中后无需二次查库）。
 - **幂等性设计 (Idempotency)**：
-		- 为每个 Chunk 生成全局唯一的 `chunk_id`，生成算法采用确定的哈希组合：`hash(source_path + section_path + content_hash)`。
+		- 为每个 Chunk 生成全局唯一的 `chunk_id`，生成算法：`{source_path_hash}_{chunk_index:04d}_{content_hash[:8]}`。
 		- 写入时采用 "Upsert"（更新或插入）语义，确保同一文档即使被多次处理，数据库中也永远只有一份最新副本，彻底避免重复索引问题。
 	- **原子性保证**：以 Batch 为单位进行事务性写入，确保索引状态的一致性。
 
@@ -315,13 +326,10 @@
 本模块实现核心的 RAG 检索引擎，采用 **“多阶段过滤 (Multi-stage Filtering)”** 架构，负责接收已消歧的独立查询（Standalone Query），并精准召回 Top-K 最相关片段。
 
 - **Query Processing (查询预处理)**
-	- **核心假设**：输入 Query 已由上游（Client/MCP Host）完成会话上下文补全（De-referencing），不仅如此，还进行了指代消歧。
-	- **查询转换 (Transformation) 与扩张策略 (Expansion Strategy)**：
-		- **Keyword Extraction**：利用 NLP 工具提取 Query 中的关键实体与动词（去停用词），生成用于稀疏检索的 Token 列表。
-		- **Query Expansion **：
-			- 系统可做 Synonym/Alias Expansion（同义词/别名/缩写扩展），默认策略采用“**扩展融入稀疏检索、稠密检索保持单次**”以控制成本与复杂度。
-			- **Sparse Route (BM25)**：将“关键词 + 同义词/别名”合并为一个查询表达式（逻辑上按 `OR` 扩展），**只执行一次稀疏检索**。原始关键词可赋予更高权重以抑制语义漂移。
-			- **Dense Route (Embedding)**：使用原始 query（或轻度改写后的语义 query）生成 embedding，**只执行一次稠密检索**；默认不为每个同义词单独触发额外的向量检索请求。
+	- **核心假设**：输入 Query 已由上游（Client/MCP Host）完成会话上下文补全（De-referencing）与指代消歧；本模块不维护多轮会话状态。
+	- **当前实现**：关键词提取（jieba + 英文分词）、中英文停用词过滤、`key:value` 元数据 filter 解析（如 `collection:docs`）。
+	- **规划扩展 (Query Expansion)**：
+		- Synonym/Alias Expansion（同义词/别名/缩写扩展）：Sparse 路 OR 扩展、Dense 路保持单次 embedding，详见原设计草案；`ProcessedQuery.expanded_terms` 字段已预留。
 
 - **Hybrid Search Execution (双路混合检索)**
 	- **并行召回 (Parallel Execution)**：
@@ -811,7 +819,6 @@ Dashboard 基于 Streamlit 构建多页面应用（`st.navigation`），提供�
 - **评估运行**：选择评估后端（Ragas / Custom / All）与 golden test set，点击运行。
 - **指标展示**：以表格和图表展示 hit_rate、mrr、faithfulness 等指标。
 - **历史趋势**：对比不同时间的评估结果，观察策略调整的效果。
-- **注意**：评估面板在 Phase H 实现，Phase G 完成后该页面显示"评估模块尚未启用"的占位提示。
 
 **Dashboard 技术架构**：
 
@@ -1402,221 +1409,69 @@ Hybrid Search 命中 Chunk（正文含 "[图片描述: 系统采用三层架构.
 ### 5.2 目录结构
 
 ```
-smart-knowledge-hub/
+rag-server/                              # 项目根目录（仓库内路径）
 │
 ├── config/                              # 配置文件目录
 │   ├── settings.yaml                    # 主配置文件 (LLM/Embedding/VectorStore 配置)
+│   ├── collections.yaml                 # 集合目录（name → description，供 list_collections）
+│   ├── settings.dashscope.example.yaml  # 示例配置（DashScope）
+│   ├── test_credentials.yaml.example    # 测试凭证模板
 │   └── prompts/                         # Prompt 模板目录
 │       ├── image_captioning.txt         # 图片描述生成 Prompt
 │       ├── chunk_refinement.txt         # Chunk 重写 Prompt
+│       ├── metadata_enrichment.txt      # 元数据增强 Prompt
 │       └── rerank.txt                   # LLM Rerank Prompt
 │
+├── dashboard.py                         # Dashboard 浅入口 → src.observability.dashboard.app
+│
 ├── src/                                 # 源代码主目录
-│   │
-│   ├── mcp_server/                      # MCP Server 层 (接口层)
-│   │   ├── __init__.py
-│   │   ├── server.py                    # MCP Server 入口 (Stdio Transport)
-│   │   ├── protocol_handler.py          # JSON-RPC 协议处理
-│   │   └── tools/                       # MCP Tools 定义
-│   │       ├── __init__.py
-│   │       ├── query_knowledge_hub.py   # 主检索工具
-│   │       ├── list_collections.py      # 列出集合工具
-│   │       └── get_document_summary.py  # 文档摘要工具
-│   │
-│   ├── core/                            # Core 层 (核心业务逻辑)
-│   │   ├── __init__.py
-│   │   ├── settings.py                   # 配置加载与校验 (Settings：load_settings/validate_settings)
-│   │   ├── types.py                      # 核心数据类型/契约（Document/Chunk/ChunkRecord），供 ingestion/retrieval/mcp 复用
-│   │   │
-│   │   ├── query_engine/                # 查询引擎模块
-│   │   │   ├── __init__.py
-│   │   │   ├── query_processor.py       # 查询预处理 (关键词提取/查询扩展)
-│   │   │   ├── hybrid_search.py         # 混合检索引擎 (Dense + Sparse + RRF)
-│   │   │   ├── dense_retriever.py       # 稠密向量检索
-│   │   │   ├── sparse_retriever.py      # 稀疏检索 (BM25)
-│   │   │   ├── fusion.py                # 结果融合 (RRF 算法)
-│   │   │   └── reranker.py              # 重排序模块 (None/CrossEncoder/LLM)
-│   │   │
-│   │   ├── response/                    # 响应构建模块
-│   │   │   ├── __init__.py
-│   │   │   ├── response_builder.py      # 响应构建器
-│   │   │   ├── citation_generator.py    # 引用生成器
-│   │   │   └── multimodal_assembler.py  # 多模态内容组装 (Text + Image)
-│   │   │
-│   │   └── trace/                       # 追踪模块
-│   │       ├── __init__.py
-│   │       ├── trace_context.py         # 追踪上下文 (trace_id/stages)
-│   │       └── trace_collector.py       # 追踪收集器
-│   │
-│   ├── ingestion/                       # Ingestion Pipeline (离线数据摄取)
-│   │   ├── __init__.py
-│   │   ├── pipeline.py                  # Pipeline 主流程编排 (支持 on_progress 回调)
-│   │   ├── document_manager.py          # 文档生命周期管理 (list/delete/stats)
-│   │   │
-│   │   ├── chunking/                    # Chunking 模块 (文档切分)
-│   │   │   ├── __init__.py
-│   │   │   └── document_chunker.py      # Document → Chunks 转换（调用 libs.splitter）
-│   │   │
-│   │   ├── transform/                   # Transform 模块 (增强处理)
-│   │   │   ├── __init__.py
-│   │   │   ├── base_transform.py        # Transform 抽象基类
-│   │   │   ├── chunk_refiner.py         # Chunk 智能重组/去噪
-│   │   │   ├── metadata_enricher.py     # 语义元数据注入 (Title/Summary/Tags)
-│   │   │   └── image_captioner.py       # 图片描述生成 (Vision LLM)
-│   │   │
-│   │   ├── embedding/                   # Embedding 模块 (向量化)
-│   │   │   ├── __init__.py
-│   │   │   ├── dense_encoder.py         # 稠密向量编码
-│   │   │   ├── sparse_encoder.py        # 稀疏向量编码 (BM25)
-│   │   │   └── batch_processor.py       # 批处理优化
-│   │   │
-│   │   └── storage/                     # Storage 模块 (存储)
-│   │       ├── __init__.py
-│   │       ├── vector_upserter.py       # 向量库 Upsert
-│   │       ├── bm25_indexer.py          # BM25 索引构建
-│   │       └── image_storage.py         # 图片文件存储
-│   │
-│   ├── libs/                            # Libs 层 (可插拔抽象层)
-│   │   ├── __init__.py
-│   │   │
-│   │   ├── loader/                      # Loader 抽象 (文档加载)
-│   │   │   ├── __init__.py
-│   │   │   ├── base_loader.py           # Loader 抽象基类
-│   │   │   ├── pdf_loader.py            # PDF Loader (MarkItDown)
-│   │   │   └── file_integrity.py        # 文件完整性检查 (SHA256 哈希)
-│   │   │
-│   │   ├── llm/                         # LLM 抽象
-│   │   │   ├── __init__.py
-│   │   │   ├── base_llm.py              # LLM 抽象基类
-│   │   │   ├── llm_factory.py           # LLM 工厂
-│   │   │   ├── azure_llm.py             # Azure OpenAI 实现
-│   │   │   ├── openai_llm.py            # OpenAI 实现
-│   │   │   ├── ollama_llm.py            # Ollama 本地模型实现
-│   │   │   ├── deepseek_llm.py          # DeepSeek 实现
-│   │   │   ├── base_vision_llm.py       # Vision LLM 抽象基类（支持图像输入）
-│   │   │   └── azure_vision_llm.py      # Azure Vision 实现 (GPT-4o/GPT-4-Vision)
-│   │   │
-│   │   ├── embedding/                   # Embedding 抽象
-│   │   │   ├── __init__.py
-│   │   │   ├── base_embedding.py        # Embedding 抽象基类
-│   │   │   ├── embedding_factory.py     # Embedding 工厂
-│   │   │   ├── openai_embedding.py      # OpenAI Embedding 实现
-│   │   │   ├── azure_embedding.py       # Azure Embedding 实现
-│   │   │   └── ollama_embedding.py      # Ollama 本地模型实现
-│   │   │
-│   │   ├── splitter/                    # Splitter 抽象 (切分策略)
-│   │   │   ├── __init__.py
-│   │   │   ├── base_splitter.py         # Splitter 抽象基类
-│   │   │   ├── splitter_factory.py      # Splitter 工厂
-│   │   │   ├── recursive_splitter.py    # RecursiveCharacterTextSplitter 实现
-│   │   │   ├── semantic_splitter.py     # 语义切分实现
-│   │   │   └── fixed_length_splitter.py # 定长切分实现
-│   │   │
-│   │   ├── vector_store/                # VectorStore 抽象
-│   │   │   ├── __init__.py
-│   │   │   ├── base_vector_store.py     # VectorStore 抽象基类
-│   │   │   ├── vector_store_factory.py  # VectorStore 工厂
-│   │   │   └── chroma_store.py          # Chroma 实现
-│   │   │
-│   │   ├── reranker/                    # Reranker 抽象
-│   │   │   ├── __init__.py
-│   │   │   ├── base_reranker.py         # Reranker 抽象基类
-│   │   │   ├── reranker_factory.py      # Reranker 工厂
-│   │   │   ├── cross_encoder_reranker.py# CrossEncoder 实现
-│   │   │   └── llm_reranker.py          # LLM Rerank 实现
-│   │   │
-│   │   └── evaluator/                   # Evaluator 抽象
-│   │       ├── __init__.py
-│   │       ├── base_evaluator.py        # Evaluator 抽象基类
-│   │       ├── evaluator_factory.py     # Evaluator 工厂
-│   │       ├── ragas_evaluator.py       # Ragas 实现
-│   │       └── custom_evaluator.py      # 自定义指标实现
-│   │
-│   └── observability/                   # Observability 层 (可观测性)
-│       ├── __init__.py
-│       ├── logger.py                    # 结构化日志 (JSON Formatter)
-│       ├── dashboard/                   # Web Dashboard (可视化管理平台)
-│       │   ├── __init__.py
-│       │   ├── app.py                   # Streamlit 入口 (页面导航注册)
-│       │   ├── pages/                   # 六大功能页面
-│       │   │   ├── overview.py          # 系统总览 (组件配置 + 数据统计)
-│       │   │   ├── data_browser.py      # 数据浏览器 (文档/Chunk/图片查看)
-│       │   │   ├── ingestion_manager.py # Ingestion 管理 (触发摄取/删除文档)
-│       │   │   ├── ingestion_traces.py  # Ingestion 追踪 (摄取历史与详情)
-│       │   │   ├── query_traces.py      # Query 追踪 (查询历史与详情)
-│       │   │   └── evaluation_panel.py  # 评估面板 (运行评估/查看指标)
-│       │   └── services/                # Dashboard 数据服务层
-│       │       ├── trace_service.py     # Trace 读取服务 (解析 traces.jsonl)
-│       │       ├── data_service.py      # 数据浏览服务 (ChromaStore/ImageStorage)
-│       │       └── config_service.py    # 配置读取服务 (Settings 展示)
-│       └── evaluation/                  # 评估模块
-│           ├── __init__.py
-│           ├── eval_runner.py           # 评估执行器
-│           ├── ragas_evaluator.py       # Ragas 评估实现
-│           └── composite_evaluator.py   # 组合评估器 (多后端并行)
+│   ├── mcp_server/                      # MCP Server 层
+│   │   ├── server.py                    # MCP 实现 (Stdio Transport)
+│   │   ├── protocol_handler.py
+│   │   └── tools/                       # query_knowledge_hub, list_collections, get_document_summary
+│   ├── core/
+│   │   ├── settings.py, types.py, collection_catalog.py
+│   │   ├── query_engine/                # query_processor, hybrid_search, dense/sparse, fusion, reranker
+│   │   ├── response/                    # response_builder, citation_generator, multimodal_assembler
+│   │   └── trace/                       # trace_context, trace_collector
+│   ├── ingestion/                       # pipeline, document_manager, chunking/, transform/, embedding/, storage/
+│   ├── libs/
+│   │   ├── loader/                      # pdf/txt/markitdown loaders, loader_factory, file_integrity
+│   │   ├── llm/                         # azure/openai/ollama/deepseek + azure/openai vision
+│   │   ├── embedding/                   # openai/azure/ollama
+│   │   ├── splitter/                    # recursive_splitter（semantic/fixed 规划扩展）
+│   │   ├── vector_store/                # chroma_store
+│   │   ├── reranker/                    # cross_encoder, llm_reranker
+│   │   └── evaluator/                   # base, factory, custom（Ragas/Composite 在 observability/evaluation/）
+│   └── observability/
+│       ├── logger.py
+│       ├── dashboard/                   # app.py, pages/*, services/*
+│       └── evaluation/                  # eval_runner, ragas_evaluator, composite_evaluator, ragas_zh_prompts
+│
+├── skills/                              # Agent 工作流（详见 skills/README.md）
+│
+├── data/
+│   ├── documents/{collection}/
+│   ├── images/{collection}/{doc_hash}/
+│   └── db/
+│       ├── ingestion_history.db         # SQLite：文件 SHA256 增量
+│       ├── image_index.db               # SQLite：图片 id → 路径
+│       ├── chroma/                      # Dense 向量 + Chunk Metadata
+│       └── bm25/                        # JSON 倒排索引 ({collection}_bm25.json)
+│
+├── logs/                                # traces.jsonl, app.log
+├── tests/                               # unit / integration / e2e / fixtures
+├── scripts/
+│   ├── ingest.py, query.py, evaluate.py, start_dashboard.py
+│   ├── rename_collection.py             # 运维：重命名集合
+│   └── seed_eval_history.py             # 运维：种子评估历史
+│
+├── main.py                              # MCP 入口（校验配置 → run_stdio_server）
+├── pyproject.toml                       # 依赖与 CLI（mcp-server / rag-dashboard）
+└── README.md
+```
 
-│
-├── data/                                # 数据目录
-│   ├── documents/                       # 原始文档存放
-│   │   └── {collection}/                # 按集合分类
-│   ├── images/                          # 提取的图片存放
-│   │   └── {collection}/                # 按集合分类（实际存储在 {doc_hash}/ 子目录下）
-│   └── db/                              # 数据库与索引文件目录
-│       ├── ingestion_history.db         # 文件完整性历史记录 (SQLite)
-│       │                                # 表结构：file_hash, file_path, status, processed_at, error_msg
-│       │                                # 用途：增量摄取，避免重复处理未变更文件
-│       ├── image_index.db               # 图片索引映射 (SQLite)
-│       │                                # 表结构：image_id, file_path, collection, doc_hash, page_num
-│       │                                # 用途：快速查询 image_id → 本地文件路径，支持图片检索与引用
-│       ├── chroma/                      # Chroma 向量库目录
-│       │                                # 存储 Dense Vector、Sparse Vector 与 Chunk Metadata
-│       └── bm25/                        # BM25 索引目录
-│                                        # 存储倒排索引与 IDF 统计信息（当前使用 pickle）
-│
-├── cache/                               # 缓存目录
-│   ├── embeddings/                      # Embedding 缓存 (按内容哈希)
-│   ├── captions/                        # 图片描述缓存
-│   └── processing/                      # 处理状态缓存 (文件哈希/Chunk 哈希)
-│
-├── logs/                                # 日志目录
-│   ├── traces.jsonl                     # 追踪日志 (JSON Lines)
-│   └── app.log                          # 应用日志
-│
-├── tests/                               # 测试目录
-│   ├── unit/                            # 单元测试
-│   │   ├── test_dense_retriever.py      # D2: 稠密检索器测试
-│   │   ├── test_sparse_retriever.py     # D3: 稀疏检索器测试
-│   │   ├── test_fusion_rrf.py           # D4: RRF 融合测试
-│   │   ├── test_reranker_fallback.py    # D6: Reranker 回退测试
-│   │   ├── test_protocol_handler.py     # E2: 协议处理器测试
-│   │   ├── test_response_builder.py     # E3: 响应构建器测试
-│   │   ├── test_list_collections.py     # E4: 集合列表工具测试
-│   │   ├── test_get_document_summary.py # E5: 文档摘要工具测试
-│   │   ├── test_trace_context.py        # F1: 追踪上下文测试
-│   │   ├── test_jsonl_logger.py         # F2: JSON Lines 日志测试
-│   │   └── ...                          # 其他已有单元测试
-│   ├── integration/                     # 集成测试
-│   │   ├── test_ingestion_pipeline.py
-│   │   ├── test_hybrid_search.py        # D5: 混合检索集成测试
-│   │   └── test_mcp_server.py           # E1-E6: MCP 服务器集成测试
-│   ├── e2e/                             # 端到端测试
-│   │   ├── test_data_ingestion.py
-│   │   ├── test_recall.py               # G2: 召回回归测试
-│   │   └── test_mcp_client.py           # G1: MCP Client 模拟测试
-│   └── fixtures/                        # 测试数据
-│       ├── sample_documents/
-│       └── golden_test_set.json         # F5/G2: 黄金测试集
-│
-├── scripts/                             # 脚本目录
-│   ├── ingest.py                        # 数据摄取脚本（离线摄取入口）
-│   ├── query.py                         # 查询测试脚本（在线查询入口）
-│   ├── evaluate.py                      # 评估运行脚本
-│   └── start_dashboard.py               # Dashboard 启动脚本
-│
-├── main.py                              # MCP Server 启动入口
-├── pyproject.toml                       # Python 项目配置
-├── requirements.txt                     # 依赖列表
-└── README.md                            # 项目说明
+> **说明**：`cache/`（embedding/caption 缓存）为规划目录，当前代码未使用。依赖由 `pyproject.toml` 管理，无独立 `requirements.txt`。
 ```
 
 ### 5.3 模块说明
@@ -1625,7 +1480,7 @@ smart-knowledge-hub/
 
 | 模块 | 职责 | 关键技术点 |
 |-----|-----|----------|
-| `server.py` | MCP Server 主入口，处理 Stdio Transport 通信 | Python MCP SDK，JSON-RPC 2.0 |
+| `server.py` | MCP Server 实现（Stdio Transport） | Python MCP SDK，JSON-RPC 2.0；由 `main.py` 校验配置后调用 |
 | `protocol_handler.py` | 协议解析与能力协商 | `initialize`、`tools/list`、`tools/call` |
 | `tools/*` | 对外暴露的工具函数实现 | 装饰器定义，参数校验，响应格式化 |
 
@@ -1635,13 +1490,14 @@ smart-knowledge-hub/
 |-----|-----|----------|
 | `settings.py` | 配置加载与校验 | 读取 `config/settings.yaml`，解析为 `Settings`，必填字段校验（fail-fast） |
 | `types.py` | 核心数据类型/契约（全链路复用） | 定义 `Document/Chunk/ChunkRecord/ProcessedQuery/RetrievalResult`；序列化稳定；作为 ingestion/retrieval/mcp 的数据契约中心 |
-| `query_processor.py` | 查询预处理 | 关键词提取、同义词扩展、Metadata 解析 |
+| `collection_catalog.py` | 集合目录 | 读取 `config/collections.yaml`，供 `list_collections` 展示描述 |
+| `query_processor.py` | 查询预处理 | 关键词提取、停用词过滤、Metadata filter 解析（同义词扩展为规划项） |
 | `hybrid_search.py` | 混合检索编排 | 并行 Dense/Sparse 召回，结果融合，Metadata 过滤 |
 | `dense_retriever.py` | 语义向量检索 | Query Embedding + VectorStore 检索，Cosine Similarity |
 | `sparse_retriever.py` | BM25 关键词检索 | 倒排索引查询，TF-IDF 打分 |
 | `fusion.py` | 结果融合 | RRF 算法，排名倒数加权 |
 | `reranker.py` | 精排重排 | CrossEncoder / LLM Rerank / Fallback 回退 |
-| `response_builder.py` | 响应构建 | MCP 响应格式化，Markdown 生成 |
+| `response_builder.py` | 响应构建 | MCP 响应格式化（检索片段 + 引用；最终回答由 MCP Host 生成） |
 | `citation_generator.py` | 引用生成 | 从检索结果生成结构化引用列表 |
 | `multimodal_assembler.py` | 多模态组装 | Text + Image Base64 编码，MCP 多内容类型 |
 | `trace_context.py` | 追踪上下文 | trace_id 生成，阶段记录，finish 汇总 |
@@ -1674,32 +1530,32 @@ smart-knowledge-hub/
 
 #### 5.3.5 Libs 层 (可插拔抽象)
 
-| 抽象接口 | 当前默认实现 | 可替换选项 |
+| 抽象接口 | 当前默认实现 | 可替换选项（规划） |
 |---------|------------|----------|
-| `LLMClient` | Azure OpenAI | OpenAI / Ollama / DeepSeek |
-| `VisionLLMClient` | Azure OpenAI Vision (GPT-4o) | OpenAI Vision / Ollama Vision (LLaVA) |
-| `EmbeddingClient` | OpenAI text-embedding-3 | BGE / Ollama 本地模型 |
-| `Loader` | PDF Loader（MarkItDown） | Markdown/HTML/Code Loader 等 |
-| `FileIntegrity` | SQLite (`data/db/ingestion_history.db`) | Redis（分布式）/ PostgreSQL（企业级）/ JSON文件（测试） |
-| `Splitter` | RecursiveCharacterTextSplitter | Semantic / FixedLen |
-| `VectorStore` | Chroma | Qdrant / Pinecone / Milvus |
-| `Reranker` | CrossEncoder | LLM Rerank / None (关闭) |
-| `Evaluator` | Ragas | DeepEval / 自定义指标 |
+| `LLMClient` | Azure OpenAI | OpenAI / Ollama / DeepSeek ✅ |
+| `VisionLLMClient` | Azure OpenAI Vision | OpenAI Vision ✅ / Ollama Vision（规划） |
+| `EmbeddingClient` | OpenAI text-embedding-3 | Azure / Ollama ✅；BGE（规划） |
+| `Loader` | `loader_factory` 路由 | PDF / TXT / MD / DOCX ✅ |
+| `FileIntegrity` | SQLite (`ingestion_history.db`) | Redis / PostgreSQL（规划） |
+| `Splitter` | RecursiveCharacterTextSplitter ✅ | Semantic / FixedLen（规划） |
+| `VectorStore` | Chroma ✅ | Qdrant / Pinecone / Milvus（规划） |
+| `Reranker` | CrossEncoder | LLM Rerank / None ✅ |
+| `Evaluator` | Ragas + Custom + Composite ✅ | DeepEval（规划） |
 
 #### 5.3.6 Observability 层
 
 | 模块 | 职责 | 关键技术点 |
 |-----|-----|----------|
 | `logger.py` | 结构化日志 | JSON Formatter，JSON Lines 输出 |
-| `trace_context.py` | 请求级追踪 | trace_id，trace_type（query/ingestion），阶段耗时记录，`finish()` + `to_dict()` 序列化 |
-| `trace_collector.py` | 追踪收集器 | 收集 trace 并触发持久化到 JSON Lines |
+| `core/trace/trace_context.py` | 请求级追踪 | trace_id，trace_type（query/ingestion），阶段耗时记录 |
+| `core/trace/trace_collector.py` | 追踪收集器 | 收集 trace 并触发持久化到 JSON Lines |
 | `dashboard/app.py` | Dashboard 入口 | Streamlit 多页面应用，`st.navigation` 页面注册 |
 | `dashboard/pages/overview.py` | 系统总览 | 组件配置卡片，数据资产统计 |
 | `dashboard/pages/data_browser.py` | 数据浏览器 | 文档列表，Chunk 详情，图片预览 |
 | `dashboard/pages/ingestion_manager.py` | Ingestion 管理 | 文件上传，摄取触发（进度条），文档删除 |
 | `dashboard/pages/ingestion_traces.py` | Ingestion 追踪 | 摄取历史，阶段耗时瀑布图 |
 | `dashboard/pages/query_traces.py` | Query 追踪 | 查询历史，Dense/Sparse 对比，Rerank 变化 |
-| `dashboard/pages/evaluation_panel.py` | 评估面板 | 运行评估，指标展示，历史趋势（Phase H 实现） |
+| `dashboard/pages/evaluation_panel.py` | 评估面板 | 运行评估，指标展示，历史趋势 |
 | `dashboard/services/trace_service.py` | Trace 数据服务 | 解析 traces.jsonl，按 trace_type 分类 |
 | `dashboard/services/data_service.py` | 数据浏览服务 | 封装 ChromaStore/ImageStorage 读取 |
 | `dashboard/services/config_service.py` | 配置读取服务 | 封装 Settings 展示 |
@@ -1713,7 +1569,7 @@ smart-knowledge-hub/
 #### 5.4.1 离线数据摄取流 (Ingestion Flow)
 
 ```
-原始文档 (PDF)
+原始文档 (PDF / TXT / MD / DOCX)
       │
       ▼
 ┌─────────────────┐     未变更则跳过
@@ -1723,8 +1579,8 @@ smart-knowledge-hub/
          │ 新文件/已变更
          ▼
 ┌─────────────────┐
-│     Loader      │  PDF → Markdown + 图片提取 + 元数据收集
-│   (MarkItDown)  │
+│     Loader      │  按扩展名解析 → Markdown/文本 + 图片提取 + 元数据
+│  (loader_factory)│
 └────────┬────────┘
          │ Document (text + metadata.images)
          ▼
@@ -1932,7 +1788,7 @@ dashboard:
 6. **阶段 F：Trace 基础设施与打点**
    - 目的：增强 TraceContext，实现结构化日志持久化，在 Ingestion + Query 双链路打点，添加 Pipeline 进度回调。
 7. **阶段 G：可视化管理平台 Dashboard**
-   - 目的：搭建 Streamlit 六页面管理平台（系统总览 / 数据浏览 / Ingestion 管理 / Ingestion 追踪 / Query 追踪 / 评估占位），实现 DocumentManager 跨存储协调。
+   - 目的：搭建 Streamlit 六页面管理平台（系统总览 / 数据浏览 / Ingestion 管理 / Ingestion 追踪 / Query 追踪 / 评估面板），实现 DocumentManager 跨存储协调。
 8. **阶段 H：评估体系**
    - 目的：实现 RagasEvaluator + CompositeEvaluator + EvalRunner，启用评估面板页面，建立 golden test set 回归基线。
 9. **阶段 I：端到端验收与文档收口**
@@ -1951,7 +1807,7 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| A1 | 初始化目录树与最小可运行入口 | [x] | 2026-01-26 | 目录结构、配置文件、main.py 已创建 |
+| A1 | 初始化目录树与最小可运行入口 | [x] | 2026-01-26 | 目录结构、配置文件、`main.py`（委托 `mcp_server.server`）已创建 |
 | A2 | 引入 pytest 并建立测试目录约定 | [x] | 2026-01-26 | pytest 配置、tests/ 目录结构、22 个冒烟测试 |
 | A3 | 配置加载与校验（Settings） | [x] | 2026-01-26 | 配置加载、校验与单元测试 |
 
@@ -2012,7 +1868,7 @@ dashboard:
 
 | 任务编号 | 任务名称 | 状态 | 完成日期 | 备注 |
 |---------|---------|------|---------|------|
-| E1 | MCP Server 入口与 Stdio 约束 | [x] | 2026-02-04 | server.py 使用官方 MCP SDK + stdio + 2集成测试 |
+| E1 | MCP Server 入口与 Stdio 约束 | [x] | 2026-02-04 | `src/mcp_server/server.py` + `main.py` 入口 + 官方 MCP SDK |
 | E2 | Protocol Handler 协议解析与能力协商 | [x] | 2026-02-04 | ProtocolHandler类+tool注册+错误处理+20单元测试 |
 | E3 | query_knowledge_hub Tool | [x] | 2026-02-04 | ResponseBuilder+CitationGenerator+Tool注册+24单元测试+2集成测试 |
 | E4 | list_collections Tool | [x] | 2026-02-04 | ListCollectionsTool+CollectionInfo+ChromaDB集成+41单元测试+2集成测试 |
@@ -2099,7 +1955,7 @@ dashboard:
 - **实现类/函数**：为当前项目创建一个虚拟环境模块。
  - **验收标准**：
   - 目录结构与 DEV_SPEC 5.2 一致（至少把对应目录创建出来）。
-  - `config/prompts/` 目录存在，且三个 prompt 文件可被读取（即使只是占位文本）。
+  - `config/prompts/` 目录存在，且 prompt 文件可被读取（含 `metadata_enrichment.txt`）。
   - 能导入关键顶层包（与目录结构一一对应）：
     - `python -c "import mcp_server; import core; import ingestion; import libs; import observability"`
   - 可以启动虚拟环境模块
@@ -3163,7 +3019,7 @@ dashboard:
 - **M2（完成阶段 C）**：离线摄取链路可用，能构建本地索引。
 - **M3（完成阶段 D+E）**：在线查询 + MCP tools 可用，可在 Copilot/Claude 中调用。
 - **M4（完成阶段 F）**：Ingestion + Query 双链路可追踪，JSON Lines 持久化。
-- **M5（完成阶段 G）**：六页面可视化管理平台就绪（评估面板为占位），数据可浏览、可管理、链路可追踪。
+- **M5（完成阶段 G+H）**：六页面可视化管理平台就绪（含评估面板），数据可浏览、可管理、链路可追踪。
 - **M6（完成阶段 H+I）**：评估体系完整 + E2E 验收通过 + 文档完善，形成"面试/教学/演示"可复现项目。
 
 

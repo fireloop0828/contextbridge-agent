@@ -11,11 +11,12 @@
 
 #### 1️⃣ 实战驱动学习 (Learn by Doing)
 项目架构本身就是 RAG 面试题的"**活体答案**"。我们将经典面试考点直接融入代码设计，通过动手实践来巩固理论知识：
-- 分层检索 (Hierarchical Retrieval)
-- Hybrid Search (BM25 + Dense Embedding)
-- Rerank 重排序机制
-- Embedding 策略与优化
-- RAG 性能评测 (Ragas/DeepEval)
+- Hybrid Search (BM25 + Dense Embedding) ✅
+- Rerank 重排序机制 ✅
+- Embedding 策略与优化 ✅
+- RAG 性能评测 (Ragas + Custom) ✅
+- 分层检索 (Hierarchical Retrieval) — 规划扩展，见 §7
+- DeepEval 评估 — 规划扩展，见 §7
 
 #### 2️⃣ 开箱即用与深度扩展并重 (Plug-and-Play & Extensible)
 - **开箱即用**：提供 MCP 标准接口，可直接对接 Copilot/Claude，拿到项目即可运行体验。
