@@ -1,18 +1,19 @@
-# Modular RAG MCP Server
+# RAG Server
 
-> 一个可插拔、可观测的模块化 RAG（检索增强生成）服务框架，通过 MCP（Model Context Protocol）协议对外暴露工具接口，支持 Copilot / Claude 等 AI 助手直接调用。同时也是一份专为**大模型相关岗位学习与面试求职**设计的实战项目与配套教学资源。
+> 一个可插拔、可观测的模块化 RAG（检索增强生成）服务框架，通过 MCP（Model Context Protocol）协议对外暴露工具接口，支持 Cursor / Copilot / Claude 等 AI 助手直接调用。同时也是一份专为**大模型相关岗位学习与面试求职**设计的实战项目与配套教学资源。
+
+> **仓库位置**：本目录为 [ContextBridge Agent](https://github.com/fireloop0828/contextbridge-agent) monorepo 的 `rag-server/` 子项目；主应用 `agents-master/` 通过 `config.json` 以 MCP 方式引用本服务。完整 Skills 说明见 [skills/README.md](skills/README.md)。
 
 ---
 
 ## 📖 目录
 
 - [项目概述](#-项目概述)
-- [分支说明](#-分支说明)
+- [仓库位置](#-仓库位置)
 - [快速开始](#-快速开始)
 - [谁适合用这个项目 & 怎么用](#-谁适合用这个项目--怎么用)
 - [简历参考](#-简历参考)
 - [常见问题](#-常见问题)
-- [后续安排](#-后续安排)
 
 ---
 
@@ -37,15 +38,17 @@
 
 ### 核心能力一览
 
-| 模块 | 能力 | 说明 |
-|------|------|------|
-| **Ingestion Pipeline** | PDF → Markdown → Chunk → Transform → Embedding → Upsert | 全链路数据摄取，支持多模态图片描述（Image Captioning） |
-| **Hybrid Search** | Dense (向量) + Sparse (BM25) + RRF Fusion + Rerank | 粗排召回 + 精排重排的两段式检索架构 |
-| **MCP Server** | 标准 MCP 协议暴露 Tools | `query_knowledge_hub`、`list_collections`、`get_document_summary` |
-| **Dashboard** | Streamlit 六页面管理平台 | 系统总览 / 数据浏览 / Ingestion 管理 / 摄取追踪 / 查询追踪 / 评估面板 |
-| **Evaluation** | Ragas + Custom 评估体系 | 支持 golden test set 回归测试，拒绝"凭感觉"调优 |
-| **Observability** | 全链路白盒化追踪 | Ingestion 与 Query 两条链路的每一个中间状态透明可见 |
-| **Skill 驱动全流程** | 从编写到测试、打包、配置一键完成 | auto-coder / qa-tester / package / setup 等 Skill 覆盖完整开发生命周期（笔记中每个 Skill 的使用和设计思路均有讲解，请参考配套视频） |
+
+| 模块                     | 能力                                                      | 说明                                                                                                                   |
+| ---------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Ingestion Pipeline** | PDF → Markdown → Chunk → Transform → Embedding → Upsert | 全链路数据摄取，支持多模态图片描述（Image Captioning）                                                                                  |
+| **Hybrid Search**      | Dense (向量) + Sparse (BM25) + RRF Fusion + Rerank        | 粗排召回 + 精排重排的两段式检索架构                                                                                                  |
+| **MCP Server**         | 标准 MCP 协议暴露 Tools                                       | `query_knowledge_hub`、`list_collections`、`get_document_summary`                                                      |
+| **Dashboard**          | Streamlit 六页面管理平台                                       | 运行概览 / 知识浏览 / 文档入库 / 入库记录 / 检索记录 / 效果评测                                                                              |
+| **Evaluation**         | Ragas + Custom 评估体系                                     | 支持 golden test set 回归测试，拒绝"凭感觉"调优                                                                                    |
+| **Observability**      | 全链路白盒化追踪                                                | Ingestion 与 Query 两条链路的每一个中间状态透明可见                                                                                   |
+| **Skill 驱动全流程**        | 从编写到测试、打包、配置一键完成                                        | setup / auto-dev / run-qa / clean-project / write-resume 等 Skill 覆盖完整开发生命周期（详见 [skills/README.md](skills/README.md)） |
+
 
 ### 技术亮点
 
@@ -61,66 +64,71 @@
 
 **🧪 三层测试体系**：Unit / Integration / E2E 分层测试，覆盖独立模块逻辑、模块间交互、完整链路（MCP Client / Dashboard）。
 
-**🤖 Skill 驱动全流程**：内置 auto-coder（自动编码）、qa-tester（自动测试）、package（清理打包）、setup（一键配置）等 Agent Skill，覆盖从代码编写到测试、打包、部署的完整开发生命周期。每个 Skill 的使用方法和设计思路在笔记的项目部分均有讲解视频，可参考学习。
+**🤖 Skill 驱动全流程**：内置 setup（环境配置）、auto-dev（规格驱动编码）、run-qa（回归测试）、clean-project（清理打包）、write-resume / mock-interview（求职辅助）等 Agent Skill，覆盖从代码编写到测试、打包、部署的完整开发生命周期。详见 [skills/README.md](skills/README.md)。
 
 > 📖 详细架构设计、模块说明和任务排期请参阅 [DEV_SPEC.md](DEV_SPEC.md)
 
 ---
 
-## 📂 分支说明
+## 📂 仓库位置
 
-本项目提供三个分支，面向不同使用场景，请根据自身需求选择：
+本仓库为 **ContextBridge Agent** monorepo，RAG 服务位于 `rag-server/` 子目录：
 
-### `main` — 最干净的完整代码
+```
+ContextBridge Agent/
+├── agents-master/     # 主应用（Streamlit + LangGraph Agent，通过 MCP 调用本服务）
+├── rag-server/        # 本 README 所在目录
+└── README.md          # 顶层快速开始（主应用 + RAG 联调）
+```
 
-- 始终只有 **1 个 commit**，包含项目的最新完整代码
-- **适合人群**：
-  - 想要快速体验项目完整功能的同学
-  - 时间紧迫，想要快速拿到一个项目去面试、跳过中间开发过程的同学
-  - 想要直接在该项目基础上做二次扩展的同学
-- **使用方式**：克隆后直接运行 Setup Skill 即可体验
-
-### `dev` — 保留完整开发记录
-
-- 代码与 `main` 完全一致，但保留了完整的 commit 历史
-- 记录了从零开始逐步构建的每一步过程，包含大量中间节点
-- **适合人群**：想了解项目是如何一步步从零搭建起来的同学，可以通过 commit 历史回溯开发思路
-
-### `clean-start` — 干净起点，从零开始
-
-- 仅包含工程骨架（Agent Skills + DEV_SPEC），所有任务进度清零
-- 保留了完整的 Skill 配置，可以使用 Agent 辅助开发
-- **适合人群**：
-  - 时间充分、想要从头开发的同学（**强烈建议**）
-  - 想要体验完整工作流的同学：写 Spec → 拆任务 → 写代码 → 写测试 → 迭代优化
-  - 甚至可以基于自己的理解重新设计架构，用自己的思路实现，深度理解每一个模块
-  - 使用我们讲的所有对应思路（Spec 驱动开发、测试先行、可插拔架构等）来完成整个项目
-- **核心理念**：整个项目的代码编写是 **让 AI 基于 DEV_SPEC 来自动完成的**，你自己不需要手写代码。AI 通过 Skill 读取 Spec 中的任务定义、架构设计和接口规范，自动生成符合规格的代码。这个思路请参考笔记对应视频讲解：**5.1 项目 Skills 使用：如何让 AI 使用 Skill 遵循 DEV_SPEC 完成代码**。
+- **克隆**：`git clone https://github.com/fireloop0828/contextbridge-agent.git`，进入 `cd rag-server`
+- **与主应用联调**：先在本目录配置 `config/settings.yaml` 并启动 Dashboard；再在 `agents-master/` 启动主应用（`config.json` 已预置 `rag-server` MCP）
+- **从零开发体验**：使用 `auto-dev` Skill 按 [DEV_SPEC.md](DEV_SPEC.md) 排期迭代；`skills/dev/` 下保留早期 Skill 目录，**以 `skills/` 根目录下的 Skill 为准**（见 [skills/README.md](skills/README.md)）
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 克隆项目
+### 1. 克隆并进入目录
 
 ```bash
-git clone <repo-url>
-cd Modular-RAG-MCP-Server
+git clone https://github.com/fireloop0828/contextbridge-agent.git
+cd contextbridge-agent/rag-server
 ```
 
-### 2. 一键配置（Setup Skill）
+### 2. 环境配置（二选一）
 
-本项目提供了 **Setup Skill** 一键完成所有环境配置，包括：Provider 选择 → API Key 配置 → 依赖安装 → 配置文件生成 → Dashboard 启动。
+**方式 A — Setup Skill（推荐）**
 
-在 VS Code 中打开项目，通过 Copilot / Claude 对话框输入：
+在 Cursor / VS Code 中打开 `rag-server/`，对 Agent 说 `**setup`** 或 **「按 setup 配置环境」**。Skill 会引导：Provider 选择 → API Key → `pip install -e ".[dev]"` → 生成 `config/settings.yaml` → 校验能否启动 Dashboard。
 
+**方式 B — 手动配置**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+cp config/settings.dashscope.example.yaml config/settings.yaml
+# 编辑 config/settings.yaml，填入 api_key 等
 ```
-setup
+
+> `config/settings.yaml` 含真实 Key 时**勿提交 Git**；可与 `agents-master/.env` 中的 `DASHSCOPE_API_KEY` 使用同一把百炼 Key。
+
+### 3. 启动服务
+
+```bash
+# RAG 控制台（Streamlit）
+streamlit run dashboard.py
+
+# 与 agents-master 同机时换端口
+python scripts/start_dashboard.py --port 8502
+
+# MCP Server（stdio，供 Cursor / agents-master 调用）
+python main.py
+# 或安装后：mcp-server
 ```
 
-Agent 会自动引导你完成全部配置流程。
-
-> 💡 如果不熟悉 Skill 的使用方式，请观看配套笔记中的 **Setup Skill 使用讲解视频**。
+更多面板说明见 [docs/管理面板指南.md](docs/管理面板指南.md)；Skills 用法见 [skills/README.md](skills/README.md)。
 
 ---
 
@@ -144,8 +152,8 @@ Agent 会自动引导你完成全部配置流程。
 
 如果你现在没有 AI 相关项目、急需一个项目去面试，那么可以：
 
-1. **直接使用本项目**，克隆 `main` 分支，用 Setup Skill 跑起来
-2. **结合 Resume Writer Skill** 写自己的简历（Skill 会根据你的背景定制化生成项目描述）
+1. **直接使用本项目**，克隆仓库后进入 `rag-server/`，用 Setup Skill 跑起来
+2. **结合 write-resume Skill** 写自己的简历（Skill 会根据你的背景定制化生成项目描述）
 3. **尝试理解项目**，跑通核心流程，结合我后续总结的该项目面试问题，先去面试
 4. **随着面试深入理解、扩展项目**——面试本身就是最好的学习驱动力
 
@@ -161,13 +169,13 @@ Agent 会自动引导你完成全部配置流程。
 - **想展示后端工程能力**：加上后端部署能力，写 Dockerfile，做 CI/CD 流水线，加上监控和日志收集
 - **想把 RAG 做深入**：扩展到 Agentic RAG、Graph RAG 等高级形态，或者在检索策略上做更多优化实验
 
-每个人发展方向不一样——就像项目配套的 Resume Writer Skill，它写简历的时候会先问你的背景和情况。你定位大模型应用开发工程师、RAG 工程师、全栈工程师，校招、社招的要求都是不一样的（具体大模型不同岗位介绍和技术栈可以看笔记的**大模型岗位介绍**部分），所以需要自己进行针对性扩展。
+每个人发展方向不一样——就像项目配套的 write-resume Skill，它写简历的时候会先问你的背景和情况。你定位大模型应用开发工程师、RAG 工程师、全栈工程师，校招、社招的要求都是不一样的（具体大模型不同岗位介绍和技术栈可以看笔记的**大模型岗位介绍**部分），所以需要自己进行针对性扩展。
 
 > **强烈建议**：不管你什么背景、怎么扩展，你大概率需要结合自己的业务来写简历。所以**至少试一下**——把你自己领域的文档（金融、法律、医疗，或者你的业务文档）丢进去，看一下检索效果。如果效果不好，再去调整和改进。这个过程本身就是最好的学习，也是面试时最有说服力的实战经验。
 
 ### 4. 时间特别充分 —— 从零体验完整工作流
 
-如果你时间充足，我建议你从 `clean-start` 分支开始，甚至在 `clean-start` 的基础上**删掉 DEV_SPEC**，从文档设计开始，一点点体验：
+如果你时间充足，我建议你基于 [DEV_SPEC.md](DEV_SPEC.md) 用 `**auto-dev` Skill** 从零体验完整工作流，甚至在现有规格上**自行改写 DEV_SPEC**，从文档设计开始，一点点体验：
 
 **文档设计 → AI 写代码 → 改进迭代 → 测试 → 部署**
 
@@ -198,7 +206,8 @@ Agent 会自动引导你完成全部配置流程。
 3. **不需要关心技术细节**：产品不用关心每一行代码怎么写，但通过跑通这个流程，你能从产品层面思考痛点——比如检索不准怎么定义指标、用户体验上怎么设计反馈机制、数据质量如何影响 RAG 效果等
 
 **具体怎么做：**
-- 克隆 `main` 分支，用 Setup Skill 跑起来，体验完整流程
+
+- 克隆仓库，进入 `rag-server/`，用 Setup Skill 跑起来，体验完整流程
 - 把你自己业务领域的文档丢进去，看检索效果，思考产品层面的优化方向
 - 面试时讲你的产品思路和设计思考，技术实现部分说明是用 AI 辅助完成的
 
@@ -213,7 +222,6 @@ Agent 会自动引导你完成全部配置流程。
 如果你是转行，项目都是自己做的，多少会遇到面试官觉得你项目浅的问题。我之前也提到过这一点，但不用害怕：
 
 1. **项目深度不是入行的必要条件。** 我去年拿了 6 个 offer，其中包括大厂 offer，即使这样，还是有面试官觉得我项目浅。面试还会考虑很多其他方面——理论基础、算法能力、背景匹配、知识广度等等。不要因为觉得自己转行项目浅就觉得自己转不了。
-
 2. **项目是在不断优化和深入的。** 面试官说你项目浅，你听他的反馈，一定能听出来他为什么觉得浅——比如觉得你数据不够复杂，那你就造一些复杂数据；觉得你图片处理太简单，那你可以扩展多模态策略。我自己也是在面试过程中不断往项目里加东西：我之前做的 Agent 项目，随着面试推进，我往里加了部署、训练、反思数据、评估模块——整个过程都是随着面试同步进行的。
 
 **给自己预留多一点面试时间，一边面试，一边改进和加深。** 所以这里就又提到了整套项目的思路——学会这些思路，你才能持续扩展，而且扩展的门槛很低，都是想好想法让 AI 写嘛，所以不用怕。
@@ -226,13 +234,13 @@ Agent 会自动引导你完成全部配置流程。
 
 ## 📝 简历参考
 
-> ⚠️ **强烈建议**：请使用项目内置的 **Resume Writer Skill** 来生成你的简历项目经历，而不是直接复制下面的示例。
+> ⚠️ **强烈建议**：请使用项目内置的 **write-resume Skill** 来生成你的简历项目经历，而不是直接复制下面的示例。
 >
 > 简历项目经历**一定是针对性的**——需要结合你自己的业务背景、目标岗位、技术侧重来定制化生成。下面的示例仅用于展示 Skill 的输出效果和不同场景的写法参考，**直接照搬没有任何意义**。
 >
-> **如何使用 Resume Writer Skill**：在 VS Code 中通过 Copilot / Claude 对话框输入 `写简历` 或 `resume`，Skill 会引导你完成画像采集并自动生成四段式简历。具体使用方式和设计思路请参考笔记中 **项目部分的视频讲解**。
+> **如何使用 write-resume Skill**：在 Cursor / VS Code 中对 Agent 说 `**写简历`** 或 `**resume**`，Skill 会引导你完成画像采集并自动生成四段式简历。详见 [skills/write-resume/SKILL.md](skills/write-resume/SKILL.md)。
 
-### Resume Writer Skill 工作方式
+### write-resume Skill 工作方式
 
 Skill 采用 **"写作原则 + 项目亮点 + 用户画像 = 定制化简历"** 的三角模型，流程如下：
 
@@ -252,13 +260,14 @@ Skill 采用 **"写作原则 + 项目亮点 + 用户画像 = 定制化简历"** 
 **目标**：构建基于混合检索 + MCP 协议的智能知识问答系统，实现精准语义检索与 AI Agent 直接调用私有知识库的能力，将文档问答准确率提升至 90% 以上。
 
 **过程**：
+
 - 设计 BM25 + Dense Embedding 混合召回架构，通过 RRF 融合排序平衡查全率与查准率，结合 Cross-Encoder 重排序将 Top-10 命中率提升约 25%
 - 构建全链路 Ingestion Pipeline（PDF 解析 → Markdown → 语义分块 → Metadata 增强 → Embedding → Upsert），集成 Vision LLM 实现图片自动描述并缝合进 Chunk，复用纯文本链路即可"搜文字出图"
 - 实现 LLM / Embedding / Reranker / VectorStore 全链路可插拔架构，定义统一抽象接口，通过配置文件一键切换后端 Provider，支持 4+ LLM Provider 零代码切换
 - 集成 Ragas + Custom 双评估体系，建立 Golden Test Set 回归测试机制，覆盖 Faithfulness / Relevancy / Recall 等维度，拒绝"凭感觉"调优
-- 基于 Skill 驱动全流程开发，通过 auto-coder / qa-tester / setup / package 等 5 大 Agent Skill 覆盖编码、测试、配置、打包完整生命周期，2 个月业余时间完成 68 个子任务的全量交付
+- 基于 Skill 驱动全流程开发，通过 setup / auto-dev / run-qa / clean-project 等 Agent Skill 覆盖编码、测试、配置、打包完整生命周期，2 个月业余时间完成 68 个子任务的全量交付
 
-**结果**：系统支撑 5000+ 篇文档的实时语义检索，检索准确率（Hit Rate@10）达 92%，端到端查询延迟控制在 800ms 以内，三层测试体系（Unit / Integration / E2E）覆盖 1200+ 测试用例。
+**结果**：系统支撑 5000+ 篇文档的实时语义检索，检索准确率（Hit Rate@10）达 92%，端到端查询延迟控制在 800ms 以内，三层测试体系（Unit / Integration / E2E）覆盖 1300+ 测试用例。
 
 **技术栈**：Python / LangChain / ChromaDB / BM25 / Cross-Encoder / MCP Protocol / Streamlit / Ragas / Azure OpenAI
 
@@ -273,12 +282,13 @@ Skill 采用 **"写作原则 + 项目亮点 + 用户画像 = 定制化简历"** 
 **目标**：为团队构建基于 Agent + RAG 架构的智能知识助手，实现跨系统文档的语义检索与自动问答，通过 MCP 协议集成至工程师日常工具链（VS Code / Claude Desktop），将文档查找时间缩短 60% 以上。
 
 **过程**：
+
 - 设计 Agent + RAG 分层架构，Agent 端负责意图识别与 Tool Calling，RAG 端提供 BM25 + Dense Embedding 混合召回 + Cross-Encoder 精排的两段式检索能力，通过 MCP 协议暴露标准化工具接口供 Agent 调用
 - 实现全链路 Ingestion Pipeline，支持 PDF / Markdown 多格式文档解析，集成 Vision LLM 自动生成图片描述（架构图、截图等），解决"搜文字出图"的多模态检索需求
 - 构建可插拔后端架构，LLM / Embedding / Reranker / VectorStore 均定义抽象接口，支持 Azure OpenAI ↔ DeepSeek ↔ Ollama 一键切换，适配团队不同网络环境
-- 搭建 Streamlit Dashboard 管理平台，提供数据浏览、Ingestion 追踪、查询追踪、评估面板六大功能页，实现全链路白盒化可观测
+- 搭建 Streamlit Dashboard 管理平台，提供运行概览、知识浏览、文档入库、入库/检索记录、效果评测六大功能页，实现全链路白盒化可观测
 - 集成 Ragas 评估框架 + Golden Test Set 回归测试，在版本迭代中持续监控检索质量，Faithfulness 评分稳定在 0.85 以上
-- 采用 Skill 驱动全流程开发模式，编写 DEV_SPEC 规格文档驱动 auto-coder 自动编码、qa-tester 自动测试与修复、setup 一键环境配置，5 大 Agent Skill 覆盖完整开发生命周期，2 个月业余时间完成 68 个子任务交付
+- 采用 Skill 驱动全流程开发模式，编写 DEV_SPEC 规格文档驱动 auto-dev 自动编码、run-qa 自动测试与修复、setup 一键环境配置，5 大 Agent Skill 覆盖完整开发生命周期，2 个月业余时间完成 68 个子任务交付
 
 **结果**：系统覆盖团队 8000+ 篇技术文档，工程师日均文档查询时间从 15 分钟缩短至 3 分钟，检索准确率 Hit Rate@10 达 90%，已通过 MCP 协议接入 3 个内部 AI 工具，累计处理查询 2 万+ 次。
 
@@ -295,12 +305,13 @@ Skill 采用 **"写作原则 + 项目亮点 + 用户画像 = 定制化简历"** 
 **目标**：设计并实现模块化 RAG 检索系统，将语义检索能力引入合规文档管理流程，支持近义词、跨语言条款匹配，目标将合规条款定位准确率提升至 90% 以上。
 
 **过程**：
+
 - 主导系统架构设计，采用全链路可插拔架构，LLM / Embedding / Reranker / Splitter / VectorStore 均定义抽象接口与工厂模式，通过 YAML 配置一键切换后端，零代码修改即可适配不同部署环境
 - 实现 BM25 稀疏检索 + Dense Embedding 语义检索的混合召回策略，通过 RRF 融合排序兼顾专有名词精确匹配与语义近义匹配，检索准确率较纯向量方案提升 22%
 - 构建完整的数据摄取管线，支持 PDF 解析 → 语义分块 → Chunk Refinement → Metadata Enrichment → 向量化存储，实现 DocumentManager 幂等管理，保证文档更新时的数据一致性
-- 搭建三层测试体系（Unit / Integration / E2E），覆盖 1200+ 测试用例，集成 Ragas 评估框架建立自动化回归机制，确保迭代过程中检索质量不退化
+- 搭建三层测试体系（Unit / Integration / E2E），覆盖 1300+ 测试用例，集成 Ragas 评估框架建立自动化回归机制，确保迭代过程中检索质量不退化
 - 基于 MCP 协议暴露标准化工具接口，支持 GitHub Copilot / Claude Desktop 等 AI 助手直接调用，实现"一次开发、多端调用"的服务化部署
-- 实践 Skill 驱动全流程工程化方法，基于 DEV_SPEC 规格文档驱动 AI Agent 自动完成编码（auto-coder）、测试（qa-tester）、环境配置（setup）、清理打包（package），68 个子任务全量由 Agent 交付，开发周期压缩至 2 个月业余时间
+- 实践 Skill 驱动全流程工程化方法，基于 DEV_SPEC 规格文档驱动 AI Agent 自动完成编码（auto-dev）、测试（run-qa）、环境配置（setup）、清理打包（clean-project），68 个子任务全量由 Agent 交付，开发周期压缩至 2 个月业余时间
 
 **结果**：系统上线后支撑 12000+ 篇合规文档的实时语义检索，条款定位准确率从 68% 提升至 91%，单次查询延迟控制在 700ms，合规团队文档审查效率提升约 50%。
 
@@ -310,13 +321,13 @@ Skill 采用 **"写作原则 + 项目亮点 + 用户画像 = 定制化简历"** 
 
 > 💡 **使用提醒与重要说明**：
 >
-> **1. 关于放大策略**：Resume Writer Skill 中内置了我设计的**放大策略**——AI 会在合理范围内对你的项目经历进行包装和放大（例如量化指标、业务规模等）。这是我允许的，也是简历写作的正常做法。但这意味着：**生成简历后，你必须想清楚面试官可能针对每一条追问什么、你该怎么回答**。Skill 在生成简历的同时会自动给出 3-5 条面试追问预测，请认真准备这些问题。
+> **1. 关于放大策略**：write-resume Skill 中内置了我设计的**放大策略**——AI 会在合理范围内对你的项目经历进行包装和放大（例如量化指标、业务规模等）。这是我允许的，也是简历写作的正常做法。但这意味着：**生成简历后，你必须想清楚面试官可能针对每一条追问什么、你该怎么回答**。Skill 在生成简历的同时会自动给出 3-5 条面试追问预测，请认真准备这些问题。
 >
 > **2. 把简历当作实践清单**：简历中写到的每一个技术点，你都应该**真正去试一下**。比如简历写了"检索准确率提升 XX%"——那你就应该在自己的数据上跑一下，看看实际效果如何，过程中遇到了什么问题，你是怎么调优解决的。这些实践经验才是面试时真正有说服力的内容，也是你真正学到东西的过程。简历里没涉及到的部分（比如你没试过多模态、没跑过评估），也可以以此为契机去做代码实验。
 >
 > **3. 生成的是初稿，请务必结合自身情况修改**：Skill 生成的简历是**初稿**，不是终稿。你需要根据自己的实际情况进行调整——哪些技术你确实深入用过、哪些只是了解、哪些数据需要换成你自己的。简历写作有一条铁律：**写在简历上的东西，你一定要会讲**。即使某个点是放大的，你也要想清楚面试官会怎么问、你怎么自圆其说。说不清楚的东西宁可不写，写上去就要能扛住追问。
 >
-> **4. 方法比模板更重要**：整个简历编写的思路是我的——包括放大策略、四段式结构（背景 → 目标 → 过程 → 结果 → 技术栈）、亮点匹配逻辑等，这些都沉淀在 Resume Writer Skill 里。如果你有自己更信任的简历模板，或者你对项目做了扩展修改，完全可以去修改 Skill 本身来适配。**学会这套"用 Skill 沉淀方法论、让 AI 按规则执行"的逻辑，比简历本身更有价值**——这个思路可以复用到你未来任何项目的简历编写中。
+> **4. 方法比模板更重要**：整个简历编写的思路是我的——包括放大策略、四段式结构（背景 → 目标 → 过程 → 结果 → 技术栈）、亮点匹配逻辑等，这些都沉淀在 write-resume Skill 里。如果你有自己更信任的简历模板，或者你对项目做了扩展修改，完全可以去修改 Skill 本身来适配。**学会这套"用 Skill 沉淀方法论、让 AI 按规则执行"的逻辑，比简历本身更有价值**——这个思路可以复用到你未来任何项目的简历编写中。
 >
 > **5. 强烈建议写上 Skill 驱动全流程**：我个人的意见是，**Skill 驱动全流程开发这个闭环，适合写在任何人的简历上**。Skill 是当下非常热门的方向，已经是面试中的必考内容，很多公司内部也在研究如何用 Skill 加速项目构建。讲清楚你是如何使用 Skill 完成整个项目从编码 → 测试 → 修复 → 配置 → 打包的完整闭环，这本身就是一个比较创新和前沿的亮点，面试官会对此印象深刻。关于 Skill 相关内容在面试中怎么讲、怎么回答追问，我后面也会提供一些例子给大家参考。
 
@@ -337,16 +348,18 @@ Skill 采用 **"写作原则 + 项目亮点 + 用户画像 = 定制化简历"** 
 
 > **原理说明**：项目的 `src/libs/` 下的 LLM、Embedding、Reranker 等模块都使用工厂模式，新增一个 Provider 只需要：① 新增一个 Provider 类；② 在工厂注册；③ 更新 `settings.yaml` 配置。AI 完全可以自动完成这些步骤。
 
-### 2. 项目评估（Custom Evaluator）与 Cross-Encoder Reranker 部分
+### 2. 项目评估（Custom Evaluator）与 Cross-Encoder Reranker
 
-这两个模块的**框架代码已经搭好，但尚未经过完整测试**，感兴趣的同学可以自行完善：
+这两个模块**已实现并有单元/集成测试**，但在不同 Provider 与本地模型环境下的稳定性仍可能因部署差异而需要自行验证：
 
-| 模块 | 状态 | 需要做什么 |
-|------|------|-----------|
-| **自定义评估（Custom Evaluator）** | 框架已有，未测试 | 定义评估方法，准备对应的测试数据集 |
-| **Cross-Encoder Reranker** | 框架已有，未测试 | 需要下载本地重排模型（如 `cross-encoder/ms-marco-MiniLM-L-6-v2`） |
 
-**这些 AI 都能帮你写出来**。把需求描述清楚，AI 可以帮你实现评估方法、准备数据、下载模型并完成集成测试。完成这些扩展对面试也是加分项，体现了你的独立扩展能力。
+| 模块                          | 状态        | 说明                                                                                                                    |
+| --------------------------- | --------- | --------------------------------------------------------------------------------------------------------------------- |
+| **自定义评估（Custom Evaluator）** | 已实现，含单元测试 | 支持 hit_rate、mrr 等指标；可与 Ragas 组合为 Composite Evaluator                                                                  |
+| **Cross-Encoder Reranker**  | 已实现，含单元测试 | 需安装 `sentence-transformers` 并下载本地模型（如 `cross-encoder/ms-marco-MiniLM-L-6-v2`）；Setup Skill 中默认推荐「不启用」或「LLM 重排序」以降低环境差异 |
+
+
+**扩展或排障时可直接让 AI 协助**。把需求描述清楚，AI 可以帮你调整评估指标、准备数据、下载模型并完成集成测试。
 
 ### 3. 项目报错 / Bug 怎么办？
 
@@ -358,72 +371,30 @@ Skill 采用 **"写作原则 + 项目亮点 + 用户画像 = 定制化简历"** 
 
 ### 4. 想摄取 PDF 以外的文档格式（Word / Markdown / HTML 等）怎么办？
 
-**直接问 AI 帮你扩展即可。**
+**Loader 层已支持多种格式**，通过 `loader_factory` 按扩展名自动选择：
 
-项目的 Loader 层采用了可插拔的抽象设计（`BaseLoader`），目前默认实现了 PDF Loader。如果你需要支持 Word、Markdown、HTML 等其他格式，整体架构已经设计好了扩展点，让 AI 帮你新增一个对应的 Loader 实现就可以了。
 
-比如告诉 AI："帮我新增一个 Word 文档的 Loader，参考现有的 PDF Loader 实现"，AI 完全可以搞定。
+| 扩展名          | Loader                             |
+| ------------ | ---------------------------------- |
+| `.pdf`       | PdfLoader（含图片提取与 Image Captioning） |
+| `.txt`、`.md` | TxtLoader                          |
+| `.docx`      | MarkItDownLoader                   |
+
+
+如需 **HTML、PPT** 等更多格式，Loader 层采用可插拔的 `BaseLoader` 抽象，让 AI 参考现有实现新增对应 Loader 即可。例如：「帮我新增一个 HTML 文档的 Loader，参考现有的 TxtLoader 实现」。
 
 ### 5. 如何集成到 AI 工具中（Copilot / Cursor / Claude Code 等）？
 
-本项目是一个 **MCP Server**，可以集成到任何支持 MCP 协议的 AI 工具和 Agent 中。我的演示中已经集成到了 **GitHub Copilot** 和 **Cursor** 中，你同样可以集成到 **Claude Code** 或其他支持 MCP 框架的工具。
+本项目是一个 **MCP Server**（`python main.py` / `mcp-server`），可集成到任何支持 MCP 的 AI 工具与 Agent 中。
 
-**如何集成？非常简单——问 AI。**
+**本 monorepo 已预置的集成方式：**
 
-本质上就是给不同的工具写一个 MCP 的配置文件：
-- **Copilot（VS Code）**：让 AI 帮你生成 MCP 配置文件即可
-- **Cursor**：直接导入项目，Cursor 会自动识别
-- **Claude Code / 其他框架**：问 AI 怎么配置，每个工具的配置方式略有不同，但原理都一样
+- **agents-master**：`agents-master/config.json` 已配置 `rag-server` MCP（`cwd` 指向 `../rag-server`），启动主应用后即可在对话中调用 `query_knowledge_hub` 等工具
+- **Cursor**：在 MCP 设置中添加 stdio 服务，命令指向 `rag-server` 目录下的 `python main.py`（或虚拟环境中的 `mcp-server`）
+- **GitHub Copilot（VS Code）**：让 AI 帮你生成 MCP 配置文件即可
+- **Claude Desktop / 其他框架**：配置方式因客户端而异，原理相同——stdio 启动本 MCP Server
 
 当然，也推荐你去理解 MCP 协议的原理——了解 Server 和 Client 之间是如何通信的、Tool 是怎么注册和调用的。这些在面试中也是加分项。
 
-### 6. 通用建议：善用 AI
-
-上述大多数问题（Provider 切换、模块扩展、Bug 修复、架构理解）**AI 都能解决**：
-
-- 🔧 **代码层面**：让 AI 帮你切换 Provider、实现评估方法、修复 Bug
-- 📖 **知识层面**：项目架构问题、设计模式问题，都可以问 AI 获取解释
-- 🚀 **扩展层面**：想加新功能或适配新场景，描述清楚需求让 AI 帮你实现
-
-> 多问 AI，让它指导你。这也是这个项目想要传达的核心理念之一——**学会与 AI 协作开发**。
-
 ---
 
-## 📌 后续安排
-
-### ✅ 会做的
-- 项目相关问题的汇总与 FAQ 整理
-- 面试高频问题整理与参考答案
-- 技术要点讲解（RAG 核心知识、架构设计等）
-- 简历包装建议与示范
-- **亲身面试实践**：我会带着这个项目去面试，把遇到的问题、怎么回答，都总结到文档中
-- **欢迎投稿共建**：如果你用这个项目去面试了，可以把面试录音发给我，我来帮你分析项目相关的问题并写入文档，同时也可以听一下面试整体有哪些改进建议。这样大家能共同进步，一起总结和完善这个项目的面试问答
-
-### ❌ 不会做的
-- 不会继续扩展新功能
-- 不会处理 Bug Fix、设计优化等
-  - 遇到 Bug 和设计上的改进点，请在自己的项目中修复和优化
-  - 后续的扩展和修复一定是要靠自己的，而且**有了 AI，这些都很容易做到**
-  - 这本身就是一个很好的学习和面试加分项
-  - 在理解项目的基础上独立扩展，才是真正的能力体现
-
-### 📝 个人规划说明
-
-我后续会去学习**大模型算法、训练**方向，会把一些笔记和思路总结在笔记中。因此对于这个项目，**不会无限扩展功能或修复 Bug**，但会非常乐意持续做的事情是：
-
-- 总结这个项目在面试中遇到的问题
-- 整理如何回答、如何迭代优化的思路
-- 把面试问答沉淀到文档中，供大家参考
-
----
-
-## 📚 配套资源
-
-本项目配有完整的配套学习资源，包括：
-
-- 🎬 **视频讲解**：项目架构设计、Skill 使用、DEV_SPEC 编写、开发全流程演示
-- 📝 **面试笔记**：大模型方向面试准备、RAG 核心知识点整理
-- ❓ **面试问题参考**：该项目在面试中遇到的真实问题与参考回答
-- 📖 **八股整理**：大模型 / RAG / NLP 相关高频面试题
-
-> 👉 **请关注小红书：[不转到大模型不改名](https://www.xiaohongshu.com) 获取以上所有资源。**
