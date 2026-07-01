@@ -97,8 +97,8 @@ logs/
 *.log
 traces.jsonl
 
-# Auto-coder skill cache
-.github/skills/auto-coder/.spec_hash
+# auto-dev skill cache
+skills/auto-dev/.spec_hash
 
 # Secrets
 .env.local
