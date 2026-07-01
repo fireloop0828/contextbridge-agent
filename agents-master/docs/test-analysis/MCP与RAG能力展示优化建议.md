@@ -3,7 +3,8 @@
 > 文档版本：v1.2  
 > 更新日期：2026-06-16  
 > 适用项目：`agents-master`（Streamlit + LangGraph ReAct + 旅行规划工作流）  
-> 关联文档：[旅行模式 Token 消耗分析与优化](./旅行模式Token消耗分析与优化.md)、[多模式 Agent 架构选型](../project-design/多模式Agent架构选型.md)
+> 关联文档：[Token 消耗分析与优化](./Token消耗分析与优化.md)、[多模式 Agent 架构选型](../project-design/多模式Agent架构选型.md)  
+> **2026-07 注**：下文 P0 项（`travel_facts`、`pipeline` 预取、`ui/travel_evidence`）**已 largely 落地**；未勾选项为后续增强。
 
 ---
 
@@ -20,7 +21,7 @@
 ### 2.1 三层分工
 
 ```text
-Python 编排（travel_mode.py）→ 算阶段、注入 [TRAVEL_CONTEXT]
+Python 编排（`modes/travel/state_machine.py` + `modes/travel/pipeline.py`）→ 算阶段、预取、注入 `[TRAVEL_CONTEXT]`
 Prompt checklist            → 建议 LLM 按序调 RAG / 高德
 ReAct Agent                 → 实际调 MCP，把结果写进 Markdown
 ```
@@ -76,7 +77,7 @@ ReAct Agent                 → 实际调 MCP，把结果写进 Markdown
   | 西湖  | ✓ 热门 | ✓ 必玩    | 必去   |
 
 
-**与现有代码衔接：** 可沿用 `travel_tool_memory` 的跨回合摘要思路，升级为结构化 `travel_facts`，而非仅 500 字规则截断。
+**与现有代码衔接：** 可沿用 `modes/travel/tool_memory` 的跨回合摘要思路，升级为结构化 `travel_facts`，而非仅 500 字规则截断。
 
 ---
 
@@ -187,9 +188,9 @@ P3  深体验：地图 + 交互 RAG + 知识库运营     → 完整「数据驱
 
 | 阶段     | 核心动作（一句话）                                 | 阶段完成后的用户感受                 | 主要改动范围                                                                       |
 | ------ | ----------------------------------------- | -------------------------- | ---------------------------------------------------------------------------- |
-| **P0** | 建 `travel_facts`，编排预取 RAG/高德，UI 展示引用与工具卡片 | 「这篇攻略不是瞎编的，我能看到知识库和高德查过什么」 | 新建 `travel_facts.py`、`ui/travel_evidence.py`；改 `travel_mode.py`、`ui/chat.py` |
+| **P0** | 建 `travel_facts`，编排预取 RAG/高德，UI 展示引用与工具卡片 | 「这篇攻略不是瞎编的，我能看到知识库和高德查过什么」 | ✅ `modes/travel/facts.py`、`ui/travel_evidence.py`、`modes/travel/pipeline.py`、`ui/chat.py` |
 | **P1** | POI 双源表、可信度三色标、侧边数据摘要                     | 「旅行模式和普通聊天不一样，数据来源一目了然」    | `ui/sidebar.py`、`ui/travel_evidence.py`、Prompt 引用规范                          |
-| **P2** | `generating` 改为「编排预取 → 写作 Agent」管道        | 「每次生成都会查天气和路线，不会漏工具」       | `travel_mode.py`、新增 `travel_pipeline.py`、收窄 ReAct 工具集                        |
+| **P2** | `generating` 改为「编排预取 → 写作 Agent」管道        | 「每次生成都会查天气和路线，不会漏工具」       | 🔄 部分落地：`modes/travel/pipeline.py` 已预取；ReAct 工具集收窄待做 |
 | **P3** | 地图可视化、交互式 RAG、目的地知识库路由                    | 「我能自己点景点查攻略、看动线地图」         | `ui/` 交互组件、rag-server collection、高德静态图                                       |
 
 
@@ -206,10 +207,10 @@ P3  深体验：地图 + 交互 RAG + 知识库运营     → 完整「数据驱
 
 | #    | 实行操作                                                                  | 改动文件 / 模块                                             | 对应效果（用户侧）                                 | 对应分项         | 验收点                                                             |
 | ---- | --------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------- | ------------ | --------------------------------------------------------------- |
-| P0-1 | 定义 `travel_facts` 数据结构（`rag[]`、`amap.weather/pois/routes`、`coverage`） | 新建 `travel_facts.py`；`session_store` 快照字段可选纳入         | 会话可恢复「已查到的证据」，不只靠 LLM 记忆                  | §4.1         | 结构有类型注释或 schema；能 `json.dumps` 注入 context                       |
-| P0-2 | **POI 阶段**：编排层直调 `query_knowledge_hub`（必玩/经典线路）+ `maps_text_search`   | `travel_mode.py` 或 `travel_pipeline.py`；复用 MCP client | POI 列表**必定**含 RAG 与高德两路结果，不依赖 LLM 是否记得调工具 | §4.1         | `poi_selection` 结束 `travel_facts.rag` 与 `amap.pois` 非空（有 Key 时） |
+| P0-1 | 定义 `travel_facts` 数据结构（`rag[]`、`amap.weather/pois/routes`、`coverage`） | 新建 `modes/travel/facts.py`；`session_store` 快照字段可选纳入         | 会话可恢复「已查到的证据」，不只靠 LLM 记忆                  | §4.1         | 结构有类型注释或 schema；能 `json.dumps` 注入 context                       |
+| P0-2 | **POI 阶段**：编排层直调 `query_knowledge_hub`（必玩/经典线路）+ `maps_text_search`   | `modes/travel/state_machine.py` 或 `modes/travel/pipeline.py`；复用 MCP client | POI 列表**必定**含 RAG 与高德两路结果，不依赖 LLM 是否记得调工具 | §4.1         | `poi_selection` 结束 `travel_facts.rag` 与 `amap.pois` 非空（有 Key 时） |
 | P0-3 | **生成阶段**：编排层预取 RAG 攻略片段 + `maps_weather` + 2～3 段代表路线                  | 同上；写入 `st.session_state.travel_facts`                 | 天气、路线在写作前已落库；正文可引用固定 id                   | §4.1、§4.2    | `generating` 开始前 `travel_facts` 含 weather + ≥1 route            |
-| P0-4 | 将 `travel_facts` 摘要注入 `[TRAVEL_CONTEXT]`，替代部分「请记得调工具」式 Prompt         | `travel_mode.build_travel_context`                    | Agent 写作时直接消费结构化事实，减少 ReAct 盲目探索          | §4.1、§4.3 前置 | context 中含 `travel_facts` JSON；Token 对比见 §7.4                   |
+| P0-4 | 将 `travel_facts` 摘要注入 `[TRAVEL_CONTEXT]`，替代部分「请记得调工具」式 Prompt         | `modes/travel/state_machine.build_travel_context`                    | Agent 写作时直接消费结构化事实，减少 ReAct 盲目探索          | §4.1、§4.3 前置 | context 中含 `travel_facts` JSON；Token 对比见 §7.4                   |
 | P0-5 | 新建 **证据折叠面板**：展示 RAG 片段列表（id、collection、excerpt、来源文档）                 | `ui/travel_evidence.py`；`ui/chat.py` 助手消息下渲染          | 用户无需点开「工具调用详情」即可浏览知识库命中内容                 | §4.1         | 生成完成后面板 ≥1 条 RAG excerpt 可展开                                    |
 | P0-6 | 攻略正文 **引用角标** 规范：`[RAG-1]`、`[AMAP-W]`、`[AMAP-R1]`；面板内 id 可跳转          | `modes/travel/travel-planner.md`；证据面板锚点                    | 用户能回答「这句话从哪来」                             | §4.1         | 正文 ≥3 处角标；点击/展开可看到对应 excerpt                                    |
 | P0-7 | **工具结果卡片**（优先读 `travel_facts` 渲染）                                          | `ui/travel_evidence.py`                                     | 天气、POI 以卡片/列表展示，告别 JSON 墙                 | §4.2         | 天气 1 卡 + POI 列表可展开                                           |
@@ -245,7 +246,7 @@ P3  深体验：地图 + 交互 RAG + 知识库运营     → 完整「数据驱
 | #    | 实行操作                                                    | 改动文件 / 模块                                     | 对应效果（用户侧）               | 对应分项      | 验收点                        |
 | ---- | ------------------------------------------------------- | --------------------------------------------- | ----------------------- | --------- | -------------------------- |
 | P1-1 | **POI 双源对照表** UI：列「景点 / 高德 / 知识库 / 用户选择」                | `ui/travel_evidence.py`；`poi_selection` 回合后渲染 | 必玩推荐阶段即展示「双源融合」，而非纯文字列表 | §4.1      | 表格行数 ≥5；高德与 RAG 列有 ✓/— 标记  |
-| P1-2 | 编排层计算 **coverage**（`rag_hits`、`amap_hits`、`unverified`） | `travel_facts.py`；写作后或预取后更新                   | 有量化「依据覆盖率」，不靠 LLM 自报    | §4.5      | `coverage` 与面板统计一致         |
+| P1-2 | 编排层计算 **coverage**（`rag_hits`、`amap_hits`、`unverified`） | `modes/travel/facts.py`；写作后或预取后更新                   | 有量化「依据覆盖率」，不靠 LLM 自报    | §4.5      | `coverage` 与面板统计一致         |
 | P1-3 | 攻略段落/章节 **可信度三色标**（🟢🟡⚪），规则由 `travel_facts` 字段映射       | `travel_evidence` 或 Markdown 后处理              | 一眼看出哪些是工具证实、哪些待核实       | §4.5      | 至少行程总览、交通、天气块有标            |
 | P1-4 | 侧边栏 **「本行程数据摘要」** 常驻（天气一行 + 路线条数 + 依据统计）                | `ui/sidebar.py` `get_mode_sidebar_caption` 下方 | 规划全程侧边即可扫一眼数据健康度        | §4.2、§4.5 | 旅行模式且 `travel_facts` 存在时显示 |
 | P1-5 | 弱化默认展示：工具 JSON 折叠改为「原始调用（高级）」且默认收起                      | `ui/chat.py`、`app.py`                         | 普通用户看证据面板即可，专家仍可查原始调用   | §4.2      | 新用户路径不强制展开 tool 详情         |
@@ -273,11 +274,11 @@ P3  深体验：地图 + 交互 RAG + 知识库运营     → 完整「数据驱
 
 | #    | 实行操作                                                                      | 改动文件 / 模块                                                        | 对应效果（用户侧）                           | 对应分项         | 验收点                                                     |
 | ---- | ------------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------- | ------------ | ------------------------------------------------------- |
-| P2-1 | 新建 `travel_pipeline.py`：`fetch_facts_for_generating(intake)` 串行调 RAG + 高德 | 新模块；从 `app.py` / `ui/chat.py` 在 `generating` 前 `await`           | 每次生成前自动拉齐天气/POI/路线/RAG，用户无感但结果稳定    | §4.3         | 单元测试或日志证明调用序列固定                                         |
+| P2-1 | 新建 `modes/travel/pipeline.py`：`fetch_facts_for_generating(intake)` 串行调 RAG + 高德 | 新模块；从 `app.py` / `ui/chat.py` 在 `generating` 前 `await`           | 每次生成前自动拉齐天气/POI/路线/RAG，用户无感但结果稳定    | §4.3         | 单元测试或日志证明调用序列固定                                         |
 | P2-2 | `generating` 回合 **禁用或收窄** Agent 工具集（仅保留 `get_current_time` 或只读类）          | Agent 构建处按 `travel_phase` 过滤 tools                               | 避免 LLM 重复拉数、乱序调用、CUQPS 浪费           | §4.3         | generating 阶段 tool 调用次数 ≤ 约定上限                          |
 | P2-3 | Prompt 调整为 **「基于 [TRAVEL_FACTS] 写作」**，删除长工具 checklist                     | `modes/travel/state_machine.py` `GENERATING_TOOL_CHECKLIST`；`modes/travel/travel-planner.md` | System/context 更短；模型专注排版与可行性叙述      | §4.3         | Token 较 P0 再降（用 `estimate_travel_token_savings.py` 记一笔） |
-| P2-4 | `revision` **增量预取**：解析用户改稿意图，仅重查受影响 POI/路线/RAG                            | `travel_pipeline.py` + `travel_mode.prepare_phase_before_agent`  | 改稿更快、更省配额，且新证据进入 `travel_facts` 版本链 | §4.3、§4.4 前置 | 改「第 2 天交通」只触发路线类重查                                      |
-| P2-5 | `travel_facts` **版本字段**（`revision_no` / `parent_facts_id`）便于对比改稿前后依据      | `travel_facts.py`、`session_store`                                | 可追溯「改稿换了哪些数据依据」                     | §4.3         | 连续改稿 2 次保留 2 版 facts 摘要                                 |
+| P2-4 | `revision` **增量预取**：解析用户改稿意图，仅重查受影响 POI/路线/RAG                            | `modes/travel/pipeline.py` + `modes/travel/handler.prepare_before_agent`  | 改稿更快、更省配额，且新证据进入 `travel_facts` 版本链 | §4.3、§4.4 前置 | 改「第 2 天交通」只触发路线类重查                                      |
+| P2-5 | `travel_facts` **版本字段**（`revision_no` / `parent_facts_id`）便于对比改稿前后依据      | `modes/travel/facts.py`、`session_store`                                | 可追溯「改稿换了哪些数据依据」                     | §4.3         | 连续改稿 2 次保留 2 版 facts 摘要                                 |
 | P2-6 | 耗时面板区分 **「编排预取」vs「LLM 写作」**                                               | `timing_log.py`                                                  | 性能分析可看到 MCP 确定性成本 vs 模型成本           | §4.3         | timing 报告含 `pipeline_fetch_ms`                          |
 
 
@@ -311,7 +312,7 @@ P3  深体验：地图 + 交互 RAG + 知识库运营     → 完整「数据驱
 | ---- | ------------------------------------------------------- | ------------------------------------------------- | --------------------------- | --------- | ----------------------------- |
 | P3-1 | 景点旁 **「查攻略详情」** 按钮 → 单 POI `query_knowledge_hub` → 侧边弹出 | `ui/travel_evidence.py`                           | 用户主动深挖 RAG，不限于生成时一次性检索      | §4.4      | 点击后 3s 内展示新 excerpt           |
 | P3-2 | 侧边栏 **知识库选择器**：展示 O10 缓存 collections，可勾选优先库             | `ui/sidebar.py`；写入 intake 或 `travel_facts`        | 用户可指定「用我的杭州私藏库」             | §4.4、§4.6 | 勾选后下次预取带 `collection` 参数      |
-| P3-3 | 改稿 **「用知识库优化这段」** 快捷意图 → 定向 RAG + 可选重算路线                | `travel_mode` 意图 regex + `travel_pipeline`        | 改稿与 RAG 联动，而非纯 LLM 重写       | §4.4      | 触发后 `travel_facts` 有新增 rag 条目 |
+| P3-3 | 改稿 **「用知识库优化这段」** 快捷意图 → 定向 RAG + 可选重算路线                | `modes/travel/state_machine` 意图 regex + `modes/travel/pipeline`        | 改稿与 RAG 联动，而非纯 LLM 重写       | §4.4      | 触发后 `travel_facts` 有新增 rag 条目 |
 | P3-4 | **高德静态图 / 动线示意图**（逐日详情旁）                                | `travel_evidence` + 高德静态图 API                     | 地图能力可视化，MCP 价值最直观           | §4.2 进阶   | 至少 1 日行程配图（可选）                    |
 | P3-5 | **目的地 → collection 路由表**（如 `杭州 → travel_杭州`）            | `travel_facts` 或 `config/travel_collections.yaml` | 小众城市场景下降级提示更准               | §4.6      | 有路由目的地预取命中率明显提升               |
 | P3-6 | 侧边 **知识库覆盖提示**：「杭州 ✓ 已覆盖 / 某某县 ✗ 将依赖高德」                 | `ui/sidebar.py`                                   | 管理用户预期，避免 RAG 空结果被误解为产品 bug | §4.6      | 无 collection 时显示明确文案          |
@@ -378,7 +379,7 @@ flowchart TB
     end
 
     subgraph P2["P2 数据管道"]
-        C1[travel_pipeline 预取]
+        C1[modes/travel/pipeline 预取]
         C2[generating 收窄工具集]
         C3[增量改稿预取 + 版本链]
         C1 --> C2 --> C3
@@ -423,7 +424,7 @@ flowchart TB
 ### 7.1 数据结构（示意）
 
 ```python
-# travel_facts.py（新建）或并入 travel_tool_memory.py
+# modes/travel/facts.py（新建）或并入 modes/travel/tool_memory.py
 {
   "destination": "杭州",
   "phase": "generating",
@@ -489,5 +490,5 @@ flowchart TB
 - [旅行规划-需求与架构(产品)](../project-design/旅行规划-需求与架构(产品).md)
 - [旅行规划-职责分层与步骤依据(实现)](../project-design/旅行规划-职责分层与步骤依据(实现).md)
 - [多模式 Agent 架构选型](../project-design/多模式Agent架构选型.md)
-- [Agent 记忆系统现状与优化](./Agent记忆系统现状与优化.md)（L4 用户记忆 vs RAG 领域知识边界）
+- [记忆系统现状与优化](./记忆系统现状与优化.md)（L4 用户记忆 vs RAG 领域知识边界）
 

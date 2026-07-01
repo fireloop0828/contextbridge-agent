@@ -1,6 +1,8 @@
 # rag-server Skills 简介
 
-本目录存放可复用的 Agent 工作流（skills）。每个 skill 一个文件夹，入口为 `SKILL.md`；部分 skill 带有 `scripts/`（可执行脚本）和 `references/`（参考资料）。
+本目录存放 **rag-server 子项目内**可复用的 Agent 工作流（skills）。每个 skill 一个文件夹，入口为 `SKILL.md`；部分 skill 带有 `scripts/`（可执行脚本）和 `references/`（参考资料）。
+
+> **项目级 skill 已上移到仓库根** [`.cursor/skills/`](../../.cursor/skills/README.md)：`create-skill`、`bridge-learn`（接替 `project-learn`）、`bridge-resume`（接替 `write-resume`）。在 Cursor 打开 **ContextBridge Agent 根目录** 时使用项目级 skill；本目录保留 setup / auto-dev / run-qa 等 rag-server 工程向 skill。
 
 在 Cursor 对话中用自然语言触发即可，Agent 会读取对应 `SKILL.md` 并按步骤执行。下文命令路径保持英文原文。
 
@@ -11,13 +13,13 @@
 | ---------------- | -------------------------------------- | ---------------------- | ----------------------- |
 | `setup`          | 交互式生成 `config/settings.yaml` 并校验环境可运行。 | 第一次在本地跑起 rag-server。   | 初始化、setup、环境配置          |
 | `auto-dev`       | 按 `DEV_SPEC.md` 排期自动写代码、跑测试、更新进度。      | 规格驱动地继续开发或补某个任务（如 B2）。 | 自动开发、auto dev、autopilot |
-| `create-skill`   | 按规范脚手架新建或维护 Agent Skill。               | 为本项目或其它项目增加工作流。        | 创建 skill、new skill      |
+| `create-skill`   | ⚠️ **已迁移** → 根目录 `.cursor/skills/create-skill`     | 在仓库根创建项目级或其它 skill。        | 创建 skill、new skill      |
 | `clean-project`  | 清理缓存与本地产物，脱敏 API Key 便于分享。             | 打包发他人或提交前去掉脏文件与密钥。     | 清理项目、打包、package         |
 | `run-qa`         | 按测试计划串行执行用例并记录可追溯结果。                   | 发版前回归或排查 MCP/检索/面板问题。  | 跑测试、QA 测试、run QA        |
-| `project-review` | 按题库逐章提问复习，记录掌握度。                       | 系统复盘项目知识点，考前集中复习。      | 复习项目、复盘、review project  |
-| `project-learn`  | 按知识域动态出题、追问并评分，跟踪学习进度。                 | 逐块吃透项目，检验理解深度。         | 学习项目、面试准备、learn project |
-| `write-resume`   | 根据岗位画像生成四段式简历项目描述。                     | 把本项目写进简历并突出匹配亮点。       | 写简历、resume、项目经历         |
-| `mock-interview` | 模拟面试问答，结束后输出评分报告。                      | 面试前演练，检验简历能否经得住追问。     | 模拟面试、mock interview、考我  |
+| `project-review` | 按题库逐章提问复习，记录掌握度。                       | 系统复盘 **rag-server** 知识点（已被 bridge-learn B 轨部分覆盖）。      | 复习项目、复盘、review project  |
+| `project-learn`  | ⚠️ **已迁移** → 根目录 `.cursor/skills/bridge-learn`     | 请用项目级 bridge-learn（含 A/B/C 三轨）         | — |
+| `write-resume`   | ⚠️ **已迁移** → 根目录 `.cursor/skills/bridge-resume`    | 请用项目级 bridge-resume（Agent+RAG）       | — |
+| `mock-interview` | 模拟面试问答，结束后输出评分报告。                      | 面试前演练（仍仅覆盖 rag-server）。     | 模拟面试、mock interview、考我  |
 
 
 ## 各 Skill 说明

@@ -76,16 +76,16 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 | # | 优化项 | 决策 | 较原先节省（估算） | 针对根因 | 当前做法 | 关键文件 |
 |---|--------|------|-------------------|----------|----------|----------|
 | O1 | 旅行专用精简 Prompt | **✅** | ~4.8 万（16%） | §2.1 | `general_system_travel.md` + 精简 `travel-planner.md` | `modes/travel/` |
-| O2 | POI→intake reset thread | **✅** | ~11.6 万（39%） | §2.2 | POI 结束换 `thread_id` | `travel_mode.py`、`ui/chat.py` |
+| O2 | POI→intake reset thread | **✅** | ~11.6 万（39%） | §2.2 | POI 结束换 `thread_id` | `modes/travel/state_machine.py`、`ui/chat.py` |
 | O3 | generating 时 reset thread | **↩** | —（约 5%～15% 潜力） | §2.2 | 已回退；与 UI/改稿协同未定型 | — |
-| O4 | Checkpoint 裁剪 | **⏸ 初版** | 潜力 5～12 万；**待实测** | §2.2 | 工具回合后 O7 入库 + **换 `thread_id`**（非 Message Trimmer） | `travel_tool_memory.py`、`ui/chat.py` |
+| O4 | Checkpoint 裁剪 | **⏸ 初版** | 潜力 5～12 万；**待实测** | §2.2 | 工具回合后 O7 入库 + **换 `thread_id`**（非 Message Trimmer） | `modes/travel/tool_memory.py`、`ui/chat.py` |
 | O5 | 导出双份输出 | **🔄** | ~0.3 万（1%） | §2.3 | 对话完整 MD + `export_service` 写文件 | `export_service.py`、`ui/chat.py` |
 | O6 | MCP 工具返回截断 | **↩** | — | §2.4 | 已回退；改 O7 | `tool_truncation.py`（保留未启用） |
-| O7 | 工具跨回合记忆 | **✅** | 配合 O4 才显著 | §2.4 | 回合结束摘要 → 下轮 `[TRAVEL_CONTEXT]` 注入 | `travel_tool_memory.py` |
+| O7 | 工具跨回合记忆 | **✅** | 配合 O4 才显著 | §2.4 | 回合结束摘要 → 下轮 `[TRAVEL_CONTEXT]` 注入 | `modes/travel/tool_memory.py` |
 | O8 | 按阶段 ReAct 上限 | **✅** | 防失控 | §2.4 | intake 12 / poi 22 / 生成 32 | `travel_recursion_limit()` |
-| O9 | 生成阶段工具清单 | **✅** | 质量约束 | §2.4 | `GENERATING_TOOL_CHECKLIST` | `travel_mode.py` |
-| O10 | 缓存 list_collections | **✅** | <1% | §2.4 | `rag_collections_cache` | `travel_tool_memory.py` |
-| O11 | 改稿 6A | **✅** | ~1%/次改稿 | §2.5 | `[PREVIOUS_PLAN]` 读导出文件 | `travel_mode.py` |
+| O9 | 生成阶段工具清单 | **✅** | 质量约束 | §2.4 | `GENERATING_TOOL_CHECKLIST` | `modes/travel/state_machine.py` |
+| O10 | 缓存 list_collections | **✅** | <1% | §2.4 | `rag_collections_cache` | `modes/travel/tool_memory.py` |
+| O11 | 改稿 6A | **✅** | ~1%/次改稿 | §2.5 | `[PREVIOUS_PLAN]` 读导出文件 | `modes/travel/state_machine.py` |
 | O12 | 分阶段不同模型 | **↩** | 0（只省费用） | — | 不做 | — |
 | O13 | 会话结构化持久化 | **✅** | **0 Token** | — | 快照/归档/恢复；**不进 LLM** | `session_store.py`、`ui/sidebar.py` |
 
@@ -163,7 +163,7 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 - 新对话 → 归档至 `archives/`
 - 刷新 → 侧边栏恢复
 
-**不影响当轮 LLM 输入**；对话记忆的持久化与恢复见 [Agent记忆系统现状与优化.md](./Agent记忆系统现状与优化.md)。
+**不影响当轮 LLM 输入**；对话记忆的持久化与恢复见 [记忆系统现状与优化.md](./记忆系统现状与优化.md)。
 
 ---
 
@@ -175,8 +175,9 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 | `modes/travel/travel-planner.md` | O1 |
 | `export_service.py` | O5 |
 | `app.py` | 自动导出、session 初始化 |
-| `travel_mode.py` | O2、O11、偏好合并 intake |
-| `travel_tool_memory.py` | O7、O10、O4 trim |
+| `modes/travel/state_machine.py` | O2、O11、偏好合并 intake |
+| `modes/travel/tool_memory.py` | O7、O10、O4 trim |
+| `modes/travel/handler.py` | 回合编排、预取触发 |
 | `session_store.py` | O13 快照/归档/恢复 |
 | `ui/chat.py` | O5、O7、O4、自动保存 |
 | `ui/sidebar.py` | 记忆面板、新对话/重置、恢复 |
@@ -206,7 +207,7 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 
 | 文档 | 说明 |
 |------|------|
-| [Agent记忆系统现状与优化.md](./Agent记忆系统现状与优化.md) | 全 Agent 记忆类型与存储 |
+| [记忆系统现状与优化.md](./记忆系统现状与优化.md) | 全 Agent 记忆类型与存储 |
 | [MCP初始化性能分析与优化.md](./MCP初始化性能分析与优化.md) | MCP 连接耗时 |
 | [Agent工具调用失败案例与处理准则.md](./Agent工具调用失败案例与处理准则.md) | CUQPS 降级 |
 | [../project-design/旅行规划-职责分层与步骤依据(实现).md](../project-design/旅行规划-职责分层与步骤依据(实现).md) | Prompt/编排分工 |

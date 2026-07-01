@@ -66,7 +66,7 @@
 **改动：**
 
 - `config.json` 中 `amap-maps` 改为 `command: "mcp-amap"`（由 `resolve_mcp_config()` 解析为绝对路径）
-- `app.py` 新增 `_resolve_amap_maps_command()`，按优先级查找：
+- 解析逻辑在 `config/mcp_config.py` 的 `_resolve_amap_maps_command()`，按优先级查找：
   1. `agents-master/node_modules/.bin/mcp-amap`（`npm install` 后）
   2. `~/.npm/_npx/*/node_modules/.bin/mcp-amap`（历史 npx 缓存）
 - 新增 `package.json`，依赖 `@amap/amap-maps-mcp-server`
@@ -139,5 +139,6 @@ npm install
 | 文件 | 说明 |
 |------|------|
 | `config.json` | MCP Server 注册表 |
-| `app.py` | `resolve_mcp_config`、`reconnect_agent`、`rebuild_agent_only` |
+| `config/mcp_config.py` | `resolve_mcp_config`、高德 `mcp-amap` 路径解析 |
+| `app.py` | `reconnect_agent`、`rebuild_agent_only` |
 | `package.json` | 高德 MCP npm 依赖（需 `npm install`） |
