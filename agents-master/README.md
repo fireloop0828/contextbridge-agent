@@ -1,21 +1,22 @@
 # LangGraph + MCP 智能体（Streamlit）
 
-这是一个最小可用的「**MCP 宿主（Host）+ MCP 客户端（Client）+ ReAct Agent**」示例项目：通过 MCP 动态接入外部工具（本地子进程或远程服务），在网页里与智能体对话，并实时查看工具调用过程。
-
-project demo
+ContextBridge Agent monorepo 的**主应用**（`agents-master/`）：「**MCP 宿主（Host）+ MCP 客户端（Client）+ ReAct Agent**」工作台，通过 MCP 动态接入外部工具，在网页中与智能体对话并实时查看工具调用。顶层联调说明见 [../README.md](../README.md)。
 
 ## 这个项目能做什么
 
-- **网页聊天界面（Streamlit）**：与 LangGraph `ReAct Agent` 对话
-- **MCP 工具管理**：在侧边栏添加/删除/配置 MCP Server（支持 Smithery 的 JSON 格式），无需改核心代码
-- **流式输出**：实时展示回答与工具调用详情
-- **对话历史**：保留消息与工具调用记录
+- **网页聊天界面（Streamlit）**：与 LangGraph `ReAct Agent` 对话，流式展示回答与工具调用详情
+- **三种对话模式**（侧边栏切换）：
+  - **通用模式**：开放问答，按需调用已连接的全部 MCP 工具
+  - **旅行规划**：结合高德地图、RAG 知识库、时间工具生成可下载行程攻略
+  - **知识库问答**：聚焦 `list_collections` / `query_knowledge_hub` / `get_document_summary`
+- **MCP 工具管理**：在侧边栏添加/删除/配置 MCP Server（支持 Smithery JSON），无需改核心代码
+- **会话与记忆**：对话归档与恢复、跨会话长期记忆画像（侧边栏「记忆面板」）
 
 ## MCP 基本概念（面试可用）
 
 - **MCP Host**：承载智能体的应用（本项目 `app.py` / Cursor / Claude Desktop 都属于 Host）
 - **MCP Client**：连接 MCP Server 并加载工具（本项目使用 `MultiServerMCPClient`）
-- **MCP Server**：对外暴露工具（tools）的服务（例如本项目的 `mcp_server_time.py`、`mcp_server_rag.py`）
+- **MCP Server**：对外暴露工具（tools）的服务（例如 `mcp_server_time.py`、`mcp_server_export.py`，以及同级目录 `../rag-server` 的生产级 RAG MCP）
 
 ## 运行方式一：本地运行（推荐）
 
@@ -52,7 +53,8 @@ cp .env.example .env
 - **阿里云百炼（OpenAI 兼容模式）**：
   - `DASHSCOPE_API_KEY=...`
   - `DASHSCOPE_BASE_URL=...`（默认北京：`https://dashscope.aliyuncs.com/compatible-mode/v1`）
-- 可选：`ANTHROPIC_API_KEY`、`OPENAI_API_KEY`
+- **旅行模式高德地图**：`AMAP_MAPS_API_KEY=...`（见下方第 3 步）
+- 可选：`ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`LANGSMITH_*`、`FEISHU_APP_ID` / `FEISHU_APP_SECRET`
 
 登录开关（可选）：
 
@@ -60,7 +62,15 @@ cp .env.example .env
 USE_LOGIN=false
 ```
 
-### 3) 启动
+### 3) 高德地图 MCP（旅行模式需要）
+
+```bash
+npm install   # 安装 @amap/amap-maps-mcp-server，避免 npx 冷启动
+```
+
+`config.json` 已注册 `amap-maps`；`resolve_mcp_config()` 会解析 `node_modules/.bin/mcp-amap`，并将 `.env` 中的 `AMAP_MAPS_API_KEY` 注入子进程。
+
+### 4) 启动
 
 ```bash
 streamlit run app.py
@@ -68,25 +78,28 @@ streamlit run app.py
 
 默认访问：`http://localhost:8501`
 
-### 4) 初始化（自动）
+### 5) 初始化（自动）
 
-首次打开页面时会**自动连接** MCP Server 并创建 Agent（无需手动点击按钮）。若连接失败，请检查 `config.json` 与 `.env` 中的 API 密钥。
+首次打开页面时会**自动连接** MCP Server 并创建 Agent（无需手动点击按钮）。若连接失败，请检查 `config.json`、`.env` 中的 API 密钥，以及 `rag-server` 是否已安装依赖（见下文 RAG 流程）。
 
-## 运行方式二：Docker
+## 运行方式二：Docker（精简，可选）
 
-> Docker 运行时，`.env` 通常位于 `dockers/` 目录（与 compose 文件同级），请按 compose 文件说明配置。
+> **注意**：`dockers/config.json` 仅注册 `get_current_time`，**不含** `rag-server` / 高德 / 文档导出；且仓库内无 `Dockerfile`，compose 依赖外部镜像 `teddylee777/langgraph-mcp-agents:0.2.1`。**完整功能（旅行 + RAG）请用本地运行。**
+
+Docker 运行时，`.env` 位于 `dockers/` 目录（与 compose 文件同级）：
 
 ```bash
 cd dockers
 cp .env.example .env
 docker compose -f docker-compose-mac.yaml up -d   # Apple Silicon
+# 或 docker compose -f docker-compose.yaml up -d   # x86_64
 ```
 
 访问：`http://localhost:8585`
 
 ## MCP 工具配置（config.json）
 
-项目会从 `config.json` 加载 MCP Server 配置。默认注册「时间工具」与 **rag-server 知识库**：
+项目会从 `config.json` 加载 MCP Server 配置。默认注册 **4 个** MCP：
 
 ```json
 {
@@ -95,10 +108,20 @@ docker compose -f docker-compose-mac.yaml up -d   # Apple Silicon
     "args": ["./mcp_server_time.py"],
     "transport": "stdio"
   },
+  "document-export": {
+    "command": "python",
+    "args": ["./mcp_server_export.py"],
+    "transport": "stdio"
+  },
   "rag-server": {
     "command": "python",
     "args": ["-m", "src.mcp_server.server"],
     "cwd": "../rag-server",
+    "transport": "stdio"
+  },
+  "amap-maps": {
+    "command": "mcp-amap",
+    "args": [],
     "transport": "stdio"
   }
 }
@@ -156,20 +179,20 @@ cp config/settings.dashscope.example.yaml config/settings.yaml
 
 ```bash
 # 仍在 rag-server 目录，venv 已激活
-# 旅行知识库源文件见 data/sources/travel_plan/（lists、food、prep、cities）
-# 亦可用示例 PDF 试跑：
+
+# 试跑：使用仓库内示例文本
 python scripts/ingest.py \
-  --path tests/fixtures/sample_documents/simple.pdf \
+  --path tests/fixtures/sample_documents/sample.txt \
   --collection travel_plan
 
-# 批量导入旅行源文档（在 rag-server 目录下执行）
+# 正式数据：将 PDF/TXT/MD/DOCX 放到 data/sources/<collection>/（该目录默认不入 Git）
 python scripts/ingest.py \
   --path data/sources/travel_plan \
   --collection travel_plan \
   --force
 ```
 
-成功后会写入 `data/db/chroma/`。可用 `--collection 自定义名称` 创建多个知识库。
+成功后会写入 `data/db/chroma/`。新 collection 建议在 `config/collections.yaml` 注册说明，便于 `list_collections` 展示给 Agent。亦可在 RAG 控制台（`streamlit run dashboard.py`）的「文档入库」页面上传。详见 `rag-server/docs/管理面板指南.md`。
 
 ### 第四步：启动 agents-master 并初始化
 
@@ -180,10 +203,11 @@ streamlit run app.py
 ```
 
 1. 打开 `http://localhost:8501`
-2. 等待页面自动初始化完成（侧边栏应显示 MCP 工具数量 ≥ 4：time + RAG + 导出等）
-3. 在聊天框提问，例如：
-  - 「知识库里有哪些 collection？」
-  - 「在 travel_plan 里检索关于 XXX 的内容」
+2. 等待页面自动初始化完成（侧边栏应显示 **4 个** MCP：时间、文档导出、rag-server、高德）
+3. 侧边栏选择模式后提问，例如：
+  - **知识库问答**：「知识库里有哪些 collection？」「在 travel_plan 里检索关于签证的内容」
+  - **旅行规划**：「帮我规划 5 天东京自由行，偏好美食」
+  - **通用模式**：开放问答或文档导出
 
 ### 常见问题
 
@@ -192,7 +216,8 @@ streamlit run app.py
 | -------------------------------- | ------------------------------------------------------- |
 | 初始化失败 `No module named chromadb` | 在 rag-server 目录创建 `.venv` 并 `pip install -e ".[dev]"`   |
 | 检索无结果                            | 确认已执行 ingest，且 collection 名称与 query 时一致                 |
-| Embedding 报错                     | 检查百炼控制台是否开通 `text-embedding-v3`；或改用 `text-embedding-v2` |
+| Embedding 报错                     | 检查 `settings.yaml` 中 `embedding.model` 与百炼控制台已开通的模型一致（示例配置为 `qwen3.6-flash-2026-04-16`） |
+| 高德工具不可用                         | 在 `agents-master/` 执行 `npm install`，并配置 `AMAP_MAPS_API_KEY` |
 | rag-server 路径不对                  | 修改 `config.json` 中 `cwd` 为 rag-server 的绝对路径             |
 
 
@@ -205,10 +230,14 @@ streamlit run app.py
 
 ### 导出可下载 Markdown
 
-1. `config.json` 中已注册 `document-export`（或在侧边栏添加后自动生效）
-2. 对话中说明需求，例如：「把这份旅行规划导出成 md 文档」
-3. Agent 调用 `write_markdown_document` 后，助手消息下方与侧边栏会出现 **下载 Markdown** 按钮
-4. 文件保存在 `agents-master/data/outputs/`
+- **旅行规划模式**：攻略生成后由 `export_service` **服务端自动写盘**（`data/outputs/`），聊天区与侧边栏出现下载按钮；**无需** Agent 再调 `write_markdown_document`（避免重复输出与 Token 浪费）。
+- **通用模式**：`config.json` 已注册 `document-export` MCP；对话中说明需求后，Agent 可调用 `write_markdown_document` 写入 `data/outputs/*.md`，页面提供下载按钮。
+
+## 开发文档
+
+- `docs/project-design/` — 多模式架构、旅行规划设计、app 拆分建议等
+- `docs/test-analysis/` — Token、记忆、MCP 性能分析与优化记录
+- `../rag-server/README.md` — RAG 子项目说明
 
 ## 兼容性说明（重要）
 
