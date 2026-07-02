@@ -38,8 +38,8 @@
 
 | ID | 知识点 | 关键路径 |
 |----|--------|----------|
-| A5.1 | `config.json` 结构与四类预置 MCP | `agents-master/config.json` |
-| A5.2 | `resolve_mcp_config`：路径解析、venv 优先、密钥注入 | `agents-master/config/mcp_config.py` |
+| A5.1 | `config.json` 结构与四类预置 MCP | `agents-master/config.json`, `docs/project-design/MCP设计与管理.md` |
+| A5.2 | `resolve_mcp_config`：路径解析、venv 优先、密钥注入 | `agents-master/config/mcp_config.py`, `docs/project-design/MCP设计与管理.md` |
 | A5.3 | 工具截断、导出服务、侧边栏动态增删 MCP | `agents-master/tool_truncation.py`, `export_service.py`, `ui/sidebar.py` |
 
 ## 追问深度要求（A 轨每题）

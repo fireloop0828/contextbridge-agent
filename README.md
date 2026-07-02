@@ -113,6 +113,7 @@ rag-server/config/settings.yaml
 ## 开发文档
 
 - `.cursor/skills/` — 项目级 Agent Skill（`bridge-learn` 学习、`bridge-resume` 简历、`create-skill` 建 skill）
+- [agents-master/docs/project-design/MCP设计与管理.md](agents-master/docs/project-design/MCP设计与管理.md) — MCP 设计、注册表与配置
 - `agents-master/docs/project-design/` — 主应用架构与设计
 - `agents-master/docs/test-analysis/` — Token、记忆、MCP 性能等分析与优化记录
 - `rag-server/README.md` — RAG 服务概述与使用策略

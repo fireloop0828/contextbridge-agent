@@ -37,7 +37,7 @@
   - **已 ingest 的 collection**（否则检索无内容）；RAG 控制台（`dashboard.py`）可选，用于可视化管理入库。
   - 侧边栏切到「知识库问答」模式提问。
 
-**参考路径**：根 `README.md`、`agents-master/README.md`、`agents-master/config.json`
+**参考路径**：根 `README.md`、`agents-master/README.md`、`agents-master/config.json`、`agents-master/docs/project-design/MCP设计与管理.md`
 
 ---
 
@@ -47,7 +47,7 @@
 
 **标准答案**：
 
-1. `**document-export`**：将 Agent **生成的成品**（如旅行攻略 Markdown）写入本地文件并提供下载，属于**输出链路**。
+1. `**document-export`**：将 Agent 生成的成品（如旅行攻略 Markdown）写入本地文件并提供下载，属于**输出链路**。
   - **RAG ingest**：把外部文档解析、分块、向量化后写入 Chroma，属于**知识入库**。
   - **RAG 检索**：Agent 通过 MCP 调用 `query_knowledge_hub` 等，从已有 collection **召回片段**，属于**读取链路**。三者职责不同，不可混用。
 2. **启动方式**
@@ -76,6 +76,73 @@
 **推荐调用顺序**：先 `list_collections` 选库 → `query_knowledge_hub` 检索 → 必要时 `get_document_summary`。
 
 **参考路径**：`agents-master/modes/knowledge_qa/system.md`、`agents-master/modes/knowledge_qa/mode.py`
+
+---
+
+## C1.2 config.json 如何拉起 rag-server
+
+**综合评分**：7/10
+
+### 主题目
+
+**问**：`config.json` 中 `rag-server` 条目如何通过 `resolve_mcp_config()` 与 `initialize_session()` 被拉起？说明调用链、`resolve` 特殊处理、`-m` 含义、无 `.venv` 时的行为。
+
+**标准答案**：
+
+1. **调用链（功能视角）**
+  - 读 MCP 注册表：`load_config_from_json()` 从 `config.json` 加载配置
+  - 解析配置：`resolve_mcp_config()` 转为可执行形式（绝对路径、解释器、env 注入）
+  - 创建 MCP 客户端：`MultiServerMCPClient(resolved)`
+  - MCP 握手：`await client.get_tools()` — spawn 各 Server 子进程（含 rag-server），拉取合并工具列表
+  - 构建 Agent：`_build_agent_from_tools(tools)` → `create_react_agent`
+  - 对话时调用：用户发消息后 Agent 按需 `tools/call`
+   入口：`app.py` → `initialize_session()`；首次打开页面由 `ensure_session_ready()` 触发。
+2. `**resolve_mcp_config()` 对 rag-server 的特殊处理**
+  - 相对 `cwd`（`../rag-server`）→ 基于 `APP_DIR` 的绝对路径
+  - `command: "python"` → 优先 `rag-server/.venv/bin/python`，否则 `sys.executable`
+  - 识别 rag-server：`name == "rag-server"` / `cwd` 目录名为 `rag-server` / `args == ["-m", "src.mcp_server.server"]`
+  - `args` / `env` 支持 `${VAR}` 占位符替换
+3. `**-m src.mcp_server.server`**
+  - 以模块方式在 `cwd`（rag-server 根目录）启动 `server.py` 的 `main()`，保证 `from src.*` 包导入正确
+  - 虚拟环境由 `command` 解析决定，**不是** `-m` 自带
+4. **无 `rag-server/.venv`**
+  - `command` 回退为 `sys.executable`（主应用当前 Python）
+  - 典型报错：`No module named 'chromadb'` 或 `No module named 'src'`
+
+**参考路径**：`agents-master/config.json`、`agents-master/config/mcp_config.py`、`agents-master/app.py`、`rag-server/src/mcp_server/server.py`
+
+---
+
+### 追问 1
+
+**问**：如何判断 rag-server 配置？子进程传输方式？侧边栏改 MCP vs 切换模式，是否全量重连？
+
+**标准答案**：
+
+1. **rag-server 判定**（满足任一）：`name == "rag-server"`；`cwd` 目录名为 `rag-server`；`args == ["-m", "src.mcp_server.server"]`
+2. **传输**：`server.py` → `run_stdio_server()`，对应 `config.json` 的 `"transport": "stdio"`
+3. **重连策略**
+
+  | 操作          | 全量重连 MCP                                |
+  | ----------- | --------------------------------------- |
+  | 首次打开 / 刷新页面 | ✅                                       |
+  | 侧边栏增删/改 MCP | ✅ `reconnect_agent()`                   |
+  | 切换模式 / 应用模型 | ❌ `rebuild_agent_only()` 复用 `mcp_tools` |
+
+
+**参考路径**：`agents-master/docs/project-design/MCP设计与管理.md` §1.4
+
+---
+
+### 复述验收（用户总结）
+
+**问**：用自己的话概括 MCP 初始化调用链。
+
+**标准答案**：
+
+读 MCP 注册表 → 解析配置（路径绝对化、环境变量注入等）→ 创建 MCP 客户端 → MCP 握手、拉起子进程、拿到工具列表 → 构建 Agent → 对话时调用 MCP 工具。
+
+**参考路径**：`agents-master/docs/project-design/MCP设计与管理.md` §1.2
 
 ---
 

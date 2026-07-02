@@ -1,7 +1,7 @@
 # Bridge Learn 学习进度
 
 > Last updated: 2026-07-01
-> A 轨 agents-master: 0/15 | B 轨 rag-server: 0/45 | C 轨 串联: 1/8
+> A 轨 agents-master: 0/15 | B 轨 rag-server: 0/45 | C 轨 串联: 2/8
 
 ## A 轨 Domain Summary（agents-master）
 
@@ -55,7 +55,7 @@
 | ID | 知识点 | 已学 | 最高分 | 最近分 | 状态 |
 |----|--------|------|--------|--------|------|
 | C1.1 | monorepo 职责 | 1 | 8 | 8 | ✅ |
-| C1.2 | config.json 拉 rag-server | 0 | - | - | ⬜ |
+| C1.2 | config.json 拉 rag-server | 1 | 7 | 7 | ✅ |
 | C1.3 | 双 venv | 0 | - | - | ⬜ |
 | C1.4 | 双配置对应 | 0 | - | - | ⬜ |
 | C1.5 | 端到端 RAG 链 | 0 | - | - | ⬜ |
@@ -68,3 +68,4 @@
 | # | Date | 轨 | 知识点 ID | 知识点 | 评分 | 追问轮数 | 薄弱点 |
 |---|------|-----|-----------|--------|------|----------|--------|
 | 1 | 2026-07-01 | C | C1.1 | monorepo 职责 | 8 | 2 | 首轮漏 document-export；config.json 字段需追问后才答全 |
+| 2 | 2026-07-01 | C | C1.2 | config.json 拉 rag-server | 7 | 2 | 首轮调用链/-m 理解不足；重连策略混淆；讲解后能准确概括 |

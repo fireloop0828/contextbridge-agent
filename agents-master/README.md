@@ -99,46 +99,11 @@ docker compose -f docker-compose-mac.yaml up -d   # Apple Silicon
 
 ## MCP 工具配置（config.json）
 
-项目会从 `config.json` 加载 MCP Server 配置。默认注册 **4 个** MCP：
+默认注册 **4 个** MCP Server：`get_current_time`、`document-export`、`rag-server`、`amap-maps`（见 `config.json`）。传输方式为 **stdio**，由应用启动时自动拉起子进程并拉取工具列表。
 
-```json
-{
-  "get_current_time": {
-    "command": "python",
-    "args": ["./mcp_server_time.py"],
-    "transport": "stdio"
-  },
-  "document-export": {
-    "command": "python",
-    "args": ["./mcp_server_export.py"],
-    "transport": "stdio"
-  },
-  "rag-server": {
-    "command": "python",
-    "args": ["-m", "src.mcp_server.server"],
-    "cwd": "../rag-server",
-    "transport": "stdio"
-  },
-  "amap-maps": {
-    "command": "mcp-amap",
-    "args": [],
-    "transport": "stdio"
-  }
-}
-```
+字段含义、`resolve_mcp_config()` 解析规则、重连策略、模式与 MCP 关系、stdio 与 HTTP/SSE 对比等设计说明，见 **[docs/project-design/MCP设计与管理.md](docs/project-design/MCP设计与管理.md)**。
 
-`cwd` 指向同级目录下的 `rag-server` 工程；`resolve_mcp_config()` 会自动：
-
-- 将相对路径转为绝对路径
-- 优先使用 `rag-server/.venv/bin/python`
-
-rag-server 的 API Key 在 `rag-server/config/settings.yaml` 的 `api_key` 字段中直接配置（与百炼 Key 相同）。
-
-### 在 UI 添加工具
-
-侧边栏的「添加 MCP 工具」支持直接粘贴 Smithery 提供的 JSON 配置。**添加或删除后立即生效**（自动重连 MCP）。
-
-切换 LLM 模型时，在模型下拉框下方点击 **「应用模型」** 生效。
+侧边栏可粘贴 Smithery JSON 增删 MCP（立即重连）。切换 LLM 模型时点 **「应用模型」**（不重连 MCP）。
 
 ## 完整 RAG 流程（rag-server + agents-master）
 
@@ -235,6 +200,7 @@ streamlit run app.py
 
 ## 开发文档
 
+- [docs/project-design/MCP设计与管理.md](docs/project-design/MCP设计与管理.md) — **MCP 设计、注册表与配置（权威）**
 - `docs/project-design/` — 多模式架构、旅行规划设计、app 拆分建议等
 - `docs/test-analysis/` — Token、记忆、MCP 性能分析与优化记录
 - `../rag-server/README.md` — RAG 子项目说明
