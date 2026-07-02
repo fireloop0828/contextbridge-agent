@@ -89,7 +89,6 @@ agents-master/.env
   DASHSCOPE_BASE_URL  →  百炼 OpenAI 兼容端点
   DASHSCOPE_EMBEDDING_MODEL  →  长期记忆向量（可选，默认 text-embedding-v3，见 memory_store.py）
   AMAP_MAPS_API_KEY   →  旅行模式高德 MCP
-  FEISHU_APP_ID / FEISHU_APP_SECRET  →  飞书文档 MCP（可选，侧边栏添加 feishu/lark MCP 时使用）
   ANTHROPIC_API_KEY / OPENAI_API_KEY  →  可选，启用对应 Claude / GPT 模型
   LANGSMITH_*         →  可选，LangSmith 追踪
 

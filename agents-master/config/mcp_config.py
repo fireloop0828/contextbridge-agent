@@ -171,19 +171,6 @@ def resolve_mcp_config(config: dict) -> dict:
                 if amap_key:
                     env["AMAP_MAPS_API_KEY"] = amap_key
 
-        is_feishu_lark_mcp = (
-            name in ("feishu-doc", "lark-mcp", "feishu-mcp")
-            or (
-                cfg.get("command") == "npx"
-                and "@larksuiteoapi/lark-mcp" in (cfg.get("args") or [])
-            )
-        )
-        if is_feishu_lark_mcp:
-            if "FEISHU_APP_ID" not in env and os.environ.get("FEISHU_APP_ID"):
-                env["FEISHU_APP_ID"] = os.environ["FEISHU_APP_ID"]
-            if "FEISHU_APP_SECRET" not in env and os.environ.get("FEISHU_APP_SECRET"):
-                env["FEISHU_APP_SECRET"] = os.environ["FEISHU_APP_SECRET"]
-
         cfg["env"] = env
         resolved[name] = cfg
     return resolved

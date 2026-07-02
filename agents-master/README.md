@@ -54,7 +54,7 @@ cp .env.example .env
   - `DASHSCOPE_API_KEY=...`
   - `DASHSCOPE_BASE_URL=...`（默认北京：`https://dashscope.aliyuncs.com/compatible-mode/v1`）
 - **旅行模式高德地图**：`AMAP_MAPS_API_KEY=...`（见下方第 3 步）
-- 可选：`ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`LANGSMITH_*`、`FEISHU_APP_ID` / `FEISHU_APP_SECRET`
+- 可选：`ANTHROPIC_API_KEY`、`OPENAI_API_KEY`、`LANGSMITH_*`
 
 登录开关（可选）：
 
