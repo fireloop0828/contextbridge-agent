@@ -1,6 +1,6 @@
 # Bridge Learn 学习进度
 
-> Last updated: 2026-07-03（知识点 ID 已与 knowledge-*.md 阅读顺序对齐）
+> Last updated: 2026-07-03（**◆**重亮点 · **◇**亮点 · **★**重点，互斥标注）
 > A 轨 agents-master: 0/31 | B 轨 rag-server: 0/45 | C 轨 串联: 2/15
 
 ## A 轨 Domain Summary（agents-master）
@@ -18,7 +18,7 @@
 
 ### A 轨 Sub-topic Progress
 
-> 顺序与 [knowledge-agents.md](knowledge-agents.md) 一致；★ 为重点知识点。
+> 顺序与 [knowledge-agents.md](knowledge-agents.md) 一致；**◆**重亮点 · **◇**亮点 · **★**重点。
 
 | ID | 知识点 | 已学 | 最高分 | 最近分 | 状态 |
 |----|--------|------|--------|--------|------|
@@ -73,7 +73,7 @@
 
 ## C 轨 Progress（全栈串联）
 
-> 顺序与 [knowledge-integration.md](knowledge-integration.md) 一致；★ 为重点知识点。
+> 顺序与 [knowledge-integration.md](knowledge-integration.md) 一致；**◆**重亮点 · **◇**亮点 · **★**重点。
 
 | ID | 知识点 | 已学 | 最高分 | 最近分 | 状态 |
 |----|--------|------|--------|--------|------|
