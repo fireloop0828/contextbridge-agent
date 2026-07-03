@@ -70,9 +70,9 @@ Cursor 在**仓库根**打开时自动发现本目录。在 Agent 对话中用�
 
 | 轨 | 范围 | 知识点数 | 适合何时用 |
 |----|------|----------|------------|
-| A | agents-master（Host、多模式、记忆、MCP Client） | 15 | 吃透主应用设计与代码 |
-| B | rag-server（摄取、检索、MCP Server） | 45 | 深入 RAG 模块（内容最完整） |
-| C | 双项目串联（配置、调用链、模式组合） | 8 | 理解 monorepo 如何联调 |
+| A | agents-master（Host、多模式、记忆、MCP Client） | 31 | 吃透主应用设计与代码 |
+| B | rag-server（文档入库、检索、MCP Server） | 45 | 深入 RAG 模块（内容最完整） |
+| C | 双项目串联（边界、模式×工具、联调） | 15 | 理解 monorepo 如何拼起来、坏了怎么修 |
 
 ---
 
@@ -109,9 +109,9 @@ Cursor 在**仓库根**打开时自动发现本目录。在 Agent 对话中用�
 
 | 模块 | 现状 | 待办 |
 |------|------|------|
-| **bridge-learn · A 轨** | 15 个核心知识点（简版） | 随 `agents-master/docs/` 与源码增补知识点；旅行/记忆/MCP 等可拆更细 |
-| **bridge-learn · B 轨** | 45 点已映射 `knowledge-rag.md` | 与 `rag-server/DEV_SPEC.md` 变更保持同步；子项明细可迁入 `LEARNING_PROGRESS.md` |
-| **bridge-learn · C 轨** | 8 个串联点 | 补充联调踩坑、端口/venv/配置故障案例 |
+| **bridge-learn · A 轨** | 31 点骨架（8 域，★ 标重点） | P1：加厚 `highlights-agents.md`；重点域 A3/A5/A6/A7/A8 |
+| **bridge-learn · B 轨** | 45 点已映射 `knowledge-rag.md` | 与 `rag-server/DEV_SPEC.md` 变更保持同步 |
+| **bridge-learn · C 轨** | 15 点（C1–C5 与阅读顺序一致） | P1：与 `QA/integration-qa.md` 对齐；已学 C1.1/C1.4 |
 | **bridge-resume · highlights-agents** | 5 条简版亮点 | 对齐 A 轨加厚后的话术与量化角度 |
 | **bridge-resume · highlights-rag** | 自 rag-server 亮点迁入 | 随 RAG 实现迭代更新条目 |
 | **bridge-resume · highlights-integration** | 4 条 monorepo 叙事 | 与真实联调路径、演示脚本对齐 |

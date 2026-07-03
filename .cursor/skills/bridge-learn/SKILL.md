@@ -11,9 +11,9 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 
 | 轨 | 范围 | 知识点数 | 知识地图 |
 |----|------|----------|----------|
-| **A** | agents-master（LangGraph Host、多模式、记忆、MCP Client） | 15 | [references/knowledge-agents.md](references/knowledge-agents.md) |
-| **B** | rag-server（RAG 流水线、检索、MCP Server） | 45 | [references/knowledge-rag.md](references/knowledge-rag.md) |
-| **C** | 双项目串联（配置、调用链、模式组合） | 8 | [references/knowledge-integration.md](references/knowledge-integration.md) |
+| **A** | agents-master（LangGraph Host、多模式、记忆、MCP Client） | 31 | [references/knowledge-agents.md](references/knowledge-agents.md) |
+| **B** | rag-server（文档入库、检索、MCP Server） | 45 | [references/knowledge-rag.md](references/knowledge-rag.md) |
+| **C** | 双项目串联（边界、模式×工具、联调排障） | 15 | [references/knowledge-integration.md](references/knowledge-integration.md) |
 
 ## 流程概览
 
@@ -31,7 +31,7 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 | 选项 | 说明 |
 |------|------|
 | A agents-master | 主应用、多模式、记忆、MCP Client |
-| B rag-server | RAG 摄取/检索/MCP Server（内容最完整） |
+| B rag-server | 文档入库 / 检索 / MCP Server（内容最完整） |
 | C 全栈串联 | monorepo 如何拼起来 |
 | 查看进度 | 读 `references/LEARNING_PROGRESS.md` 后停止 |
 
@@ -66,9 +66,9 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 
 **问题 1 — 学习模式**（单选）：🆕 新学 / 📖 复习 / 📋 查看进度 / 🎯 Agent 推荐
 
-选 📋 → 展示进度全文后停止。选 🎯 → 自动选最弱 ⬜ 或 🔴 知识点，跳过域选择。
+选 📋 → 展示进度全文后停止。选 🎯 → 自动选知识点：读当前轨 `knowledge-*.md`，**自上而下取第一个未学知识点**（文档已按学习顺序排列；★ 在同位置内优先展示）。
 
-**问题 2 — 知识域**（单选，仅 🆕/📖）：列出当前轨各域及完成度。
+**问题 2 — 知识域**（单选，仅 🆕/📖）：按 `knowledge-*.md` 文档顺序列出各域/组及完成度。
 
 **问题 3 — 知识点**（单选）：列出该域下各点状态；含「🎯 Agent 推荐」。
 
@@ -149,6 +149,6 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 | 文件 | 用途 |
 |------|------|
 | `references/LEARNING_PROGRESS.md` | 三轨学习进度 |
-| `references/knowledge-agents.md` | A 轨 15 点 |
+| `references/knowledge-agents.md` | A 轨 31 点 |
 | `references/knowledge-rag.md` | B 轨 45 点 |
-| `references/knowledge-integration.md` | C 轨 8 点 |
+| `references/knowledge-integration.md` | C 轨 15 点 |

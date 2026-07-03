@@ -17,7 +17,7 @@
 
 1. **职责划分**
   - `agents-master/`：MCP **Host**。Streamlit UI + LangGraph ReAct Agent，负责对话、工具编排、多模式切换（通用 / 旅行 / 知识库问答）、会话与长期记忆。
-  - `rag-server/`：模块化 **RAG MCP Server**。负责文档摄取（Ingest）、向量/BM25 混合检索、Chroma 存储，通过 MCP 暴露 `list_collections`、`query_knowledge_hub`、`get_document_summary` 等工具。
+  - `rag-server/`：模块化 **RAG MCP Server**。负责**文档入库**、向量/BM25 混合检索、Chroma 存储，通过 MCP 暴露 `list_collections`、`query_knowledge_hub`、`get_document_summary` 等工具。
   - 二者**不直接 import** 对方 Python 包，通过 MCP 协议解耦。
 2. **连接方式**
   - 协议：**MCP**（本项目主链路用 **stdio** 传输）。
@@ -34,7 +34,7 @@
 4. **知识库问答最小配置**
   - 配置并启动 `**agents-master`**（`.env` 中 LLM Key，如 `DASHSCOPE_API_KEY`）。
   - `**rag-server` 装好依赖**（独立 `.venv`）和 `config/settings.yaml`（`llm` / `embedding` 的 `api_key`）；无需单独起 HTTP 服务，MCP Client 初始化时会 **spawn 子进程**。
-  - **已 ingest 的 collection**（否则检索无内容）；RAG 控制台（`dashboard.py`）可选，用于可视化管理入库。
+  - **已完成入库的 collection**（否则检索无内容）；RAG 控制台（`dashboard.py`）可选，用于可视化管理入库。
   - 侧边栏切到「知识库问答」模式提问。
 
 **参考路径**：根 `README.md`、`agents-master/README.md`、`agents-master/config.json`、`agents-master/docs/project-design/MCP设计与管理.md`
@@ -43,12 +43,12 @@
 
 ### 追问 1
 
-**问**：`document-export` 解决什么问题？与 RAG ingest/检索有何不同？打开 `http://localhost:8501` 后，`rag-server` 是单独 Streamlit 启动还是随 Agent 初始化拉起？依据 `config.json` 哪些字段？
+**问**：`document-export` 解决什么问题？与 RAG **入库/检索**有何不同？打开 `http://localhost:8501` 后，`rag-server` 是单独 Streamlit 启动还是随 Agent 初始化拉起？依据 `config.json` 哪些字段？
 
 **标准答案**：
 
 1. `**document-export`**：将 Agent 生成的成品（如旅行攻略 Markdown）写入本地文件并提供下载，属于**输出链路**。
-  - **RAG ingest**：把外部文档解析、分块、向量化后写入 Chroma，属于**知识入库**。
+  - **文档入库**：把外部文档解析、分块、向量化后写入 Chroma，属于**知识入库**（实现细节见 B 轨 B2）。
   - **RAG 检索**：Agent 通过 MCP 调用 `query_knowledge_hub` 等，从已有 collection **召回片段**，属于**读取链路**。三者职责不同，不可混用。
 2. **启动方式**
   - 主应用 `streamlit run app.py`（8501）时，`rag-server` 作为 MCP **随 Agent 初始化由 Client 拉起**，不是必须先单独 `streamlit run`。
@@ -79,7 +79,7 @@
 
 ---
 
-## C1.2 config.json 如何拉起 rag-server
+## C1.4 config.json 如何拉起 rag-server
 
 **综合评分**：7/10
 
