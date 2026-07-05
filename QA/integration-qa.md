@@ -3,6 +3,11 @@
 > 记录 Bridge Learn C 轨学习过程的问答与标准答案。  
 > 对应知识点见 `.cursor/skills/bridge-learn/references/knowledge-integration.md`。
 
+## 目录
+
+- [C1.1 monorepo 双项目职责划分](#c11-monorepo-双项目职责划分)
+- [C1.4 config.json 如何拉起 rag-server](#c14-configjson-如何拉起-rag-server)
+
 ---
 
 ## C1.1 monorepo 双项目职责划分
