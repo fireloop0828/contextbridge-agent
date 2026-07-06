@@ -53,7 +53,7 @@
 **技术要点**：
 - `config.json` 声明 stdio MCP；`resolve_mcp_config` 解析相对路径、优先子项目 venv
 - API Key 从 `.env` 注入，不入库 `config.json`
-- `tool_truncation` 控制工具结果长度，优化 Token
+- 工具结果 Token 分层治理：`facts` 预取结构化 + `tool_memory` 跨回合摘要 + checkpoint 重置（`tool_truncation` 保留未启用）
 
 **简历话术**：
 - "设计 MCP 配置解析层，支持 monorepo 子进程 cwd、venv 优先与密钥环境变量注入，满足本地开发与合规要求"

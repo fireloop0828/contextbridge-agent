@@ -10,8 +10,9 @@
 ### 导读输出规范
 
 - **不设术语速查表**；写到专用技术词时，**括号内附简洁中文作用**（例：RRF（合并两种检索结果））。
-- **Part I 导读**：段末问答 + 简单追问 → 追加 [QA/fast-qa.md](../../../../QA/fast-qa.md)（问、标准答案、评分、参考路径）
-- **Part II 导读**：每专题 **①核心问题 → ②设计与实现（2–3 块连贯叙事）→ ③亮点 → ④读代码**；一次 **1 个专题**；② 每块先白话讲**为什么这样设计**，紧接**用什么类/文件落地**（见 Part II 文首规范）
+- **Part I 导读**：段末问答 + 简单追问 → 写入 [QA/fast-qa.md](../../../../QA/fast-qa.md)（见该文「记录结构」）
+- **Part II 导读**：每专题 **①核心问题 → ②设计与实现（2–3 块连贯叙事）→ ③亮点 → ④读代码**；一次 **1 个专题**；② 每块先白话讲**为什么这样设计**，紧接**用什么类/文件落地**（见 Part II 文首规范）；段末写入时只在对应 `## Fast-5X` 下追加 `### 专题/环节 N`，不重复建 `## Fast-5X`
+- **标准答案**（写入 QA 时）：一问多问须 **1. 2. 3.** 分条；每条用连贯完整句讲清逻辑；路径/函数仅在关键落点顺带提及并括号注明作用；**参考路径**单独列出，正文忌堆砌文件名
 - 术语括号附中文；用户说「跳过记录」时不写 fast-qa
 - 导读与问答均用中文；路径与工具名保持英文原名。
 
@@ -137,7 +138,7 @@ flowchart LR
 > **推荐讲述顺序（全栈 90 秒）**：见下表 #1→#2→#3→#4→#5→#6→#9→#10→#11（RAG 岗加深 #8、#12；旅行场景加 #7）。  
 > **说明**：ID（如 C1.1）仅用于深学交叉引用；通读与面试口述**重亮点内容**，不必背 ID。
 
-**追问加分（◇，非必背）**：C2.2 三链路分离｜C3.2 知识库三工具调用顺序｜A4.4 RAG 工具防误调｜A7.2 Embedding 长期记忆｜A8.2 工具结果截断｜B2.3 Transform 增强链｜B9.2 增量幂等入库。
+**追问加分（◇，非必背）**：C2.2 三链路分离｜C3.2 知识库三工具调用顺序｜A4.4 RAG 工具防误调｜A7.2 Embedding 长期记忆｜A8.2 工具结果 Token 分层治理｜B2.3 Transform 增强链｜B9.2 增量幂等入库。
 
 ---
 
@@ -205,7 +206,7 @@ flowchart LR
 | 9 | 知识库 RAG 三工具策略 | ◇ | `system.md` 约束调用顺序：先 `list_collections` → 再 query/summary，防误调与 Token 浪费 | `modes/knowledge_qa/system.md`, `mode.py` | A4.4 |
 | 10 | 旅行五阶段状态机 | ◆ | 状态机（按阶段推进的流程控制）驱动 pipeline，保证「查点→路线→天气→整合→导出」可预期 | `modes/travel/state_machine.py` | A6.1 |
 | 11 | 长期记忆画像 | ◇ | Embedding（把文本变成向量）存用户画像，跨会话召回注入 Prompt；与 RAG 检索是两套系统 | `memory_store.py`, `memory_recall.py` | A7.2 |
-| 12 | 工具结果截断 | ◇ | 超大 MCP 返回截断后再进上下文，控制 Token（上下文长度）消耗 | `tool_truncation.py` | A8.2 |
+| 12 | 工具结果 Token 分层治理 | ◇ | 当轮 ToolMessage 全量；旅行用 facts 预取结构化 + tool_memory 跨回合摘要 + 换 thread 清 checkpoint（O6 截断未启用） | `modes/travel/tool_memory.py`, `facts.py`, `pipeline.py`, `Token消耗分析与优化.md` | A8.2 |
 
 ### 段末问答 · 2 A 轨 Host
 
@@ -356,7 +357,8 @@ python scripts/query.py "你的测试问题" --collection default
 > | **③ 亮点** | 面试怎么说 | 每条固定句式：**亮点名：机制/实现（锚关键类或函数）——价值或面试钩子**；2–3 条，可直接背 |
 > | **④ 读代码** | 自学顺序 | 3–5 个路径 |
 >
-> **段末问答**：用自己的话复述「问题 + 设计理由 + 关键代码」，不考背表。
+> **段末问答**：用自己的话复述「问题 + 设计理由 + 关键代码」，不考背表。  
+> **写入 QA 的标准答案**：一问多问须 **1. 2. 3.** 分条对应；每条连贯叙述（是什么→为什么→怎么做）；路径/函数作锚点、括号注明作用；忌堆砌列表，**参考路径**另列。
 
 ---
 
@@ -466,7 +468,7 @@ UI 切换、自动意图路由、拼 Prompt——如果各写一套 `if mode == 
 
 #### ① 核心问题
 
-**旅行规划是多步、强顺序、多工具协作的长流程**——纯 ReAct 无法保证「先采集需求再查路线」，还容易重复调 MCP、把整篇攻略塞进对话导致 Token 爆炸。
+**旅行规划是多步、强顺序、多工具协作的长流程**——纯 ReAct 无法保证「先采集需求再查路线」，还容易重复调 MCP；成稿若再走 MCP `write_markdown_document` 会**双份全文输出**浪费 Token。
 
 #### ② 设计与实现
 
@@ -484,18 +486,18 @@ UI 切换、自动意图路由、拼 Prompt——如果各写一套 `if mode == 
 - **设计**：从对话抽出结构化 **facts**，写入 **tool_memory**，跨回合注入 `[TRAVEL_CONTEXT]`，比自然语言历史稳定。  
 - **实现**：`facts.py` 抽 intake 字段；`tool_memory.py` 缓存 RAG 集合名与近期工具结论摘要，`TOOL_MEMORY_INJECT_TURNS` 控制注入深度。
 
-**块 3 · 导出与证据外置：别让 LLM 在聊天里贴整篇攻略**
+**块 3 · 一次成稿 + 服务端写盘：避免 LLM 第二遍输出全文**
 
-成稿上万字，全进 messages 会 Token 爆炸，用户也看不到依据。
+LLM **仍会在聊天区输出完整攻略**（用户当场阅读）；但若再让 Agent 调 `write_markdown_document` 把同样正文传一遍，会多花一轮 Token。
 
-- **设计**：成稿由**服务端写文件**，对话只给摘要/下载；工具返回用 **evidence UI** 展示依据。  
-- **实现**：`export_service.py` 写 `data/outputs/*.md`；`ui/travel_evidence.py` 展示工具返回摘要。
+- **设计**：检测到完整攻略后，由**服务端**把对话里的 Markdown **复制写盘**（可附加 facts 附录），供下载；**工具依据**（RAG 片段、天气、POI 等）用 evidence UI 单独展示，减轻用户翻 JSON 的负担——外置的是**工具证据**，不是把成稿移出聊天。  
+- **实现**：`handler.process_after_agent()` 判定 `plan_ready` 后组装 `export_body`；`ui/chat.py` 调 `auto_export_travel_plan_from_chat()` → `export_service.save_markdown_export()`。`ui/travel_evidence.py` 展示预取与工具卡片。
 
 #### ③ 亮点
 
 - **状态机在图外**：`state_machine` 定五阶段顺序，`handler`/`pipeline` 在 `agent.invoke` 前介入——不增 LangGraph 节点却拿到硬顺序（A5）  
 - **结构化 facts**：`facts.py` 抽字段写入 `tool_memory`，跨回合注入 `[TRAVEL_CONTEXT]`——比纯对话历史更好驱动阶段门禁与预取  
-- **导出与证据外置**：`export_service` 写盘成稿，`travel_evidence` UI 展示工具依据——对话不贴全文，Token 可控且用户可见依据链
+- **一次成稿 + 服务端写盘**：LLM 在聊天输出完整攻略一次，`export_service` 服务端复制写盘（0 额外 LLM Token），免去 `write_markdown_document` 第二遍传正文；`travel_evidence` 外置的是**工具依据**展示
 
 #### ④ 读代码
 
@@ -523,12 +525,12 @@ UI 切换、自动意图路由、拼 Prompt——如果各写一套 `if mode == 
 - **设计**：配置只写「意图」；解析层负责绝对路径、选对 venv 的 Python、从 `.env` 注 Key。  
 - **实现**：`config/mcp_config.py` 的 `resolve_mcp_config()` 读 `config.json` → 解析 cwd/python/env → `MultiServerMCPClient` 用结果 spawn stdio 子进程。
 
-**块 2 · tool_truncation：Host 统一截断工具返回**
+**块 2 · 工具结果 Token 分层治理（非 Host 统一截断）**
 
-地图、RAG 一次返回几万字，ReAct 上下文立刻爆。
+地图、RAG 一次返回几万字，ReAct checkpoint 立刻爆；治理应在 Host 侧，但**当前未启用** `wrap_tools_with_output_limit()`。
 
-- **设计**：在 **Host 侧**统一截断/摘要，不指望每个 MCP 自己控制长度。  
-- **实现**：`tool_truncation.py` 在 tool result 写入 messages 前按上限处理，与具体 MCP 无关。
+- **设计**：当轮保留全量 ToolMessage 保证推理；旅行模式用编排层 **facts 结构化预取** + **跨回合 tool_memory 摘要** + **换 `thread_id` 清 checkpoint**，比硬截断更少丢关键信息。`tool_truncation.py`（O6）保留为备选。  
+- **实现**：`app.py` 原始工具直交 `ToolNode`；`handler` → `pipeline.prefetch_travel_facts()` + `facts.py` 解析注入 `[TRAVEL_FACTS]`；回合结束 `tool_memory.ingest_tool_round_memory()` → `trim_checkpoint_after_tool_ingest()`；下轮 `format_tool_memory_for_context()` 进 `[TRAVEL_CONTEXT]`。
 
 **块 3 · 记忆与 RAG 分源**
 
@@ -540,12 +542,12 @@ UI 切换、自动意图路由、拼 Prompt——如果各写一套 `if mode == 
 #### ③ 亮点
 
 - **声明式 MCP 解析**：`resolve_mcp_config` 把 `config.json` 变成绝对路径 + 子项目 venv + `.env` 注 Key——monorepo 下一层解析即可稳定 spawn（A4）  
-- **Host 侧 Token 截断**：`tool_truncation` 在 tool result 进 messages 前统一截断——不依赖每个 MCP 自律，生产级上下文治理  
+- **Host 侧 Token 分层治理**：facts 预取结构化 + tool_memory 跨回合摘要 + checkpoint 重置——不依赖 MCP 自律；O6 `tool_truncation` 保留未启用  
 - **记忆与 RAG 分源**：`memory_recall` 走本地 embedding 画像，`query_knowledge_hub` 走 MCP 文档库——存储、触发点、数据源三者分离，面试有标准答法
 
 #### ④ 读代码
 
-`config/mcp_config.py`、`tool_truncation.py`、`memory_store.py`、`memory_recall.py`
+`config/mcp_config.py`、`modes/travel/pipeline.py`、`modes/travel/facts.py`、`modes/travel/tool_memory.py`、`tool_truncation.py`（未启用）、`memory_store.py`、`memory_recall.py`、`docs/test-analysis/Token消耗分析与优化.md`
 
 **深学 ID**：A3.2、A7.2、A8.2
 
@@ -571,7 +573,7 @@ UI 切换、自动意图路由、拼 Prompt——如果各写一套 `if mode == 
 
 **问**：旅行模式「状态机」和「handler/pipeline」各管什么？facts、export_service 分别解决 Token/流程里的什么问题？为什么这套逻辑放在 LangGraph 外面？
 
-**考查**：顺序 vs 阶段内工具；结构化字段与写盘外置；保持单 ReAct 图。
+**考查**：顺序 vs 阶段内工具（handler/pipeline）；facts/tool_memory 结构化与 checkpoint 治理；成稿聊天展示 + 服务端写盘免双份输出；保持单 ReAct 图。
 
 #### 简单追问 · 知识库约束
 

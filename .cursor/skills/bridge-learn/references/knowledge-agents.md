@@ -73,7 +73,7 @@
 | ID | 知识点 | 关键路径 |
 |----|--------|----------|
 | A8.1 | `export_service` 服务端写盘 vs `document-export` MCP ★ | `export_service.py`, `mcp_server_export.py`, `modes/travel/pipeline.py` |
-| A8.2 | `tool_truncation` 工具结果截断策略 ◇ | `tool_truncation.py`, `docs/test-analysis/Token消耗分析与优化.md` |
+| A8.2 | 工具结果 Token 分层治理（facts 预取 + tool_memory + checkpoint 重置；O6 截断未启用）◇ | `modes/travel/tool_memory.py`, `facts.py`, `pipeline.py`, `tool_truncation.py`, `docs/test-analysis/Token消耗分析与优化.md` |
 | A8.3 | `timing_log` 与性能观测 | `timing_log.py`, `docs/test-analysis/MCP初始化性能分析与优化.md` |
 
 ## 面试讲法速查
@@ -94,7 +94,7 @@
 | A3.3 | MCP Session 断线重连，保障工具链生产可用 |
 | A4.4 | 知识库模式约束 RAG 三工具顺序，防误调与 Token 浪费 |
 | A7.2 | Embedding 长期记忆画像，跨会话召回增强 |
-| A8.2 | 大工具结果截断，生产级 Token 治理 |
+| A8.2 | 工具结果 Token 分层治理：当轮全量 + facts 结构化 + 跨回合摘要，O6 截断保留未启用 |
 
 > 推荐讲述顺序：**A2.1 → A3.2 → A4.1**；有旅行场景加深 **A6.1**；RAG 联调接 **A4.4**。
 

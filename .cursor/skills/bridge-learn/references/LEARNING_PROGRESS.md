@@ -51,7 +51,7 @@
 | A7.3 | 记忆触发与集成 ★ | 0 | - | - | ⬜ |
 | A7.4 | 记忆 Embedding 配置 | 0 | - | - | ⬜ |
 | A8.1 | export_service vs MCP ★ | 0 | - | - | ⬜ |
-| A8.2 | tool_truncation ★ | 0 | - | - | ⬜ |
+| A8.2 | 工具 Token 分层治理（facts/tool_memory）★ | 0 | - | - | ⬜ |
 | A8.3 | timing_log | 0 | - | - | ⬜ |
 
 ## B 轨 Domain Summary（rag-server）

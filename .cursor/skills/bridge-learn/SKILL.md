@@ -57,7 +57,10 @@ description: "ContextBridge Agent 深度学习教练：分 A/B/C 三轨深学，
 2. **Part I**：按 **0 全局 → C → A → B → 串讲** 分段导读；**Part II**：按 **5A Agent → 5B RAG → 5C 工程化** 导读（用户说「亮点深读」可跳过 Part I 直接从 5A 开始，若未学完主链路则提示建议先 Part I）
 3. **导读输出规范**：Part I 概括节点表；**Part II** 见文首规范：①核心问题 → ②设计与实现（2–3 块叙事）→ **③亮点（句式：亮点名：机制——价值）** → ④读代码；一次 **1 个专题**
 4. **每段导读结束必出段末问答**；用户回答后简单追问 1 轮
-5. **段末记录**：向 [QA/fast-qa.md](../../../QA/fast-qa.md) 追加（问 + 标准答案 + 综合评分 + 参考路径），并更新文首目录。Part I 用 `Fast-0`/`Fast-C`/…；Part II 用 `Fast-5A`/`Fast-5B`/`Fast-5C`
+5. **段末记录**：写入 [QA/fast-qa.md](../../../QA/fast-qa.md) 前**先 Read 该文件**，确认目标节是否已存在；更新文首目录。**标准答案**须连贯叙述、一问多问用 **1. 2. 3.** 分条（见 QA 文首「撰写准则」）。结构如下：
+   - **Part I**：每段一个 `## Fast-0` / `Fast-C` / …（段内可含多个主题目）
+   - **Part II**：`## Fast-5A` / `## Fast-5B` / `## Fast-5C` **各只建一次**；之后每专题/环节只在其下追加 `### 专题 N` 或 `### 环节 N`（含主题目、简单追问、综合评分），**禁止**重复写 `## Fast-5X` 整节
+   - 写入时用**含小节标题的唯一锚点**定位插入位置；若该 `###` 已存在则改内容而非再插一份
 6. **默认不更新** `LEARNING_PROGRESS.md`；用户说「快速学完记一笔」→ History 追加一行汇总
 7. 段末询问：继续下一段 / 深化某 ID / 结束；用户可说「考我 [ID]」替换为 spot-check
 8. 导读时内部可参考：根 `README.md`、`agents-master/README.md`「完整 RAG 流程」；**不必**执行 A/B/C 轨「项目发现清单」全量扫描
@@ -163,6 +166,8 @@ description: "ContextBridge Agent 深度学习教练：分 A/B/C 三轨深学，
 2. 更新对应 Sub-topic：已学次数、最高分、状态（≥7 ✅、4-6 🔶、≤3 🔴）
 3. 重算 Domain Summary；更新 Last updated 与三轨汇总行
 
+写入对应 `QA/*-qa.md` 时，**标准答案**遵循文首「撰写准则」；写入前先 Read 确认结构，Part II 只在已有 `## Fast-5X` 下追加 `###` 小节，不重复建节。
+
 ---
 
 ## 阶段 9：继续或结束
@@ -176,7 +181,8 @@ description: "ContextBridge Agent 深度学习教练：分 A/B/C 三轨深学，
 | 文件 | 用途 |
 |------|------|
 | `references/knowledge-fast.md` | Fast：Part I 主链路 + Part II 亮点深读 |
-| `QA/fast-qa.md`（仓库根，相对 skill 为 `../../../QA/fast-qa.md`） | Fast 段末问答记录（问 + 标准答案 + 评分；学后追加） |
+| `QA/fast-qa.md`（仓库根，相对 skill 为 `../../../QA/fast-qa.md`） | Fast 段末问答记录（问 + 标准答案 + 评分；学后追加；标准答案见文首撰写准则） |
+| `QA/agents-qa.md` / `QA/rag-qa.md` / `QA/integration-qa.md` | A/B/C 轨问答记录（同上撰写准则） |
 | `references/LEARNING_PROGRESS.md` | 三轨深学进度 |
 | `references/knowledge-agents.md` | A 轨 31 点 |
 | `references/knowledge-rag.md` | B 轨 45 点 |
