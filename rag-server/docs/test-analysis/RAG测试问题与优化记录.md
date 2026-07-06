@@ -96,7 +96,39 @@
 
 ---
 
-## 入库
+### [2026-05-03] 查询预处理：从 LLM 改写设想 → jieba 分词 + 停用词 + 正则规则
+
+- **现象**：
+  - 检索 MVP 设计阶段曾考虑用 **LLM 查询改写**（扩写同义表达、抽关键词）统一服务 Dense / Sparse 两路。
+  - 原型预期问题：每次 query 多一次 LLM 调用，P95 延迟 +数百毫秒～数秒；改写结果**不稳定**（同一问法多轮关键词不一致），BM25 侧难复现；还增加 API 成本与 Key 依赖，与「检索应可离线回归」目标冲突。
+  - 若不做预处理、原始问句直接进 Sparse：中文自然语言里「如何 / 怎么 / 的」等噪声词多，**BM25 词项与入库分词对不齐**，专名类 query 稀疏路命中差（后于 [2026-05-28] Hybrid 上线后更明显）。
+- **原因**：
+  - **Dense 路**需要完整自然语言语义，不宜为省 Token 把 query 砍成几个词再 embedding。
+  - **Sparse 路**需要与入库侧 **同一套分词口径**（`SparseEncoder` 建索引时已用 jieba），查询侧必须产出可比词项，而不是 LLM 自由改写的一段新句子。
+  - 检索链路要求预处理 **确定性、可单测、Trace 可回放**；LLM 改写难以做 38 条单元测试级回归。
+- **处理**：
+  - **放弃当轮 LLM 改写**，落地 `**QueryProcessor`（规则优先）**（阶段 D1）：
+    1. **归一化**：去首尾空白、合并连续空格（`_normalize`）。
+    2. **正则解析 filter**：`FILTER_PATTERN` 识别 `collection:docs`、`type:pdf`、`tag:a,b` 等，从问句剥离后写入 `ProcessedQuery.filters`，剩余文本再分词。
+    3. **jieba 分词**：`jieba.lcut`，与 `sparse_encoder.py` 入库分词 **同源**，避免「索引一套、查询一套」。
+    4. **停用词表**：中英默认表 `CHINESE_STOPWORDS` / `ENGLISH_STOPWORDS` 合并为 `DEFAULT_STOPWORDS`，过滤疑问词、助词、通用动词等；支持 `QueryProcessorConfig` 自定义与 `min_keyword_length` / `max_keywords` 约束。
+    5. **双路分流**（`HybridSearch`）：Dense 仍用 `**original_query` 全句** embedding；Sparse 仅用 `**keywords` 列表** 查 BM25——语义与字面各取所长。
+  - **Trace 可观测**：`query_processing` 阶段记录 `method=query_processor` 与提取出的 `keywords`，Dashboard「检索记录」可回放。
+  - **扩展预留**：`ProcessedQuery.expanded_terms` 字段保留，**同义词 / 别名 OR 扩展**规划为 Sparse 路增强，仍走规则或词典，而非默认 LLM 改写（见 `系统架构与模块选型.md` §3.1）。
+  - **使用的技术 / 改动文件**：
+    - `src/core/query_engine/query_processor.py`（`QueryProcessor` / `QueryProcessorConfig` / `create_query_processor`）
+    - `src/core/types.py`（`ProcessedQuery`）
+    - `src/core/query_engine/hybrid_search.py`（`query_processor.process()` → Dense/Sparse 分流）
+    - `src/ingestion/embedding/sparse_encoder.py`（索引侧 jieba，与查询对齐）
+    - `tests/unit/test_query_processor.py`（38 条单元测试）
+    - 调用方：`query_knowledge_hub.py`、`scripts/query.py`、`evaluation_panel.py`、`query_traces.py`
+- **结果 / 待验证**：
+  - 预处理 **0 次 LLM 调用**，延迟稳定在毫秒级；同输入 keywords 确定，利于 Golden Set 与 Trace 对比。
+  - 中文问句如「如何配置 Azure OpenAI？」→ keywords `['配置', 'Azure', 'OpenAI']`，Sparse 路可命中专名 chunk。
+  - 含 `collection:travel_plan 治安等级` 类 query 可解析 filter 且关键词不含噪声。
+  - **待扩展**：领域同义词表 / 缩写表写入 `expanded_terms` 仅增强 BM25 OR 查询；若未来极复杂问法再评估 **可选** LLM 改写（非默认路径）。
+
+---
 
 ### [2026-06-11] 同一份 PDF 重复 ingest，chunk 数翻倍
 
