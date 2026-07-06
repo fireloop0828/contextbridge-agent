@@ -1,6 +1,6 @@
 ---
 name: bridge-learn
-description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(rag-server)/C(全栈串联) 三轨深学，或 Fast 全栈 3.5h 快速通读；按知识点读代码出题、≤4 轮追问、五层深度、评分与学习指南、记录进度。用户说「学习项目」「bridge learn」「了解 ContextBridge」「agents 学习」「rag 学习」「全栈串联」「learn project」「knowledge check」「快速学习」「bridge learn fast」「knowledge-fast」「3小时通读」时使用。"
+description: "ContextBridge Agent 深度学习教练：分 A/B/C 三轨深学，或 Fast 主链路+亮点深读；按知识点读代码出题、≤4 轮追问、五层深度、评分与学习指南、记录进度。用户说「学习项目」「bridge learn」「了解 ContextBridge」「agents 学习」「rag 学习」「全栈串联」「learn project」「knowledge check」「快速学习」「bridge learn fast」「knowledge-fast」「3小时通读」「亮点深读」「fast 亮点」时使用。"
 ---
 
 # Bridge Learn
@@ -11,7 +11,7 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 
 | 轨 | 范围 | 知识点数 | 知识地图 |
 |----|------|----------|----------|
-| **Fast** | 全栈主线（C→A→B，3.5h 可讲地图） | 34 节点 · **12 ◆** | [references/knowledge-fast.md](references/knowledge-fast.md) |
+| **Fast** | Part I 主链路（3.5h）+ Part II 亮点深读（2.5h） | §0–4 + §5A–5C | [references/knowledge-fast.md](references/knowledge-fast.md) |
 | **A** | agents-master（LangGraph Host、多模式、记忆、MCP Client） | 31 | [references/knowledge-agents.md](references/knowledge-agents.md) |
 | **B** | rag-server（文档入库、检索、MCP Server） | 45 | [references/knowledge-rag.md](references/knowledge-rag.md) |
 | **C** | 双项目串联（边界、模式×工具、联调排障） | 15 | [references/knowledge-integration.md](references/knowledge-integration.md) |
@@ -28,9 +28,11 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 **快速通读（Fast）**：
 
 ```
-选 Fast → 读 knowledge-fast.md → 按 C→A→B→串讲 分段导读
-→ 每段结束段末问答（2–3 题，可简单追问 1 轮）→ 提示深化 ID → 默认不写进度
+选 Fast → Part I：knowledge-fast §0–4 导读+问答 →（可选）Part II：§5A–5C 亮点深读+问答
+→ 追加 QA/fast-qa.md → 提示深化 ID → 默认不写 LEARNING_PROGRESS
 ```
+
+**Part II 触发**：用户说「亮点深读」「fast 亮点」「fast part2」，或 Part I 结束后选择继续。
 
 ---
 
@@ -40,7 +42,7 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 
 | 选项 | 说明 |
 |------|------|
-| **Fast 快速通读** | 全栈 3.5h 主线地图，12 个 ◆ 亮点；读 [knowledge-fast.md](references/knowledge-fast.md) |
+| **Fast 快速通读** | Part I 主链路 3.5h + Part II 亮点深读 2.5h；读 [knowledge-fast.md](references/knowledge-fast.md) |
 | A agents-master | 主应用、多模式、记忆、MCP Client |
 | B rag-server | 文档入库 / 检索 / MCP Server（内容最完整） |
 | C 全栈串联 | monorepo 如何拼起来 |
@@ -52,10 +54,10 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 ### 快速通读流程（Fast）
 
 1. 读取 [references/knowledge-fast.md](references/knowledge-fast.md) 全文
-2. 按 **0 全局 → C（40min）→ A（75min）→ B（90min）→ 串讲（25min）** 分段导读；每段概括节点表 + 关键路径，**不贴大段代码**
-3. **导读输出规范**：专业术语**括号内附简洁中文作用**；**不设独立术语速查表**
-4. **每段导读结束必出段末问答**（题目见 `knowledge-fast.md` 各段「段末问答」：**主题目 2–3 道 + 简单追问 1 道**）；用户回答后：肯定对的部分 → 补遗漏 → **最多简单追问 1 轮**
-5. **段末记录**：问答结束后，向 [QA/fast-qa.md](../../../QA/fast-qa.md) **追加**该段记录（**问 + 标准答案 + 综合评分 + 参考路径**；不写用户回答摘要、不写薄弱点），并**更新文首目录**。用户说「跳过记录」时不写
+2. **Part I**：按 **0 全局 → C → A → B → 串讲** 分段导读；**Part II**：按 **5A Agent → 5B RAG → 5C 工程化** 导读（用户说「亮点深读」可跳过 Part I 直接从 5A 开始，若未学完主链路则提示建议先 Part I）
+3. **导读输出规范**：Part I 概括节点表；**Part II** 见文首规范：①核心问题 → ②设计与实现（2–3 块叙事）→ **③亮点（句式：亮点名：机制——价值）** → ④读代码；一次 **1 个专题**
+4. **每段导读结束必出段末问答**；用户回答后简单追问 1 轮
+5. **段末记录**：向 [QA/fast-qa.md](../../../QA/fast-qa.md) 追加（问 + 标准答案 + 综合评分 + 参考路径），并更新文首目录。Part I 用 `Fast-0`/`Fast-C`/…；Part II 用 `Fast-5A`/`Fast-5B`/`Fast-5C`
 6. **默认不更新** `LEARNING_PROGRESS.md`；用户说「快速学完记一笔」→ History 追加一行汇总
 7. 段末询问：继续下一段 / 深化某 ID / 结束；用户可说「考我 [ID]」替换为 spot-check
 8. 导读时内部可参考：根 `README.md`、`agents-master/README.md`「完整 RAG 流程」；**不必**执行 A/B/C 轨「项目发现清单」全量扫描
@@ -173,7 +175,7 @@ description: "ContextBridge Agent 深度学习教练：分 A(agents-master)/B(ra
 
 | 文件 | 用途 |
 |------|------|
-| `references/knowledge-fast.md` | Fast 全栈 3.5h：34 节点 + 12 ◆ 必讲 + 段末问答 |
+| `references/knowledge-fast.md` | Fast：Part I 主链路 + Part II 亮点深读 |
 | `QA/fast-qa.md`（仓库根，相对 skill 为 `../../../QA/fast-qa.md`） | Fast 段末问答记录（问 + 标准答案 + 评分；学后追加） |
 | `references/LEARNING_PROGRESS.md` | 三轨深学进度 |
 | `references/knowledge-agents.md` | A 轨 31 点 |

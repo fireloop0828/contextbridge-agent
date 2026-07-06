@@ -11,6 +11,9 @@
 - [Fast-A A 轨 Host](#fast-a-a-轨-host)
 - [Fast-B B 轨 RAG](#fast-b-b-轨-rag)
 - [Fast-4 串讲与实操](#fast-4-串讲与实操)
+- [Fast-5A Agent 亮点](#fast-5a-agent-亮点)（Part II，待学后追加）
+- [Fast-5B RAG 检索亮点](#fast-5b-rag-检索亮点)（Part II，待学后追加）
+- [Fast-5C 工程化亮点](#fast-5c-工程化亮点)（Part II，待学后追加）
 
 ---
 
@@ -328,7 +331,7 @@
 
 ---
 
-<!-- 追加格式（无用户回答摘要、无薄弱点）：
+<!-- 追加格式（Part I：Fast-0/C/A/B/4；Part II：Fast-5A/5B/5C）：
 
 ## Fast-X …
 

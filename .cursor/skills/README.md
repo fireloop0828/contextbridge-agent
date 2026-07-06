@@ -124,7 +124,7 @@ Cursor 在**仓库根**打开时自动发现本目录。在 Agent 对话中用�
 |--------|----------|
 | A/C 轨知识点 | `bridge-learn/references/knowledge-agents.md`、`knowledge-integration.md` |
 | B 轨知识点 | `bridge-learn/references/knowledge-rag.md` |
-| Fast 快速通读 | `bridge-learn/references/knowledge-fast.md` |
+| Fast 快速通读 | `bridge-learn/references/knowledge-fast.md`（Part I 主链路 + Part II 亮点深读） |
 | Fast 段末问答记录 | `QA/fast-qa.md`（问 + 标准答案 + 评分；学后追加，文首有目录） |
 | 学习进度 | `bridge-learn/references/LEARNING_PROGRESS.md` |
 | 简历亮点 | `bridge-resume/references/highlights-*.md` |
