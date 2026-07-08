@@ -55,8 +55,8 @@
 |------|------|--------------|
 | **5A. Agent 亮点** | 75 min | 三模式/registry/旅行/工程化；**② 分块叙事讲清设计+落地** |
 | **5B. RAG 检索亮点** | 75 min | 先全景 mermaid，再四环节各 **② 分块叙事** |
-| **5C. 工程化亮点** | 30 min | 三专题各 **② 分块叙事** |
-| **小计** | **~2.5 h** | 能用自己的话讲「问题→设计→代码怎么落地」 |
+| **5C. 工程化亮点** | 50 min | 六专题（1–2 保留已学；3/5/6/7 **② 分块叙事**） |
+| **小计** | **~2 h 50 min** | 能用自己的话讲「问题→设计→代码怎么落地」 |
 
 > 已完成 Part I 后，对 Agent 说「**亮点深读**」「**fast 亮点**」从 §5A 开始；也可「**快速学习 全流程**」一次走完 Part I + II。
 
@@ -794,24 +794,27 @@ Cross-Encoder 本地快，LLM Rerank 灵活但贵，有时还要关掉精排—�
 
 ---
 
-## 5C. 工程化亮点深读（30 min）
+## 5C. 工程化亮点深读（50 min · 六专题）
 
-> 简历话术：highlights-rag 亮点 2、6、9；highlights-agents A4
+> 简历话术：highlights-rag 亮点 2、6、7、9；highlights-agents A2、A4、A5  
+> **专题 1–2 已学过**：正文保留作索引，导读可跳过；**专题 3 / 5 / 6 / 7** 为本章新读或收束串讲。
 
-### 一条线看懂「工程化」
+### 一条线看懂「双项目工程化」
 
 ```
-改 settings.yaml 选厂商
-  → Factory 按配置 new 出 LLM/Embedding/Reranker 实例
-  → core 层 Pipeline 注入这些实例，业务代码不 if-else 厂商
-  → 运行中 Trace 记下每阶段输入输出
-  → Dashboard / evaluate.py 用 Trace + 指标定位坏 Case
-  → tests/ 三层保证改配置不回归
+【RAG 侧】settings.yaml → Factory → core Pipeline 注入
+         → Trace 分阶段记录 → Dashboard / evaluate.py 定位坏 Case
+         → tests 金字塔 + 双 Hash 幂等 ingest
+
+【Host 侧】modes/<name>/ 模式包 + AgentMode + registry
+         → rebuild_agent_only / reconnect_agent 双通道重建
+         → resolve_mcp_config + config.json 声明式 MCP（见专题 2）
+         → 旅行：状态机 + facts/tool_memory + 服务端写盘
 ```
 
 ---
 
-### 专题 1 🔧 可插拔：工厂 + YAML
+### 专题 1 🔧 可插拔：工厂 + YAML 【保留·已学】
 
 #### ① 核心问题
 
@@ -853,7 +856,7 @@ Cross-Encoder 本地快，LLM Rerank 灵活但贵，有时还要关掉精排—�
 
 ---
 
-### 专题 2 🔧 monorepo + MCP + 双 venv
+### 专题 2 🔧 monorepo + MCP + 双 venv 【保留·已学】
 
 #### ① 核心问题
 
@@ -895,76 +898,197 @@ Cross-Encoder 本地快，LLM Rerank 灵活但贵，有时还要关掉精排—�
 
 ---
 
-### 专题 3 🔧 可观测 + 测试 + 幂等
+### 专题 3 🔧 Host 平台化：模式可插拔 + 轻量切换 【收束·详见 §5A 专题 1–2】
 
 #### ① 核心问题
 
-**RAG 坏 Case 难定位：是预处理、Dense 没召回、RRF 合并问题，还是 Rerank 把对的挤下去了？重复 ingest 还不能写脏数据。**
+**三种场景要共用一套 MCP，却需要不同的工具策略与 Prompt**——若逻辑散落在 `app.py` 的 if-else，或一切换侧边栏就重新 spawn 子进程，扩展与运行成本都不可控。
+
+#### ② 设计与实现
+
+**块 1 · 模式包：差异收口到 `modes/<name>/`**
+
+- **设计**：每种模式是一个文件夹包，加第四种模式 = 加包 + 注册一行，主程序不散落分支。  
+- **实现**：`modes/types.py` 的 `AgentMode` Protocol 约定 `build_system_prompt`、`on_enter` 等；各包 `mode.py` + 可选 `system.md`。
+
+**块 2 · registry：找模式只走注册表**
+
+- **设计**：侧边栏、意图路由、拼 Prompt 共用 `registry`，注册顺序可表达优先级（旅行先于知识库）。  
+- **实现**：`registry._MODE_MODULES` → `get_mode` / `route_by_intent`；`prompts.build_system_prompt` 委托 registry。
+
+**块 3 · 双通道重建：变模式 ≠ 变 MCP**
+
+- **设计**：切模式只换 Agent 图与 system 文本；改 `config.json` 才值得重连 MCP、重新 `get_tools()`。  
+- **实现**：`on_enter` → `rebuild_agent_only()` 复用 `session_state.mcp_tools`；`reconnect_agent(reload_mcp=True)` 才重新 spawn。
+
+> **与 §5A 的关系**：§5A 专题 1–2 已深读三模式编排与 registry；此处只收束为 Host 侧「平台化工程化」——面试可一句话对照 RAG 的 Factory 可插拔（专题 1）。
+
+#### ③ 亮点
+
+- **模式包可扩展**：`modes/<name>/` + `AgentMode` + registry——加模式不改 `app.py` 主流程（A2）  
+- **双通道重建**：`rebuild_agent_only` 复用 MCP 连接，改配置才 `reconnect_agent`——切模式成本低、spawn 可控
+
+#### ④ 读代码
+
+`modes/types.py`、`modes/registry.py`、`app.py`（`rebuild_agent_only` / `reconnect_agent`）
+
+**深学 ID**：A4.1、A4.2、A4.5、A5.2
+
+---
+
+### 专题 5 🔧 旅行流水线工程化 【收束·详见 §5A 专题 3】
+
+#### ① 核心问题
+
+**旅行规划步骤多、顺序敏感、工具返回体量大**——纯 ReAct 易跳步、重复调工具；成稿若再走 MCP 写盘会双份输出正文浪费 Token。
+
+#### ② 设计与实现
+
+**块 1 · 图外状态机 + handler/pipeline**
+
+- **设计**：外层状态机硬保阶段顺序；内层 pipeline 决定每阶段调哪些工具——不增 LangGraph 节点。  
+- **实现**：`state_machine.py` 定义阶段转移；`handler.prepare_before_agent()` 在 `ui/chat.py` 里、`agent.invoke` **之前**介入。
+
+**块 2 · facts + tool_memory 结构化上下文**
+
+- **设计**：从对话抽出结构化 facts，跨回合注入 `[TRAVEL_CONTEXT]`，比纯聊天历史更稳、更省 Token。  
+- **实现**：`facts.py` 解析 intake 字段；`tool_memory.py` 缓存 RAG 集合名与工具结论摘要。
+
+**块 3 · 一次成稿 + 服务端写盘**
+
+- **设计**：LLM 在聊天区输出完整攻略一次；检测到 `plan_ready` 后由服务端复制写盘，免去 `write_markdown_document` 第二遍传正文。  
+- **实现**：`handler.process_after_agent()` → `auto_export_travel_plan_from_chat()` → `export_service.save_markdown_export()`；`travel_evidence.py` 外置工具依据展示。
+
+> **与 §5A 的关系**：§5A 专题 3 已深读旅行编排；此处强调「强流程场景的工程化范式」——与 RAG Trace（专题 6）形成「编排可观测 vs 检索可观测」对照。
+
+#### ③ 亮点
+
+- **状态机在图外**：`state_machine` + `handler` 在 ReAct 外硬保五阶段——步骤可预期、不堆 LangGraph 节点（A5）  
+- **一次成稿 + 服务端写盘**：聊天展示全文，`export_service` 复制写盘 0 额外 LLM Token——长流程 Token 工程化
+
+#### ④ 读代码
+
+`modes/travel/state_machine.py`、`handler.py`、`pipeline.py`、`facts.py`、`tool_memory.py`、`export_service.py`、`ui/travel_evidence.py`
+
+**深学 ID**：A6.1–A6.4
+
+---
+
+### 专题 6 🔧 RAG 可观测 + 质量基线
+
+#### ① 核心问题
+
+**RAG 坏 Case 难定位：是预处理、Dense 没召回、RRF 合并问题，还是 Rerank 把对的挤下去了？**改配置或改检索逻辑后，还需要可回归的质量基线。
 
 #### ② 设计与实现
 
 **块 1 · 分阶段 Trace，检索可白盒**
 
-只看最终答案，不知道是哪个环节坏了。
-
-- **设计**：Ingestion / Query 各阶段写 **Trace** 事件，Dashboard 画瀑布图。  
+- **设计**：Ingestion / Query 各阶段写 **Trace** 事件，Dashboard 画瀑布图，能区分「没召回」与「精排挂了」。  
 - **实现**：`core/trace/` 输出 JSON Lines；`observability/dashboard/` 对比 Dense/Sparse、Rerank 前后。
 
-**块 2 · 测试金字塔**
+**块 2 · Golden Test Set + evaluate 回归**
 
-全走 MCP e2e 太慢；RRF 公式不需要真数据库。
+- **设计**：用固定问答集 + Ragas / Hit Rate / MRR 等指标做回归，改配置不依赖人工逐条试。  
+- **实现**：`scripts/evaluate.py` 读 Golden Set，输出 Faithfulness、Context Precision 等（◇ 简历可量化）。
 
-- **设计**：unit 测纯逻辑 → integration 测组件 → e2e 测 MCP。  
-- **实现**：`tests/unit` 测 `RRFFusion.fuse`；`tests/e2e` 走协议端到端。
+**块 3 · 测试金字塔**
 
-**块 3 · 双 Hash 增量入库**
+- **设计**：unit 测纯逻辑 → integration 测组件 → e2e 测 MCP；RRF 公式不需要真数据库。  
+- **实现**：`tests/unit` 测 `RRFFusion.fuse`；`tests/integration` 测 Pipeline；`tests/e2e` 走协议端到端。
 
-重复 ingest 同一文件不应重复烧 embedding API。
-
-- **设计**：文件 Hash + 内容 Hash；未变则 skip，变则幂等 Upsert。  
-- **实现**：`document_manager` 比对 Hash 后决定跳过或写入 chromadb。
+> **与 §5B 的关系**：§5B 已讲检索链各环节算法；此处只讲「怎么验、怎么定位坏 Case」。
 
 #### ③ 亮点
 
-- **分阶段 Trace**：Query/Ingestion 各阶段 JSON Lines + Dashboard 瀑布图——坏 Case 能定位是召回、融合还是精排问题（亮点 6）  
-- **测试金字塔**：unit 测 RRF 等纯逻辑，integration/e2e 测联调与 MCP——改配置不依赖慢 e2e 全覆盖  
-- **双 Hash 幂等 ingest**：文件 Hash + 内容 Hash，未变 skip、变则 Upsert——重复 ingest 不烧 API、不写脏数据（B9.2）
+- **分阶段 Trace**：Query/Ingestion JSON Lines + Dashboard——坏 Case 能定位召回、融合还是精排（亮点 6）  
+- **测试金字塔 + evaluate**：unit 快测 RRF 等纯逻辑，evaluate 保质量基线——改 Factory 配置不依赖慢 e2e 全覆盖
 
 #### ④ 读代码
 
-`src/core/trace/`、`src/observability/dashboard/`、`tests/`、`document_manager.py`
+`src/core/trace/`、`src/observability/dashboard/`、`tests/`、`scripts/evaluate.py`
 
-**深学 ID**：B8.1、B10.1、B9.2
+**深学 ID**：B8.1、B8.2–B8.5、B10.1
+
+---
+
+### 专题 7 🔧 入库工程化：幂等 + 流水线可配置
+
+#### ① 核心问题
+
+**重复 ingest 同一文件不能烧 embedding API、不能写脏数据**；入库链路组件多，换切分/增强策略不应改编排主流程。
+
+#### ② 设计与实现
+
+**块 1 · 双 Hash 增量 skip**
+
+- **设计**：文件 Hash + 内容 Hash；未变则 skip，变才重新 Embed。  
+- **实现**：`document_manager` 比对 Hash 后决定跳过或继续 Pipeline。
+
+**块 2 · 幂等 Upsert**
+
+- **设计**：chunk_id 确定性（source_path + section_path + content_hash），重复跑 ingest 安全。  
+- **实现**：Upsert 写 chromadb，同 chunk 覆盖而非重复插入。
+
+**块 3 · 入库五阶段可插拔**
+
+- **设计**：Load → Split → Transform → Embed → Upsert 顺序固定，各阶段实现可配置替换（与专题 1 Factory 同一思路）。  
+- **实现**：`src/ingestion/pipeline.py` 按 `settings.yaml` 装配 Loader、Splitter、Transform 链。
+
+> **与 Part I §3 的关系**：主链路已口述五阶段；此处强调工程化——可重复跑、成本可控、配置驱动。
+
+#### ③ 亮点
+
+- **双 Hash 幂等 ingest**：未变 skip、变则 Upsert——重复 ingest 不烧 API、不写脏数据（B9.2）  
+- **五阶段配置驱动**：入库编排与 RAG 检索共用「core 编排 + libs/配置可插拔」范式（B2.1）
+
+#### ④ 读代码
+
+`src/ingestion/pipeline.py`、`src/ingestion/document_manager.py`、`config/settings.yaml`
+
+**深学 ID**：B2.1、B2.3、B9.2
 
 ---
 
 ### 段末问答 · 5C 工程化亮点
 
-> **覆盖要点**：Factory｜monorepo｜Trace+测试+幂等
+> **覆盖要点**：Factory｜monorepo｜Host 平台化｜旅行工程化｜RAG 可观测｜入库幂等
 
-#### 主题目 1 · 可插拔
+#### 主题目 1 · 可插拔（专题 1，已学可速答）
 
 **问**：用 Reranker 举例：从 `settings.yaml` 到真正跑精排，中间经过哪几层（配置、工厂、接口、编排）？为什么 `HybridSearch` 不用 import 具体厂商类？
 
 **考查**：Settings → Factory → Base 接口 → 注入；core/libs 分层。
 
-#### 主题目 2 · monorepo
+#### 主题目 2 · monorepo（专题 2，已学可速答）
 
 **问**：「同仓两进程、双 venv」具体是什么意思？`resolve_mcp_config` 帮你解决哪三件麻烦事？不启 Host 怎么测检索？
 
 **考查**：monorepo 布局；路径/python/密钥；`scripts/query.py`。
 
-#### 主题目 3 · 可观测与幂等
+#### 主题目 3 · Host 平台化（专题 3）
 
-**问**：Query Trace 能帮你回答「坏在召回还是坏在精排」吗——靠什么？重复 ingest 同一文件为什么不会写脏数据？
+**问**：「换侧边栏模式」和「改 config.json 里的 MCP」在代码里走哪两个不同函数？为什么不能让一切换模式就 `get_tools()` 一遍？
 
-**考查**：分阶段 Trace；双 Hash skip；幂等 Upsert。
+**考查**：`rebuild_agent_only` vs `reconnect_agent`；spawn 成本；`mcp_tools` 复用。
 
-#### 简单追问 · 测试
+#### 主题目 4 · 旅行工程化（专题 5）
 
-**问**：RRF 公式为什么放 unit test 而不是只写 e2e？三层测试各防什么？
+**问**：旅行模式为何把状态机放在 LangGraph 外面？服务端写盘相比让 Agent 再调 `write_markdown_document` 省了什么？
 
-**考查**：纯逻辑快测；integration/e2e 分工。
+**考查**：硬顺序 vs 单 ReAct 图；0 额外 LLM Token 传正文。
+
+#### 主题目 5 · RAG 可观测（专题 6）
+
+**问**：Query Trace 能帮你回答「坏在召回还是坏在精排」吗——靠什么？RRF 公式为什么放 unit test 而不是只写 e2e？
+
+**考查**：分阶段 Trace / `used_fallback`；纯逻辑快测 vs e2e 分工。
+
+#### 主题目 6 · 入库幂等（专题 7）
+
+**问**：重复 ingest 同一文件为什么不会写脏数据？入库五阶段和 RAG 检索的「可插拔」有什么相同工程思路？
+
+**考查**：双 Hash skip + 幂等 Upsert；core 编排 + 配置/Factory 换实现。
 
 ---
 
@@ -975,7 +1099,7 @@ Cross-Encoder 本地快，LLM Rerank 灵活但贵，有时还要关掉精排—�
 | Part I 主链路（0–4） | Part II §5A–5C 亮点深读 |
 | Part II §5A | 深学 A4/A5/A6 域；`highlights-agents.md` |
 | Part II §5B | 深学 B3/B4 域；`highlights-rag.md` |
-| Part II §5C | 深学 B6/B8/B9/B10；`highlights-rag.md` 亮点 6/9 |
+| Part II §5C | 深学 A4/A5/A6、B2/B6/B8/B9/B10；`highlights-agents.md` A2/A5；`highlights-rag.md` 亮点 6/9 |
 
 ---
 

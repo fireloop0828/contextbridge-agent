@@ -24,8 +24,8 @@
 - [Fast-B B 轨 RAG](#fast-b-b-轨-rag)
 - [Fast-4 串讲与实操](#fast-4-串讲与实操)
 - [Fast-5A Agent 亮点](#fast-5a-agent-亮点)（Part II · 5A 已完成）
-- [Fast-5B RAG 检索亮点](#fast-5b-rag-检索亮点)（Part II · 环节 1–2 已完成）
-- [Fast-5C 工程化亮点](#fast-5c-工程化亮点)（Part II，待学后追加）
+- [Fast-5B RAG 检索亮点](#fast-5b-rag-检索亮点)（Part II · 5B 已完成）
+- [Fast-5C 工程化亮点](#fast-5c-工程化亮点)（Part II · 专题 1–3、5–6 已完成）
 
 ---
 
@@ -242,9 +242,9 @@
 
 **标准答案**：
 
-1. **`list_collections`**：列出 collection 及文档数量，供选库。
-2. **`query_knowledge_hub`**：指定 collection 混合检索，返回片段与 Citation。
-3. **`get_document_summary`**：按 doc_id 获取文档级摘要。
+1. `**list_collections`**：列出 collection 及文档数量，供选库。
+2. `**query_knowledge_hub`**：指定 collection 混合检索，返回片段与 Citation。
+3. `**get_document_summary`**：按 doc_id 获取文档级摘要。
 4. **推荐顺序**：list → query →（必要时）summary。
 
 **参考路径**：`src/mcp_server/tools/`、`modes/knowledge_qa/system.md`
@@ -451,7 +451,7 @@
 
 **标准答案**：
 
-1. **`resolve_mcp_config` 解决什么**：`config.json` 只写声明式「意图」（相对路径、通用 `python` 命令、`${ENV}` 占位符），换机器或 monorepo 布局一变就容易 spawn 失败，密钥也不宜明文进 Git。解析层 `resolve_mcp_config()`（`config/mcp_config.py`）在运行时把配置变成可执行形态：相对 `cwd` → 基于 Host 目录的绝对路径；`python` 命令 → 当前解释器或 rag-server 子项目 `.venv` 里的 Python；`env` / `args` 里的 `${VAR}` → 从 `.env`/环境变量注入真实 Key——一层解析即可稳定拉起各 MCP 子进程。
+1. `**resolve_mcp_config` 解决什么**：`config.json` 只写声明式「意图」（相对路径、通用 `python` 命令、`${ENV}` 占位符），换机器或 monorepo 布局一变就容易 spawn 失败，密钥也不宜明文进 Git。解析层 `resolve_mcp_config()`（`config/mcp_config.py`）在运行时把配置变成可执行形态：相对 `cwd` → 基于 Host 目录的绝对路径；`python` 命令 → 当前解释器或 rag-server 子项目 `.venv` 里的 Python；`env` / `args` 里的 `${VAR}` → 从 `.env`/环境变量注入真实 Key——一层解析即可稳定拉起各 MCP 子进程。
 2. **工具结果 Token 如何治理（当前落地）**：地图、RAG 等一次返回可达上万字，ReAct 每轮把 tool result 塞进 checkpoint messages，上下文迅速膨胀；各 MCP 自行控长难以统一，治理应在 **Host 侧**做，但不等于「统一硬截断」。
   - **O6 未启用**：`tool_truncation.py` 的 `wrap_tools_with_output_limit()` **保留代码、未接入** `app.py`（`_build_agent_from_tools` 直接把原始 MCP 工具交给 `ToolNode`）。当轮硬截断易丢尾部关键字段，影响同轮推理。
   - **旅行模式分层做法**（见 `docs/test-analysis/Token消耗分析与优化.md`）：
@@ -494,13 +494,14 @@
 
 1. **为什么用规则而不是 LLM 改写**：用户问句口语化、带停用词，直接检索 BM25 噪声大；LLM 改写虽灵活但慢、有随机性、难单测。`QueryProcessor` 用 jieba 分词 + 停用词表 + 正则解析等**确定性规则**——快、稳定、零额外 Token，可写 unit test。
 2. **输出什么结构**：统一对象 `ProcessedQuery`，一次预处理、两路复用。里面同时带好 `original`（归一化后的原句）、`keywords`（去停用词后的关键词列表）、`filters`（从 query 语法解析出的筛选条件）。
-3. **Dense 和 Sparse 各用哪个字段**：`DenseRetriever` 用 `original` 做 embedding（保留完整语义）；`SparseRetriever` 用 `keywords` 做 BM25（关键词匹配更准）。  
-  
+3. **Dense 和 Sparse 各用哪个字段**：`DenseRetriever` 用 `original` 做 embedding（保留完整语义）；`SparseRetriever` 用 `keywords` 做 BM25（关键词匹配更准）。
+
 **检索前的"清洗工"**：
-  - **jieba 分词**：把中文拆成词。
-  - **停用词表**：去掉无意义的词。
-  - **正则解析**：提取版本号、日期、邮箱等固定格式信息。
-  - **确定性规则**：统一大小写、同义词、格式等。
+
+- **jieba 分词**：把中文拆成词。
+- **停用词表**：去掉无意义的词。
+- **正则解析**：提取版本号、日期、邮箱等固定格式信息。
+- **确定性规则**：统一大小写、同义词、格式等。
 
 **参考路径**：`rag-server/src/core/query_engine/query_processor.py`
 
@@ -530,9 +531,7 @@
 **标准答案**：
 
 1. **HybridSearch 扮演什么角色**：它是**编排器**——负责 `QueryProcessor` 预处理 → 调 Dense/Sparse 两路召回 → 把结果交给 `RRFFusion` 融合，再送精排。「不算分」意味着它**不自己算 query 与 chunk 的相似度**，打分逻辑分别在 `DenseRetriever`（向量余弦）和 `SparseRetriever`（BM25）里，换一路检索不必改 `HybridSearch` 核心编排。
-
 2. **一路失败怎么处理**：`_run_parallel_retrievals()` 用 `ThreadPoolExecutor` 并行跑两路；任一路异常时不抛到 MCP 层，而是 **Graceful Degradation**——标记 `used_fallback=True`，用另一路仍成功的结果继续后续融合与精排，查询不白屏。
-
 3. **Top-K 从哪读**：`dense_top_k`、`fusion_top_k` 等从 `settings.yaml` 加载，经 `Settings` 注入 `HybridSearch.__init__()`——调召回宽度只改配置，不改 Python 代码。
 
 **参考路径**：`rag-server/src/core/query_engine/hybrid_search.py`、`dense_retriever.py`、`sparse_retriever.py`、`config/settings.yaml`
@@ -546,10 +545,250 @@
 **标准答案**：
 
 1. **串行还是并行**：**并行**。`ThreadPoolExecutor(max_workers=2)` 同时跑 Dense 与 Sparse，总延迟大约等于两路中较慢那路（≈max(两路)），而不是相加。
-
-2. **`used_fallback` 有什么用**：标记本次查询走了**降级路径**（某一路检索失败，只用了另一路结果）。它会写入检索 Trace/响应元数据，便于排查「结果是单路召回还是双路融合」，也能区分「没召回」和「一路挂了但另一路顶上」。
+2. `**used_fallback` 有什么用**：标记本次查询走了**降级路径**（某一路检索失败，只用了另一路结果）。它会写入检索 Trace/响应元数据，便于排查「结果是单路召回还是双路融合」，也能区分「没召回」和「一路挂了但另一路顶上」。
 
 **参考路径**：`rag-server/src/core/query_engine/hybrid_search.py`（`_run_parallel_retrievals`、`used_fallback`）
 
 ---
 
+### 环节 3 · RRF 融合
+
+**综合评分**：8/10
+
+#### 主题目 3 · RRF 融合
+
+**问**：RRF 解决什么问题？公式大致是什么？为什么 `RRFFusion` 要单独成类、不写在 `HybridSearch.search()` 里？
+
+**标准答案**：
+
+1. **RRF 解决什么问题**：Dense（向量）分通常在 0~1，BM25 分无上界，**分数尺度不可比**，不能直接加权平均（否则 BM25 会压过 Dense）。RRF 的做法是**扔掉原始分、只看各路排名**：一个 chunk 在越多路、越靠前的位置出现，融合分越高——两路都认可的 chunk 自然排到最前。
+2. **公式大致是什么**：对每个 chunk，在每条召回名单里按名次贡献 `1/(k+rank)`（rank 从 1 起，k 默认 60 做平滑）；**同 chunk 在多路出现则把各路贡献相加**，按总分降序得到融合名单。例：chunk B 在 Dense 第 2、Sparse 第 1 → 1/62+1/61，高于只在单路出现的 chunk A（仅 Dense 第 1 → 1/61）。
+3. **为什么单独成类**：`HybridSearch` 管编排（调 Dense/Sparse、处理降级），`RRFFusion.fuse()` 只管「怎么合并两张名单」。拆开后 fusion 可单独单测、以后换融合算法不必改 `hybrid_search.py`。
+
+**参考路径**：`rag-server/src/core/query_engine/fusion.py`、`hybrid_search.py`（`_fuse_results`）
+
+---
+
+#### 简单追问 · 融合后的 score 含义
+
+**问**：RRF 之后、精排之前，`RetrievalResult.score` 代表什么？「只在 Dense 第 1」和「Dense 第 2 + Sparse 第 1」谁更可能排前？
+
+**标准答案**：
+
+1. **score 代表什么**：此时 `score` 是 **RRF 融合分**（各路 `1/(k+rank)` 之和），**不是**原始向量相似度或 BM25 分，也不是两路原始分的加权平均；只用于融合阶段的排序，精排会再重新打分。
+2. **谁更可能排前**：**Dense 第 2 + Sparse 第 1** 更可能靠前——两路都有贡献、累加后通常高于只在 Dense 第 1 出现（Sparse 未召回）的 chunk。
+
+**参考路径**：`rag-server/src/core/query_engine/fusion.py`（`fuse` 内 `rrf_contribution`）
+
+---
+
+### 环节 4 · 精排与 Fallback
+
+**综合评分**：8.5/10
+
+#### 主题目 4 · 精排与 Fallback
+
+**问**：为什么粗排之后还要精排？两者分工是什么？精排失败时用户还能拿到检索结果吗？靠哪段逻辑保证？`used_fallback` 表示什么？`core/query_engine/reranker.py` 和 `libs/reranker/` 各管什么？改 `reranker.provider` 要不要改 `hybrid_search.py`？
+
+**标准答案**：
+
+1. **为什么还要精排、分工是什么**：粗排（HybridSearch + RRF）求**广召回**——两路都认可的 chunk 会靠前，但不能保证「最贴题」；名单里仍可能有语义沾边但答非所问的 chunk。精排（`CoreReranker`）求**准排序**——对粗排后的 Top-K 逐条用更强模型重算「query 与 chunk 全文」的相关性，把最该给 LLM 看的挪到前面。
+2. **精排失败还能拿到结果吗**：能。`CoreReranker.rerank()` 在 `try/except` 里，当 `fallback_on_error=True`（默认）时，精排异常**不抛到 MCP**，而是保持 **RRF 粗排顺序**取 `top_k` 返回，仍带 Citation。`RerankResult.used_fallback=True` 表示本次走了精排降级；`fallback_reason` 记入 Trace。这与粗排阶段的 `HybridSearch.used_fallback`（某一路 Dense/Sparse 挂了）是不同阶段的不同标记。
+3. **core 与 libs 分工、要不要改 hybrid_search**：`core/query_engine/reranker.py` 管编排——类型转换、top_k、Fallback、Trace；`libs/reranker/` 管具体打分实现（`CrossEncoderReranker`、`LLMReranker`、`NoneReranker`），由 `RerankerFactory` 按 `settings.yaml` 的 `rerank.provider` 创建。改 provider **只改 YAML + Factory**，**不用改** `hybrid_search.py`——粗排与精排解耦。
+
+**参考路径**：`rag-server/src/core/query_engine/reranker.py`、`libs/reranker/reranker_factory.py`、`mcp_server/tools/query_knowledge_hub.py`（`_apply_rerank`）
+
+---
+
+#### 简单追问 · 转换形态与打分方式
+
+**问**：`CoreReranker` 把 `RetrievalResult` 转成什么形态交给后端？Cross-Encoder 和 LLM 两种精排分别怎么「重算相关性」？
+
+**标准答案**：
+
+1. **转换后的形态**：`_results_to_candidates()` 把每条粗排结果变成 dict，例如 `{"id": chunk_id, "text": 正文, "score": RRF分, "metadata": {...}}`。列表 `candidates` 连同 `query` 字符串一起交给 `libs` 里具体后端的 `.rerank(query, candidates)`。后端返回的 dict 会带上 `rerank_score`，再由 `_candidates_to_results()` 写回 `RetrievalResult`（`metadata` 里保留 `original_score` 与 `rerank_score`）。
+2. **Cross-Encoder 怎么打分**：把每个 candidate 变成 **(query, chunk全文)** 二元组，批量送入 Cross-Encoder 模型（如 `ms-marco-MiniLM`）的 `predict()`，模型**同时看问题和段落**输出一个相关性浮点分——比粗排 Dense「query 向量 vs chunk 向量分开算余弦」更准，能识别「词面相关但语义不对题」。按 `rerank_score` 降序重排后取 top_k。
+3. **LLM 怎么打分**：把所有 passage 和 query 拼进 `config/prompts/rerank.txt` 模板，调 LLM 一次，要求返回 JSON 数组 `[{passage_id, score}, ...]`；解析后按 LLM 给的 score 重排。更灵活但更慢、更贵。
+
+**参考路径**：`reranker.py`（`_results_to_candidates`）、`libs/reranker/cross_encoder_reranker.py`（`_prepare_pairs`、`_score_pairs`）、`libs/reranker/llm_reranker.py`（`_build_rerank_prompt`、`_parse_llm_response`）
+
+---
+
+## Fast-5C 工程化亮点
+
+### 专题 1 · 可插拔（工厂 + YAML）
+
+**综合评分**：7.5/10
+
+#### 主题目 1 · 可插拔链路
+
+**问**：用 Reranker 举例：从 `settings.yaml` 到真正跑精排，中间经过哪几层（配置、工厂、接口、编排）？为什么 `HybridSearch` / `CoreReranker` 不用 import 具体厂商类？
+
+**标准答案**：
+
+1. **从配置到跑起来的链路**：`settings.yaml` 只负责声明意图（开不开精排、用哪个 `provider`、以及模型/超时/top_k 等参数）→ 启动时加载为 `Settings` → `RerankerFactory.create(settings)` 读取 `rerank.provider` 并 **创建/初始化** 对应 provider 实例（`CrossEncoderReranker` / `LLMReranker` / `NoneReranker`）→ `CoreReranker` 拿到这个实例后，只通过 `BaseReranker.rerank(query, candidates)` 这一个统一接口发起精排（core 侧做类型转换、Trace、Fallback 等编排）。
+2. **为什么 core 不 import 具体厂商类**：因为一旦 core 直接 import 并写 `if/elif provider`，每加一个 provider、每改一个初始化参数都要改 core，容易回归且破坏分层。现在 core 只依赖抽象接口，切换 provider 只改 YAML（和必要时扩展 Factory/provider），不改 `HybridSearch` / `CoreReranker` 的编排逻辑。
+
+Base 接口让调用统一；Factory 让创建统一。 YAML 决定“用哪个 provider”，Factory 按配置“创建并配置好那个 provider 实例”，core 只拿到一个 Base 接口对象来调用，因此换 provider/改参数不需要改 core 主流程  
+
+**参考路径**：`rag-server/config/settings.yaml`、`rag-server/src/libs/reranker/base_reranker.py`、`rag-server/src/libs/reranker/reranker_factory.py`、`rag-server/src/core/query_engine/reranker.py`
+
+---
+
+#### 简单追问 · Base vs Factory（澄清）
+
+**问**：
+
+1. 为什么 Factory 必须存在？它解决的不是“调用”而是哪类耦合问题？
+2. 为什么 core 必须只依赖 Base 接口？这给“换 provider”带来什么好处？
+3. Factory 到底做什么，它和 Base 接口的分工边界在哪里？
+
+**标准答案**：
+
+1. **Factory 为什么必须存在**：它把“创建层的变化点”集中起来——根据 `settings.yaml` 选择 provider、按需 lazy import、把配置参数（model/prompt/timeout/top_k 等）灌进正确实现、创建失败时回退到 `NoneReranker`。这样 core 不需要写一堆 `if/elif provider` 分支，也不会因为新增 provider 或改初始化参数而频繁改动主流程。
+2. **core 为什么只依赖 Base**：Base 接口统一了调用形态（同一个 `rerank(query, candidates)`），core 只编排（类型转换/Trace/Fallback），不懂具体实现细节。所以切换 provider（cross-encoder ↔ llm ↔ none）时，core 的调用方式与流程不变，实现“替换实现不动编排”。
+3. **Factory vs Base 的边界**：Base 接口负责“**怎么调用要一致**”（统一方法签名与输入输出形态，让 core 永远按 `rerank(query, candidates)` 调用）；Factory 负责“**用哪个实现 + 怎么创建/初始化**”（读取配置选择 provider、lazy import、把 settings 参数灌进实现、创建失败回退到 `NoneReranker`），避免这些分支散落在 core 主流程里。一句话：**Base 统一调用，Factory 统一创建**；core 只依赖 Base，因此替换 provider 不改编排。
+
+**参考路径**：`rag-server/src/libs/reranker/base_reranker.py`、`rag-server/src/libs/reranker/reranker_factory.py`、`rag-server/config/settings.yaml`
+
+---
+
+### 专题 2 · monorepo + MCP + 双 venv
+
+**综合评分**：8/10
+
+#### 主题目 2 · 同仓两进程联调
+
+**问**：「同仓两进程、双 venv」具体是什么意思？`resolve_mcp_config` 帮你解决哪三类启动问题？不启 Host 怎么验证检索链路？`scripts/query.py` 的价值是什么？
+
+**标准答案**：
+
+1. **同仓两进程、双 venv 是什么**：代码层面把 `agents-master/`（Host：UI/Agent/工具编排）和 `rag-server/`（RAG：入库/混合检索/精排）放在一个 monorepo 里，便于一起改接口与联调；运行时仍是**两个进程**各自启动，并且各自用自己的虚拟环境（双 venv）隔离依赖冲突。这样既保证“依赖不打架”，又能用 MCP 把两边连起来。
+2. `**resolve_mcp_config` 解决的三类问题**：把 `config.json` 的声明式配置解析成“能跑的启动参数”，核心包括：把相对 `cwd` 解析成绝对路径（确保子进程在正确目录启动）；为不同子项目选择正确的 Python/执行环境（如 rag-server 优先 `.venv`）；把 `${VAR}` / `.env` 中的密钥注入到子进程 `env`（避免明文写进配置与 Git）。
+3. **不启 Host 怎么验证检索、`scripts/query.py` 价值**：直接运行 `rag-server/scripts/query.py` 读取 `settings.yaml` 并实例化检索链路（HybridSearch/RRF/可选精排）跑一遍 query；它能把问题快速二分为“Host/MCP 编排链路问题”还是“RAG 内部检索/配置问题”，排障更快也更可控。
+
+**参考路径**：`agents-master/config/mcp_config.py`（`resolve_mcp_config`）、`rag-server/scripts/query.py`、`agents-master/README.md`
+
+---
+
+### 专题 3 · Host 平台化
+
+**综合评分**：8/10
+
+#### 主题目 3 · Host 平台化
+
+**问**：「换侧边栏模式」和「改 `config.json` 里的 MCP」在代码里分别走哪两个函数？为什么不能让一切换模式就 `get_tools()` 一遍？`registry` 和 `AgentMode` Protocol 分别解决什么麻烦？
+
+**标准答案**：
+
+1. **两条重建通道**：换侧边栏模式（或换对话模型）走 `rebuild_agent_only()`——只重建 Agent 图和 system Prompt，复用已缓存的 `mcp_tools`，不重新 spawn MCP 子进程。改 `config.json` 或侧边栏主动重连 MCP 时走 `reconnect_agent(reload_mcp=True)`——重新 `get_tools()`、spawn 子进程，全量刷新工具列表。
+2. **为何不能一切换就 `get_tools()`**：spawn rag-server 等 MCP 子进程并握手拿工具列表有启动成本；三种模式共用同一套 MCP 连接，切模式只需换 Prompt/Agent 行为，没必要每次重连。只有 MCP 配置变了，工具集合才可能变，才值得走重通道。
+3. `**registry` 与 `AgentMode` 的分工**：`AgentMode` Protocol（`modes/types.py`）统一每个模式包必须实现的外壳能力（如 `build_system_prompt`、`on_enter`、`detect_intent`），各模式独立实现、不必继承同一父类。`registry`（`modes/registry.py`）用 `_MODE_MODULES` 元组登记所有模式，是侧边栏、意图路由、拼 Prompt 的**唯一入口**；注册顺序还可表达意图优先级（旅行先于知识库）。
+
+**参考路径**：`agents-master/modes/types.py`、`agents-master/modes/registry.py`、`agents-master/app.py`（`rebuild_agent_only` / `reconnect_agent`）、`agents-master/ui/sidebar.py`
+
+---
+
+#### 简单追问 · mcp_tools 为空时的兜底
+
+**问**：若 `rebuild_agent_only()` 发现 `session_state` 里还没有 `mcp_tools`（例如首次进页面），它会怎么处理？为什么这样设计？
+
+**标准答案**：
+
+1. **兜底行为**：`rebuild_agent_only()` 开头会检查 `mcp_tools`；若缓存为空，直接转调 `reconnect_agent(reload_mcp=True)`，重新拉起 MCP 子进程并 `get_tools()` 拿到工具列表，再构建 Agent。
+2. **为何这样设计**：轻量通道的前提是「工具已经连好、缓存在 session 里」；没有缓存时无法只重建 Agent 图，必须先走重通道保证工具可用。这样既保留「有缓存时切模式不重连」的性能优势，又避免首次进入或异常清空缓存时 Agent 无工具可用。
+
+**参考路径**：`agents-master/app.py`（`rebuild_agent_only` 内对 `mcp_tools` 的判断）
+
+---
+
+### 专题 5 · 旅行流水线工程化
+
+**综合评分**：7.5/10
+
+#### 主题目 4 · 旅行工程化
+
+**问**：旅行模式为何把状态机放在 LangGraph **外面**？`facts` / `tool_memory` 和纯聊天历史相比解决了什么问题？服务端写盘相比让 Agent 再调 `write_markdown_document` 省了什么？
+
+**标准答案**：
+
+1. **状态机为何在图外**：旅行步骤多、顺序敏感，纯 ReAct 易跳步或重复调工具。把 `state_machine` + `handler`/`pipeline` 放在 `agent.invoke` 之前/之外的 Python 层，可以硬保五阶段顺序，同时保持 LangGraph 仍是**单个 ReAct 图**、不堆节点，编排逻辑更好维护。
+2. `**facts` / `tool_memory` vs 纯聊天历史**：`facts.py` 从对话抽出结构化行程需求（目的地、天数、预算等 intake 字段），写入 `tool_memory` 后跨回合注入 `[TRAVEL_CONTEXT]`，比让 LLM 从冗长自然语言历史里自己「猜」更稳、更省 Token。注意：这与 `memory_store` 的长期用户画像是两套系统，旅行 facts 管当次行程上下文。
+3. **服务端写盘省什么**：LLM 在聊天区已输出完整攻略一次；`process_after_agent()` 检测到 `plan_ready` 后，`export_service` 服务端复制 Markdown 写盘，免去 Agent 再调 `write_markdown_document` 把同样正文传第二遍——节省一轮 LLM 输出 Token 和一次 MCP 工具调用。
+
+**参考路径**：`agents-master/modes/travel/state_machine.py`、`handler.py`、`facts.py`、`tool_memory.py`、`export_service.py`
+
+---
+
+#### 简单追问 · before / after 时机
+
+**问**：`handler.prepare_before_agent()` 和 `handler.process_after_agent()` 分别在对话回合的什么时机调用？各自管什么（输入侧还是输出侧）？
+
+**标准答案**：
+
+1. `**prepare_before_agent`（输入侧）**：在 `ui/chat.py` 里、调用 `agent.invoke` **之前**执行。根据当前状态机阶段组装本轮给 Agent 的输入（如 `agent_query`、预取 facts、注入 `[TRAVEL_CONTEXT]`），决定 Agent 这一轮「看到什么、从哪一阶段开始」。
+2. `**process_after_agent`（输出侧）**：在 `agent.invoke` **完成之后**、拿到 LLM 最终回复与工具结果后执行。负责判定是否 `plan_ready`、触发服务端写盘（`auto_export_travel_plan_from_chat`）、更新 `tool_memory` 等回合后处理。
+
+**参考路径**：`agents-master/ui/chat.py`（`prepare_before_agent` / `process_after_agent` 调用位置）
+
+---
+
+### 专题 6 · RAG 可观测 + 质量基线
+
+**综合评分**：7.5/10
+
+#### 主题目 5 · RAG 可观测
+
+**问**：Query Trace 能帮你回答「坏在召回还是坏在精排」吗——靠什么？RRF 公式为什么放 unit test 而不是只写 e2e？三层测试（unit / integration / e2e）各防什么？
+
+**标准答案**：
+
+1. **Trace 能否区分召回 vs 精排**：能。Query 链路各阶段（预处理、Dense/Sparse 召回、RRF 融合、Rerank 精排）都会写 Trace 事件；Dashboard 可对比两路召回列表、融合后顺序、精排前后变化。若 Dense/Sparse 有结果但精排异常，返回结构里 `used_fallback=True`（并可有 `fallback_reason`），表示回退到 RRF 粗排顺序——说明问题在精排而非「完全没召回」。
+2. **RRF 为何放 unit**：RRF 是纯排名融合公式，输入输出确定，不依赖 chromadb 或真实 embedding API。放 `tests/unit` 可秒级回归，改融合逻辑不必跑慢 e2e；e2e 适合验 MCP 协议与端到端，不适合承担每个纯函数的快速校验。
+3. **三层测试分工**：**unit** 测纯逻辑（如 `RRFFusion.fuse`、QueryProcessor 规则）；**integration** 测组件组装与通路（如 Ingestion Pipeline、HybridSearch 与向量库协作）；**e2e** 测 MCP 协议与 Host↔RAG 端到端，防联调与接口回归。
+
+**参考路径**：`rag-server/src/core/trace/`、`rag-server/src/observability/dashboard/`、`rag-server/tests/`、`rag-server/scripts/evaluate.py`
+
+---
+
+#### 简单追问 · Fallback 标记
+
+**问**：若精排（Rerank）超时或异常，系统仍返回检索结果——Trace 或返回结构里靠什么标记告诉你「走了 Fallback、用的是粗排顺序」？
+
+**标准答案**：
+
+1. **核心标记**：`CoreReranker.rerank()` 在精排失败且 `fallback_on_error=True` 时，返回的 `RerankResult` 里设 `used_fallback=True`，并记录 `fallback_reason`（异常信息）。此时仍返回带 Citation 的证据，但排序沿用 RRF 粗排结果。
+2. **与 Trace 的关系**：该标记会写入 Query Trace，Dashboard 可区分「精排成功重排」与「精排挂了回退粗排」，避免把「召回有、精排差」误判为「完全没召回」。
+
+**参考路径**：`rag-server/src/core/query_engine/reranker.py`（`RerankResult.used_fallback` / `fallback_reason`）
+
+---
+
+### 专题 7 · 入库工程化：幂等 + 流水线可配置
+
+**综合评分**：8/10
+
+#### 主题目 6 · 入库幂等
+
+**问**：重复 ingest 同一文件为什么不会写脏数据？「文件 Hash」和「内容 Hash」分别防什么？入库五阶段和 RAG 检索的「可插拔」有什么相同的工程思路？
+
+**标准答案**：
+
+1. **为什么重复 ingest 不会写脏数据（幂等的关键）**：幂等的前提是“同一份内容产生稳定的标识”，写入端用这个标识做 Upsert（有则覆盖/更新，无则插入）。因此同一版本的文档重复 ingest 时，不会生成一堆重复 chunk；若文档内容发生变化，会触发重新处理并写入新版本（或覆盖更新），但不会把旧版本与新版本无限叠加污染召回。
+2. **文件 Hash vs 内容 Hash 分别防什么**：文件 Hash（文件级）用于判断“整文件是否变化”，未变可直接跳过整条 ingest 流水线，避免重复切分/Transform/Embedding 的成本；内容 Hash（chunk 级）用于判断“chunk 的文本内容是否变化”，保证 chunk_id 的稳定性，让写入端可以精准 Upsert（同内容不重复、变更内容才更新/新增），避免“部分小改动导致整文件所有 chunk 都重复入库”的污染。
+3. **入库与检索的共同工程思路（可插拔 + 配置驱动）**：两边都遵循“core 编排稳定、实现可替换”的分层。入库侧顺序固定为 Load→Split→Transform→Embed→Upsert，但每一阶段具体用哪个实现/策略由 `settings.yaml` 装配；检索侧同样通过 Settings + Factory/组件注入，让 `HybridSearch` / `CoreReranker` 等编排层不写厂商 if-else，只依赖抽象接口，从而在不改主流程的情况下替换实现、快速迭代且更易测试回归。
+
+**参考路径**：`rag-server/src/ingestion/document_manager.py`、`rag-server/src/ingestion/pipeline.py`、`rag-server/config/settings.yaml`
+
+---
+
+#### 简单追问 · 为什么“chunk_id 稳定”比“Upsert”更关键？
+
+**问**：如果只有 Upsert，但每次 ingest 都随机生成 chunk_id（或同内容生成不同 id），会发生什么？为什么这不叫幂等？
+
+**标准答案**：
+
+1. **会发生什么**：写入端无法命中同一条记录进行覆盖，Upsert 退化成“每次都插入新记录”，导致重复 chunk 越积越多；严重时还会造成召回结果重复、排序噪声增大、答案引用混乱。
+2. **为何不幂等**：幂等要求“同一输入重复执行，最终状态不变”。随机 chunk_id 破坏了“同内容→同标识”的前提，使得重复执行改变了库的最终状态（数据量持续增加），因此不满足幂等。
+
+**参考路径**：同上（重点理解“稳定标识 → Upsert 才成立”）
