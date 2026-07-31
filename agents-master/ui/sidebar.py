@@ -496,41 +496,41 @@ def _render_exports_and_actions(*, use_login: bool) -> None:
                     use_container_width=True,
                 )
 
-    st.divider()
-    st.subheader("⏱️ 耗时测试")
-    history = st.session_state.get("timing_history") or []
-    st.caption(f"已记录 {len(history)} 个回合（含 LLM 与 MCP 工具分段）。")
-    if history:
-        last = history[-1]
-        summary = last.get("summary") or {}
-        st.markdown(
-            f"最近一回合：**{last.get('total_ms')} ms** "
-            f"（LLM {summary.get('llm_total_ms', 0)} ms / "
-            f"RAG {summary.get('rag_total_ms', 0)} ms / "
-            f"工具 {summary.get('tool_total_ms', 0)} ms）"
-        )
-        report_md = tlog.format_timing_report_markdown(history)
-        report_json = tlog.format_timing_report_json(history)
-        st.download_button(
-            label="⬇️ 导出耗时测试条例（Markdown）",
-            data=report_md.encode("utf-8"),
-            file_name=f"timing-test-report-{len(history)}-turns.md",
-            mime="text/markdown",
-            key="download_timing_md",
-            use_container_width=True,
-        )
-        st.download_button(
-            label="⬇️ 导出原始数据（JSON）",
-            data=report_json.encode("utf-8"),
-            file_name=f"timing-test-data-{len(history)}-turns.json",
-            mime="application/json",
-            key="download_timing_json",
-            use_container_width=True,
-        )
-        with st.expander("预览最近回合", expanded=False):
-            st.markdown(tlog.format_turn_table(last))
-    else:
-        st.caption("完成对话后，可在此导出 Markdown 测试条例或 JSON 明细。")
+    # st.divider()
+    # st.subheader("⏱️ 耗时测试")
+    # history = st.session_state.get("timing_history") or []
+    # st.caption(f"已记录 {len(history)} 个回合（含 LLM 与 MCP 工具分段）。")
+    # if history:
+    #     last = history[-1]
+    #     summary = last.get("summary") or {}
+    #     st.markdown(
+    #         f"最近一回合：**{last.get('total_ms')} ms** "
+    #         f"（LLM {summary.get('llm_total_ms', 0)} ms / "
+    #         f"RAG {summary.get('rag_total_ms', 0)} ms / "
+    #         f"工具 {summary.get('tool_total_ms', 0)} ms）"
+    #     )
+    #     report_md = tlog.format_timing_report_markdown(history)
+    #     report_json = tlog.format_timing_report_json(history)
+    #     st.download_button(
+    #         label="⬇️ 导出耗时测试条例（Markdown）",
+    #         data=report_md.encode("utf-8"),
+    #         file_name=f"timing-test-report-{len(history)}-turns.md",
+    #         mime="text/markdown",
+    #         key="download_timing_md",
+    #         use_container_width=True,
+    #     )
+    #     st.download_button(
+    #         label="⬇️ 导出原始数据（JSON）",
+    #         data=report_json.encode("utf-8"),
+    #         file_name=f"timing-test-data-{len(history)}-turns.json",
+    #         mime="application/json",
+    #         key="download_timing_json",
+    #         use_container_width=True,
+    #     )
+    #     with st.expander("预览最近回合", expanded=False):
+    #         st.markdown(tlog.format_turn_table(last))
+    # else:
+    #     st.caption("完成对话后，可在此导出 Markdown 测试条例或 JSON 明细。")
 
     st.divider()
     _render_memory_panel()
@@ -554,9 +554,9 @@ def render_sidebar(*, use_login: bool) -> None:
         st.subheader("📋 对话模式")
         _render_mode_segment()
         st.divider()
-        st.subheader("⚙️ 系统设置")
-        _render_system_settings()
-        st.divider()
+        # st.subheader("⚙️ 系统设置")
+        # _render_system_settings()
+        # st.divider()
         st.subheader("🔧 工具设置")
         _render_mcp_tools()
         _render_exports_and_actions(use_login=use_login)
