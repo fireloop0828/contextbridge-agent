@@ -58,7 +58,7 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 ## 3. 优化前瓶颈排序
 
 1. 生成阶段双份长文输出（§2.3）→ **已改版 O5**
-2. generating 携带 POI/intake 工具历史（§2.2）→ **O2 + O4 初版**
+2. generating 携带 POI/intake 工具历史（§2.2）→ **O2**
 3. 工具返回过长 × 多步 ReAct（§2.4）→ **O7/O8/O10**
 4. 冗长 System Prompt（§2.1）→ **O1**
 
@@ -76,12 +76,10 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 | # | 优化项 | 决策 | 较原先节省（估算） | 针对根因 | 当前做法 | 关键文件 |
 |---|--------|------|-------------------|----------|----------|----------|
 | O1 | 旅行专用精简 Prompt | **✅** | ~4.8 万（16%） | §2.1 | `general_system_travel.md` + 精简 `travel-planner.md` | `modes/travel/` |
-| O2 | POI→intake reset thread | **✅** | ~11.6 万（39%） | §2.2 | POI 结束换 `thread_id` | `modes/travel/state_machine.py`、`ui/chat.py` |
-| O3 | generating 时 reset thread | **↩** | —（约 5%～15% 潜力） | §2.2 | 已回退；与 UI/改稿协同未定型 | — |
-| O4 | Checkpoint 裁剪 | **⏸ 初版** | 潜力 5～12 万；**待实测** | §2.2 | 工具回合后 O7 入库 + **换 `thread_id`**（非 Message Trimmer） | `modes/travel/tool_memory.py`、`ui/chat.py` |
+| O2 | Checkpoint 裁剪（reset thread） | **✅** | ~11.6 万（39%） | §2.2 | 两重触发：①每轮工具后换 `thread_id`（主要）②POI→intake 边界兜底换 `thread_id`；原 O3 已回退 | `modes/travel/state_machine.py`、`modes/travel/tool_memory.py`、`ui/chat.py` |
 | O5 | 导出双份输出 | **🔄** | ~0.3 万（1%） | §2.3 | 对话完整 MD + `export_service` 写文件 | `export_service.py`、`ui/chat.py` |
 | O6 | MCP 工具返回截断 | **↩** | — | §2.4 | 已回退；改 O7 | `tool_truncation.py`（保留未启用） |
-| O7 | 工具跨回合记忆 | **✅** | 配合 O4 才显著 | §2.4 | 回合结束摘要 → 下轮 `[TRAVEL_CONTEXT]` 注入 | `modes/travel/tool_memory.py` |
+| O7 | 工具跨回合记忆 | **✅** | 配合 O2 才显著 | §2.4 | 回合结束摘要 → 下轮 `[TRAVEL_CONTEXT]` 注入 | `modes/travel/tool_memory.py` |
 | O8 | 按阶段 ReAct 上限 | **✅** | 防失控 | §2.4 | intake 12 / poi 22 / 生成 32 | `travel_recursion_limit()` |
 | O9 | 生成阶段工具清单 | **✅** | 质量约束 | §2.4 | `GENERATING_TOOL_CHECKLIST` | `modes/travel/state_machine.py` |
 | O10 | 缓存 list_collections | **✅** | <1% | §2.4 | `rag_collections_cache` | `modes/travel/tool_memory.py` |
@@ -89,7 +87,7 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 | O12 | 分阶段不同模型 | **↩** | 0（只省费用） | — | 不做 | — |
 | O13 | 会话结构化持久化 | **✅** | **0 Token** | — | 快照/归档/恢复；**不进 LLM** | `session_store.py`、`ui/sidebar.py` |
 
-**已落地主项 O1+O2+O5+O10 合计约 ~16.8 万（~56% 基线，非严格可加）；加 O4 初版后 generating/intake 间 tool 重复有望进一步下降，需结合 `timing_log` 实测。**
+**已落地主项 O1+O2+O5+O10 合计约 ~16.8 万（~56% 基线，非严格可加）。**
 
 ---
 
@@ -99,24 +97,29 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 
 ---
 
-### 4.3 O2 / O3 / O4 Checkpoint
+### 4.3 O2 Checkpoint 裁剪（reset thread）
 
-**O2：** `should_reset_agent_thread_o9` — POI 阶段结束进入 intake/generating 时换 `thread_id`；`travel_intake`、O7、UI history 不变。
+**机制：** 通过更换 `thread_id` 清空 LangGraph checkpoint，防止工具历史在跨回合 ReAct 中累积。`travel_intake`、O7 工具摘要、UI 聊天历史不受影响。
 
-**O3（回退）：** generating 入口 reset；未保留。
+**两重触发：**
 
-**O4（初版，2026-06-09）：**
+| 触发点 | 位置 | 说明 |
+|--------|------|------|
+| 每轮工具后（主要） | `tool_memory.py` → `trim_checkpoint_after_tool_ingest()` | 每回合 Agent 回复后，只要有工具调用，先 O7 摘要入库再换 `thread_id` |
+| POI→intake 边界（兜底） | `state_machine.py` → `should_reset_agent_thread_o9` | 防止无工具轮遗漏，POI 阶段结束进入 intake/generating 时换 `thread_id` |
+
+**工作流程：**
 
 | 步骤 | 行为 |
 |------|------|
 | 当轮 ReAct | ToolMessage **全量**（保证当轮推理） |
 | 回合结束 | `ingest_tool_round_memory()` → O7 摘要写入 session |
-| 随即 | `trim_checkpoint_after_tool_ingest()` → **新 `thread_id`**，清空 L1 checkpoint |
-| 下轮 | 靠 `[TRAVEL_CONTEXT]` 注入 O7 摘要，而非 L1 全量 tool |
+| 随即 | `trim_checkpoint_after_tool_ingest()` → **新 `thread_id`**，清空 LangGraph checkpoint |
+| 下轮 | 靠 `[TRAVEL_CONTEXT]` 注入 O7 摘要，而非 checkpoint 全量 tool |
 
-**触发条件：** 旅行模式 + 本回合有工具输出（`ui/chat.py`）。
+**原 O3（已回退）：** generating 入口 reset 因与 UI/改稿协同未定型而移除。
 
-**与完整 Message Trimmer 差距：** 未在 LangGraph 内删除单条 message；intake **无工具**多轮仍靠 L1 累积 user/assistant（通常 Token 可接受）。
+**与完整 Message Trimmer 差距：** 当前为"全量清空"而非逐条精确删除；未来可升级为 LangGraph Message Trimmer，保留部分有用对话历史。intake **无工具**多轮仍靠 checkpoint 累积 user/assistant（通常 Token 可接受）。
 
 **O7 常量**（改后需重启 Streamlit）：
 
@@ -138,7 +141,7 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 | 时机 | 做法 |
 |------|------|
 | 当轮 | ToolMessage 全量 |
-| 回合结束 | O7 摘要入库 + O4 换 thread（有工具时） |
+| 回合结束 | O7 摘要入库 + O2 换 thread（有工具时） |
 | 下轮 | `[TRAVEL_CONTEXT]` 注入摘要 + O10 跳过 list |
 
 **O8 阶段上限：**
@@ -176,10 +179,10 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 | `export_service.py` | O5 |
 | `app.py` | 自动导出、session 初始化 |
 | `modes/travel/state_machine.py` | O2、O11、偏好合并 intake |
-| `modes/travel/tool_memory.py` | O7、O10、O4 trim |
+| `modes/travel/tool_memory.py` | O2 trim、O7、O10 |
 | `modes/travel/handler.py` | 回合编排、预取触发 |
 | `session_store.py` | O13 快照/归档/恢复 |
-| `ui/chat.py` | O5、O7、O4、自动保存 |
+| `ui/chat.py` | O2、O5、O7、自动保存 |
 | `ui/sidebar.py` | 记忆面板、新对话/重置、恢复 |
 | `tool_truncation.py` | O6 保留未启用 |
 | `scripts/estimate_travel_token_savings.py` | Token 测算 |
@@ -196,7 +199,7 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 | 4 | 生成攻略 | O5：完整 MD + 下载；无 write_markdown 长 content |
 | 5 | 工具详情 | O10 少重复 list；O7 下轮有摘要 |
 | 6 | 改稿 | O11：`[PREVIOUS_PLAN]` + 再导出 |
-| 7 | POI/intake 有工具后下一回合 | O4：`thread_id` 已变（排障可打印）；回复仍连贯 |
+| 7 | POI/intake 有工具后下一回合 | O2：`thread_id` 已变（排障可打印）；回复仍连贯 |
 | 8 | 刷新页面 | O13：提示恢复；记忆面板 intake/摘要一致 |
 | 9 | 新对话（归档） | archives 有文件；当前页空白 |
 | 10 | 触顶 32 步（可选） | O8：临时调高 generating 上限复测 |
@@ -216,4 +219,4 @@ RAG/高德 JSON 单次可达数千字符 × ReAct 多跳；旅行阶段 `recursi
 
 ## 8. 一句话总结
 
-**O1/O2/O4(初版)/O5/O7/O8/O9/O10/O11/O13 已落地**；**O3/O6/O12 不做或回退**；降 Token 主线 = **短 checkpoint（O2+O4）+ 外置工具摘要（O7）+ 精简 Prompt（O1）+ 单份输出（O5）**；持久化（O13）与 Token 正交，支撑刷新恢复与面试演示。
+**O1/O2/O5/O7/O8/O9/O10/O11/O13 已落地**；**O3/O6/O12 不做或回退**；降 Token 主线 = **短 checkpoint（O2）+ 外置工具摘要（O7）+ 精简 Prompt（O1）+ 单份输出（O5）**；持久化（O13）与 Token 正交，支撑刷新恢复与面试演示。
