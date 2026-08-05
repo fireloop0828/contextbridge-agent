@@ -17,7 +17,7 @@ ANTHROPIC_MODELS = [
 ]
 OPENAI_MODELS = ["gpt-4o", "gpt-4o-mini"]
 DASHSCOPE_MODELS = [
-    "qwen3.7-plus",
+    "qwen-plus-2025-07-28",
     "qwen-max",
     "qwen-vl-plus",
 ]
@@ -28,7 +28,7 @@ OUTPUT_TOKEN_INFO = {
     "claude-3-7-sonnet-latest": {"max_tokens": 64000},
     "gpt-4o": {"max_tokens": 16000},
     "gpt-4o-mini": {"max_tokens": 16000},
-    "qwen3.7-plus": {"max_tokens": 8192},
+    "qwen-plus-2025-07-28": {"max_tokens": 8192},
     "qwen-max": {"max_tokens": 8192},
     "qwen-vl-plus": {"max_tokens": 8192},
 }
