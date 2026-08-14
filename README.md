@@ -48,8 +48,10 @@
 | 评估与监控 | 支持回归测试、Ragas 评估与效果监控，提供持续迭代能力 | 可量化质量变化、提升改动可控性、保障迭代效果 |
 
 ![功能演示 1](rag-server/assets/image-1.png)
+![功能演示 5](rag-server/assets/image-5.png)
 ![功能演示 2](rag-server/assets/image-2.png)
 ![功能演示 3](rag-server/assets/image-3.png)
+![功能演示 4](rag-server/assets/image-4.png)
 ## 仓库结构 📁
 
 ```

@@ -26,6 +26,7 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.prebuilt.tool_node import ToolNode
 from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
+from langsmith_config import apply_langsmith_env
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from utils import astream_graph, random_uuid
 from export_service import save_markdown_export, travel_export_filename
@@ -54,6 +55,8 @@ from langchain_core.runnables import RunnableConfig
 
 # 加载环境变量（从 .env 读取 API 密钥等配置）
 load_dotenv(override=True)
+# 应用 LangSmith 追踪配置（未填 Key 时默认关闭）
+apply_langsmith_env()
 
 # 初始化登录相关会话状态
 if "authenticated" not in st.session_state:

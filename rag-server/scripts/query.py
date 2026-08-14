@@ -78,8 +78,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--top-k",
         type=int,
-        default=10,
-        help="Max number of results (default: 10)"
+        default=None,
+        help="Max number of results. If omitted, uses settings.yaml "
+             "(fusion_top_k for fusion, rerank.top_k for rerank)."
     )
 
     parser.add_argument(
@@ -171,13 +172,15 @@ def _run_query(
     hybrid_search,
     reranker,
     query: str,
+    collection: str,
     top_k: Optional[int],
     use_rerank: bool,
     verbose: bool,
 ) -> int:
     trace = TraceContext(trace_type="query")
+    trace.metadata["source"] = "query_script"
     trace.metadata["query"] = query[:200]
-    trace.metadata["top_k"] = top_k
+    trace.metadata["collection"] = collection
 
     try:
         hybrid_result = hybrid_search.search(
@@ -205,13 +208,11 @@ def _run_query(
                 f"[INFO] ProcessedQuery keywords={hybrid_result.processed_query.keywords} "
                 f"filters={_format_filters(hybrid_result.processed_query.filters)}"
             )
-        _print_results(hybrid_result.dense_results or [], top_k=top_k, title="DENSE RESULTS")
-        _print_results(hybrid_result.sparse_results or [], top_k=top_k, title="SPARSE RESULTS")
-        _print_results(hybrid_result.results, top_k=top_k, title="FUSION RESULTS")
+        _print_results(hybrid_result.dense_results or [], top_k=len(hybrid_result.dense_results or []), title="DENSE RESULTS")
+        _print_results(hybrid_result.sparse_results or [], top_k=len(hybrid_result.sparse_results or []), title="SPARSE RESULTS")
+        _print_results(hybrid_result.results, top_k=len(hybrid_result.results), title="FUSION RESULTS")
     else:
         results = hybrid_result
-
-    effective_top_k = top_k if top_k is not None else len(results)
 
     if not results:
         print("[INFO] 未找到相关文档，请先运行 ingest.py 摄取数据。")
@@ -228,13 +229,14 @@ def _run_query(
                     f"(reranker={rerank_result.reranker_type})"
                 )
             if verbose:
-                _print_results(results, top_k=top_k, title="RERANK RESULTS")
+                _print_results(results, top_k=len(results), title="RERANK RESULTS")
         except Exception as e:
             print(f"[WARN] Reranking failed: {e}. Using original order.")
     elif verbose and not reranker.is_enabled:
         print("[INFO] Reranking disabled by settings.")
 
-    _print_results(results, top_k=effective_top_k)
+    _print_results(results, top_k=len(results))
+    trace.metadata["top_k"] = len(results)
     TraceCollector().collect(trace)
     return 0
 
@@ -272,6 +274,7 @@ def main() -> int:
         hybrid_search=hybrid_search,
         reranker=reranker,
         query=args.query,
+        collection=args.collection,
         top_k=args.top_k,
         use_rerank=use_rerank,
         verbose=args.verbose,

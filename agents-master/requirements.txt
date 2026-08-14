@@ -6,6 +6,7 @@ langchain-community>=0.3.20
 langchain-mcp-adapters>=0.0.7
 langchain-openai>=0.3.11
 langgraph>=0.3.21
+langsmith>=0.3.19
 mcp>=1.6.0
 notebook>=7.3.3
 pymupdf>=1.25.4

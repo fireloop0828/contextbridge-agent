@@ -52,7 +52,7 @@ pages = [
     st.Page(_page_ingestion_manager, title="文档入库", icon="📥"),
     # 以下页面暂时隐藏，保留实现以便后续恢复：
     # st.Page(_page_ingestion_traces, title="入库记录", icon="🔬"),
-    # st.Page(_page_query_traces, title="检索记录", icon="🔎"),
+    st.Page(_page_query_traces, title="检索记录", icon="🔎"),
     st.Page(_page_evaluation_panel, title="效果评测", icon="📏"),
 ]
 

@@ -47,7 +47,8 @@ def render() -> None:
     for idx, trace in enumerate(traces):
         trace_id = trace.get("trace_id", "unknown")
         started = trace.get("started_at", "—")
-        total_ms = trace.get("elapsed_ms")
+        # 落盘字段是 total_elapsed_ms（阶段条目里才是 elapsed_ms）
+        total_ms = trace.get("total_elapsed_ms") or trace.get("elapsed_ms")
         total_label = f"{total_ms:.0f} ms" if total_ms is not None else "—"
         meta = trace.get("metadata", {})
         source_path = meta.get("source_path", "—")

@@ -62,7 +62,8 @@ def render() -> None:
     for idx, trace in enumerate(traces):
         trace_id = trace.get("trace_id", "unknown")
         started = trace.get("started_at", "—")
-        total_ms = trace.get("elapsed_ms")
+        # 落盘字段是 total_elapsed_ms（阶段条目里才是 elapsed_ms）
+        total_ms = trace.get("total_elapsed_ms") or trace.get("elapsed_ms")
         total_label = f"{total_ms:.0f} ms" if total_ms is not None else "—"
         meta = trace.get("metadata", {})
         query_text = meta.get("query", "")
@@ -578,8 +579,18 @@ def _render_rerank_stage(data: Dict[str, Any], *, trace_idx: int = 0) -> None:
 
 
 def _render_chunk_list(chunks: List[Dict[str, Any]], prefix: str = "chunk") -> None:
-    """Render a list of chunk dicts as a compact, readable table with expandable text."""
-    for ci, chunk in enumerate(chunks):
+    """Render a list of chunk dicts as a compact, readable table with expandable text.
+
+    Chunks are rendered in descending score order so that the display
+    always reflects retrieval/rerank ranking regardless of the order
+    they were stored in the trace log.
+    """
+    ordered = sorted(
+        chunks,
+        key=lambda c: (c.get("score") is not None, c.get("score", 0) or 0),
+        reverse=True,
+    )
+    for ci, chunk in enumerate(ordered):
         score = chunk.get("score", 0)
         text = chunk.get("text", "")
         chunk_id = chunk.get("chunk_id", "")

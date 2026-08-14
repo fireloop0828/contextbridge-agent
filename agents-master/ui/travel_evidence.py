@@ -9,7 +9,6 @@ import streamlit as st
 from modes.travel import state_machine as tm
 from modes.travel.facts import (
     TravelFacts,
-    RAG_MIN_SCORE_PERCENT,
     build_dual_source_rows,
     format_provenance_summary,
 )
@@ -76,15 +75,6 @@ def render_rag_strip(facts: TravelFacts) -> None:
     if not rag:
         if isinstance(rag_meta, dict) and rag_meta.get("notice"):
             st.warning(rag_meta["notice"])
-        elif isinstance(rag_meta, dict) and rag_meta.get("raw_count", 0) > 0:
-            raw_n = rag_meta.get("raw_count", 0)
-            thr = rag_meta.get("threshold_percent", RAG_MIN_SCORE_PERCENT)
-            st.warning(
-                f"知识库检索到 **{raw_n}** 条，但相关度≥{thr}% 的为 **0** 条，"
-                f"已隐藏低相关片段。"
-            )
-            if rag_meta.get("query"):
-                st.caption(f"检索词：{rag_meta['query']}")
         else:
             st.warning("知识库本轮未命中相关内容（RAG 返回为空或无关）。")
         return

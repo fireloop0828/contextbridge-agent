@@ -12,7 +12,6 @@ from typing import Any, TypedDict
 FACTS_VERSION = 1
 EXCERPT_MAX = 400
 CONTEXT_EXCERPT_MAX = 220
-RAG_MIN_SCORE_PERCENT = 3.5
 
 
 class RagFact(TypedDict, total=False):
@@ -60,8 +59,6 @@ class RagMeta(TypedDict, total=False):
     query: str
     collection: str
     raw_count: int
-    passed_count: int
-    threshold_percent: float
     notice: str
 
 
@@ -276,34 +273,6 @@ def _basename(path: str) -> str:
     return os.path.basename(path.replace("\\", "/"))
 
 
-def _parse_score_percent(text: str) -> float | None:
-    """
-    rag-server 常见格式：`2.98%` 或 `相关度: 2.98%`。
-    返回百分比数值（如 2.98），无法解析则 None。
-    """
-    s = (text or "").strip()
-    if not s:
-        return None
-    m = re.search(r"(\d+(?:\.\d+)?)\s*%", s)
-    if m:
-        try:
-            return float(m.group(1))
-        except ValueError:
-            return None
-    try:
-        return float(s)
-    except ValueError:
-        return None
-
-
-def rag_passes_threshold(item: RagFact) -> bool:
-    """过滤相似度过低的 RAG 片段（score 为空则不过滤）。"""
-    score = _parse_score_percent(str(item.get("score") or ""))
-    if score is None:
-        return True
-    return score >= RAG_MIN_SCORE_PERCENT
-
-
 def _is_rag_boilerplate(excerpt: str) -> bool:
     """跳过检索头、引用列表等非正文片段。"""
     s = (excerpt or "").strip()
@@ -331,22 +300,14 @@ def build_rag_meta(
     query: str,
     collection: str,
     raw_count: int,
-    passed_count: int,
 ) -> RagMeta:
     meta: RagMeta = {
         "query": query,
         "collection": collection,
         "raw_count": raw_count,
-        "passed_count": passed_count,
-        "threshold_percent": RAG_MIN_SCORE_PERCENT,
     }
     if raw_count == 0:
         meta["notice"] = "未找到与查询相关的知识库内容。"
-    elif passed_count == 0:
-        meta["notice"] = (
-            f"针对查询「{query}」检索到 {raw_count} 条，"
-            f"但相关度≥{RAG_MIN_SCORE_PERCENT}% 的为 0 条（相关性较低，未展示）。"
-        )
     return meta
 
 
@@ -355,9 +316,7 @@ def parse_rag_results(
 ) -> tuple[list[RagFact], RagMeta]:
     text = tool_result_to_text(raw)
     if "未找到相关结果" in text or "未找到与查询相关" in text:
-        return [], build_rag_meta(
-            query=query, collection=collection, raw_count=0, passed_count=0
-        )
+        return [], build_rag_meta(query=query, collection=collection, raw_count=0)
 
     out: list[RagFact] = []
     blocks = _iter_rag_content_blocks(text)
@@ -411,15 +370,12 @@ def parse_rag_results(
                             "score": str(item.get("score") or ""),
                         }
                     )
-    raw_count = len(out)
-    filtered = [x for x in out if rag_passes_threshold(x)]
     meta = build_rag_meta(
         query=query,
         collection=collection,
-        raw_count=raw_count,
-        passed_count=len(filtered),
+        raw_count=len(out),
     )
-    return filtered, meta
+    return out, meta
 
 
 def pick_rag_collection(cached: list[str]) -> str:
@@ -1097,11 +1053,11 @@ def apply_confidence_annotations(md: str, facts: TravelFacts | None) -> str:
                     out = out.replace(h, h + "\n\n" + note, 1)
                     break
 
-        if isinstance(rag_meta, dict) and rag_meta.get("passed_count", -1) == 0:
+        if isinstance(rag_meta, dict) and rag_meta.get("raw_count", -1) == 0:
             notice = str(rag_meta.get("notice") or "").strip()
             if notice and len(notice) > 12:
                 short = notice if len(notice) <= 56 else notice[:56] + "…"
-                note = f"> （⚪ 待核实：知识库未命中高相关攻略 )\n"
+                note = f"> （⚪ 待核实：知识库未命中相关攻略）\n"
                 for h in ("## 🧩 实用提示", "## 实用提示"):
                     if h in out and "知识库未命中" not in out:
                         out = out.replace(h, h + "\n\n" + note, 1)

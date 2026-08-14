@@ -8,7 +8,7 @@ Usage via MCP:
     Tool name: query_knowledge_hub
     Input schema:
         - query (string, required): The search query
-        - top_k (integer, optional): Number of results to return (default: 5)
+        - top_k (integer, optional): Number of results to return (default: 3)
         - collection (string, optional): Limit search to specific collection
 """
 
@@ -42,7 +42,7 @@ documents matching your query. Results include source citations for reference.
 
 Parameters:
 - query: Your search question or keywords
-- top_k: Maximum number of results (default: 5)
+- top_k: Maximum number of results (default: 3, capped by config rerank.top_k)
 - collection: Limit search to a specific document collection
 """
 
@@ -55,8 +55,8 @@ TOOL_INPUT_SCHEMA: Dict[str, Any] = {
         },
         "top_k": {
             "type": "integer",
-            "description": "Maximum number of results to return.",
-            "default": 5,
+            "description": "Maximum number of results to return. Actual count is capped by settings.yaml rerank.top_k.",
+            "default": 3,
             "minimum": 1,
             "maximum": 20,
         },
@@ -79,7 +79,10 @@ class QueryKnowledgeHubConfig:
         default_collection: Default collection if not specified
         enable_rerank: Whether to apply reranking
     """
-    default_top_k: int = 5
+    # 默认请求条数，与 settings.yaml rerank.top_k 对齐：
+    # 最终输出条数由配置漏斗（dense/sparse/fusion/rerank）决定，
+    # 此处仅作为 client 未传 top_k 时的"请求条数"。
+    default_top_k: int = 3
     max_top_k: int = 20
     # Default should match settings.yaml in typical single-kb setups.
     default_collection: str = "travel_plan"
@@ -289,6 +292,9 @@ class QueryKnowledgeHubTool:
                 collection=effective_collection,
             )
             
+            # 记录实际输出条数（受配置 rerank.top_k 约束），与脚本路径一致
+            trace.metadata["top_k"] = len(results)
+            
             # Store final results in trace for dashboard display
             trace.metadata["final_results"] = [
                 {
@@ -334,13 +340,13 @@ class QueryKnowledgeHubTool:
         if self._hybrid_search is None:
             raise RuntimeError("HybridSearch not initialized")
         
-        # Use a larger initial retrieval for reranking
-        initial_top_k = top_k * 2 if self.config.enable_rerank else top_k
-        
+        # 复用配置漏斗：top_k=None → hybrid_search 内部走 settings.yaml 的
+        # fusion_top_k（dense/sparse 初筛由 dense_top_k/sparse_top_k 控制），
+        # 保证召回行为与脚本/评测路径一致、指标可复现。
         try:
             results = self._hybrid_search.search(
                 query=query,
-                top_k=initial_top_k,
+                top_k=None,
                 filters=None,
                 trace=trace,
                 return_details=False,
@@ -372,10 +378,12 @@ class QueryKnowledgeHubTool:
             return results[:top_k]
         
         try:
+            # top_k=None → reranker 内部走 settings.yaml 的 rerank.top_k，
+            # 复用配置漏斗；最后按 client 请求条数截断（请求更少时尊重请求）。
             rerank_result = self._reranker.rerank(
                 query=query,
                 results=results,
-                top_k=top_k,
+                top_k=None,
                 trace=trace,
             )
             
@@ -384,7 +392,7 @@ class QueryKnowledgeHubTool:
                     f"Reranker fallback: {rerank_result.fallback_reason}"
                 )
             
-            return rerank_result.results
+            return rerank_result.results[:top_k]
         except Exception as e:
             logger.warning(f"Reranking failed, using original order: {e}")
             return results[:top_k]

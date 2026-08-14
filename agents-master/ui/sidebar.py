@@ -8,6 +8,7 @@ import os
 import streamlit as st
 
 import timing_log as tlog
+import langsmith_config as ls_cfg
 from modes.travel import state_machine as tm
 from modes import registry as modes
 from session_store import (
@@ -175,6 +176,102 @@ def _render_system_settings() -> None:
         step=10,
         help="设置递归调用次数上限，过高可能导致内存占用过大。",
     )
+
+
+def _render_langsmith_settings() -> None:
+    """LangSmith 追踪配置：填写 API Key 后保存，写入 .env 并立即生效。"""
+    flash = st.session_state.pop("langsmith_flash", None)
+    if flash:
+        st.success(flash)
+
+    status = ls_cfg.langsmith_status()
+    with st.expander("🔍 LangSmith 追踪", expanded=False):
+        tracing_on = st.toggle(
+            "启用追踪",
+            value=status["tracing"],
+            key="langsmith_tracing_toggle",
+            help=(
+                "开启后，对话过程（LLM 调用、MCP 工具、RAG 检索）会自动上传 trace；"
+                "关闭时仅保留配置，不上传 trace。"
+            ),
+        )
+        api_key = st.text_input(
+            "API Key",
+            value=status["api_key"],
+            type="password",
+            placeholder="lsv2_pt_... 或 lsv2_sk_...",
+            key="langsmith_api_key_input",
+            help=(
+                "在 LangSmith → Settings → API Keys 创建 Key。"
+                "Personal Token（lsv2_pt_）用于个人调试；"
+                "Service Key（lsv2_sk_）用于自动化/生产，必须指定 Workspace ID。"
+            ),
+        )
+        project = st.text_input(
+            "项目名",
+            value=status["project"],
+            placeholder=ls_cfg.DEFAULT_PROJECT,
+            key="langsmith_project_input",
+            help="同一 Key 下按项目区分 trace，建议与业务一致。",
+        )
+
+        # 根据 Key 类型决定是否显示 Workspace ID 输入框
+        key_type = ls_cfg._key_type(api_key)
+        if key_type == "service":
+            workspace_id = st.text_input(
+                "Workspace ID（Service Key 必填）",
+                value=status.get("workspace_id", ""),
+                placeholder="从项目页面 URL 的 workspaces/<id> 段复制",
+                key="langsmith_workspace_input",
+                help=(
+                    "Service Key（lsv2_sk_）是 org-scoped，必须显式指定 workspace，"
+                    "否则上传报 403。获取方式：打开项目页面，URL 中 `workspaces/<id>` 段。"
+                ),
+            )
+        else:
+            workspace_id = ""
+            st.info(
+                "当前是 Personal Access Token（lsv2_pt_），已内嵌 Default Workspace，"
+                "无需填写 Workspace ID。"
+            )
+
+        endpoint = st.text_input(
+            "Endpoint",
+            value=status["endpoint"],
+            placeholder=ls_cfg.DEFAULT_ENDPOINT,
+            key="langsmith_endpoint_input",
+            help="私有化部署才需修改，默认官方地址。",
+        )
+        if st.button(
+            "保存 LangSmith 配置",
+            type="primary",
+            key="save_langsmith_button",
+            use_container_width=True,
+        ):
+            if not api_key.strip():
+                st.error("请先填写 API Key（或保持追踪开关为关闭）。")
+                return
+            saved = ls_cfg.save_langsmith_settings(
+                api_key=api_key,
+                project=project,
+                tracing=tracing_on,
+                endpoint=endpoint,
+                workspace_id=workspace_id,
+            )
+            ws_hint = f"，Workspace `{saved['workspace_id']}`" if saved["workspace_id"] else ""
+            st.session_state["langsmith_flash"] = (
+                f"✅ 已保存并生效：项目 `{saved['project']}`{ws_hint}，"
+                f"追踪：{'开' if saved['tracing'] == 'true' else '关'}"
+            )
+            st.rerun()
+
+    if status["configured"]:
+        st.caption(
+            f"LangSmith：✅ 已配置（{status['project']}）"
+            + ("，追踪中" if status["tracing"] else "，追踪未启用")
+        )
+    else:
+        st.caption("LangSmith：未配置，trace 不上传")
 
 
 def _render_mcp_tools() -> None:
@@ -554,9 +651,9 @@ def render_sidebar(*, use_login: bool) -> None:
         st.subheader("📋 对话模式")
         _render_mode_segment()
         st.divider()
-        # st.subheader("⚙️ 系统设置")
-        # _render_system_settings()
-        # st.divider()
+        st.subheader("🔍 追踪设置")
+        _render_langsmith_settings()
+        st.divider()
         st.subheader("🔧 工具设置")
         _render_mcp_tools()
         _render_exports_and_actions(use_login=use_login)
