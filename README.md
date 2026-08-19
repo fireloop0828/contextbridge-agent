@@ -195,3 +195,7 @@ npm install
   - `rag-server/docs/test-analysis/RAG测试问题与优化记录.md` — RAG 测试问题与优化总结
   - `rag-server/docs/test-analysis/RAG评估调优专题.md` — RAG 评估与调优专题分析
   - `rag-server/docs/test-analysis/端到端性能测试.md` — 端到端 RAG 性能测试记录
+
+- `.cursor/skills/` 项目级 Skills（Agent 对话中自然语言触发）：
+  - `.cursor/skills/README.md` — Skills 一览与维护入口
+  - `.cursor/skills/agent-development/` — Agent 开发规范与方法论（设计/Tool/State/Prompt/评估）

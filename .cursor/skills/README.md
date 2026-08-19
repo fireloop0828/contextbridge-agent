@@ -9,6 +9,7 @@ Cursor 在**仓库根**打开时自动发现本目录。在 Agent 对话中用�
 | `create-skill` | 创建或维护 Agent Skill 规范与脚手架 | 创建 skill、new skill、create skill |
 | `bridge-learn` | 三轨深度学习：A agents-master / B rag-server / C 全栈串联 | 学习项目、bridge learn、rag 学习、agents 学习 |
 | `bridge-resume` | monorepo 简历（Agent + RAG 岗） | 写简历、bridge resume、项目经历 |
+| `agent-development` | Agent 开发规范与方法论（设计/Tool/State/Prompt/评估） | agent 开发、设计 agent、tool schema、定义 state、评估 agent |
 
 ## Skills 说明
 
@@ -105,6 +106,30 @@ Cursor 在**仓库根**打开时自动发现本目录。在 Agent 对话中用�
 
 ---
 
+### agent-development
+
+**逻辑设计**
+
+| 环节 | 做什么 |
+|------|--------|
+| **定位** | Agent 开发规范与方法论库：Agent 设计、Tool Schema、State 定义、Prompt 模板、Evaluation 方法 |
+| **结合实战** | 以 ContextBridge 代码为正反例锚点（modes 注册表、travel 状态机、query_knowledge_hub、general_system.md 等），规范可对照落点 |
+| **渐进式披露** | `SKILL.md` 只写模块索引 + 快速判断 + 五步流程；五个模块各一个 `references/*.md`，按需加载 |
+| **使用流程** | 定边界（设计）→ 定工具（Tool）→ 定状态（State）→ 定 Prompt → 定评估；每个 reference 附检查清单 |
+
+**亮点**
+- **流程编排**：按「设计 → Tool → State → Prompt → 评估」五步走，从零设计 Agent 时有固定路径
+- **正反例对照**：每条规范锚定本仓库真实文件（正例 `query_knowledge_hub.py`、反例散弹式初始化等），不空谈理论
+- **可执行落地**：每个 reference 末尾有检查清单，可当 Code Review 的 checklist 用
+- **评估闭环**：Evaluation 部分对齐 `rag-server/DEV_SPEC.md` 的指标基线（Hit Rate@K / MRR / Faithfulness 等）与黄金测试集方法
+
+**使用方式**
+1. 在仓库根对 Agent 说：**「设计一个 agent」**、**「写 tool schema」**、**「定义 state」** 或 **「agent development」**
+2. Agent 按需加载对应 reference（设计 → Tool → State → Prompt → 评估）
+3. 逐模块对照 ContextBridge 正例实现；完成后用各 reference 检查清单自检
+
+---
+
 ## 待完成 / 优化
 
 | 模块 | 现状 | 待办 |
@@ -130,3 +155,4 @@ Cursor 在**仓库根**打开时自动发现本目录。在 Agent 对话中用�
 | 学习进度 | `bridge-learn/references/LEARNING_PROGRESS.md` |
 | 简历亮点 | `bridge-resume/references/highlights-*.md` |
 | 简历原则 | `bridge-resume/references/resume_principles.md` |
+| Agent 开发规范 | `agent-development/SKILL.md` + `agent-development/references/*.md`（5 个模块） |
