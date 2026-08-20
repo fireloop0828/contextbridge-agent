@@ -54,6 +54,13 @@ def is_travel_mode(mode_id: str | None = None) -> bool:
     return mid == travel_mode_module.ID
 
 
+def is_knowledge_qa_mode(mode_id: str | None = None) -> bool:
+    import streamlit as st
+
+    mid = mode_id if mode_id is not None else st.session_state.get("app_mode", "")
+    return mid == knowledge_qa_mode.ID
+
+
 def build_system_prompt(mode_id: str | None = None) -> str:
     mode = get_mode(mode_id) if mode_id else get_active_mode()
     return mode.build_system_prompt()

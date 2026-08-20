@@ -8,6 +8,7 @@ import timing_log as tlog
 from modes.travel import state_machine as tm
 from modes import registry as modes
 from modes.travel import handler as travel_handler
+from modes.knowledge_qa import mode as knowledge_qa_mode
 from ui import get_app_module
 from ui.sidebar import mark_mode_radio_sync_from_app
 from ui.travel_evidence import render_travel_provenance
@@ -34,6 +35,13 @@ def print_message() -> None:
                         expanded=False,
                     )
                 st.markdown(message["content"])
+                if message.get("knowledge_trace"):
+                    with st.expander("📚 知识库执行过程", expanded=False):
+                        st.markdown(
+                            "\n".join(
+                                f"- {m}" for m in message["knowledge_trace"]
+                            )
+                        )
                 if message.get("exports"):
                     main.render_export_downloads(
                         message["exports"],
@@ -179,6 +187,9 @@ def render_chat() -> None:
                 )
                 final_text = travel_after.display_text
 
+            if modes.is_knowledge_qa_mode():
+                final_text = knowledge_qa_mode.process_after_agent(final_text)
+
             export_paths = main.extract_export_paths(final_tool)
             if travel_after and not travel_after.plan_ready:
                 export_paths = []
@@ -231,6 +242,10 @@ def render_chat() -> None:
                 and travel_after.facts_snapshot
             ):
                 assistant_msg["travel_facts"] = travel_after.facts_snapshot
+            if modes.is_knowledge_qa_mode():
+                trace = st.session_state.get("knowledge_qa_status_trace") or []
+                if trace:
+                    assistant_msg["knowledge_trace"] = list(trace)
             st.session_state.history.append(assistant_msg)
             if final_tool.strip():
                 st.session_state.history.append(

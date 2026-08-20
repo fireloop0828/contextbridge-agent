@@ -465,16 +465,36 @@ async def process_query(
         final_tool: 最终工具调用信息
     """
     try:
+        # 知识库模式：把状态区占位传给图节点，实时展示人类可读执行状态。
+        # 独立 key；其他模式不读取。占位写入失败静默降级（不影响任何模式）。
+        try:
+            st.session_state["knowledge_qa_status_placeholder"] = tool_placeholder
+        except Exception:
+            pass
+        st.session_state["knowledge_qa_status_trace"] = []
+        st.session_state.pop("knowledge_qa_last_sources", None)
         if st.session_state.agent:
             streaming_callback, accumulated_text_obj, accumulated_tool_obj = (
                 get_streaming_callback(text_placeholder, tool_placeholder, timing)
             )
+            # 知识库模式：图内 classify/select_collection/retry_query 的
+            # 中间 LLM 输出（JSON、集合名、改写词）也会触发 messages 流，
+            # 只让 answer 节点内容进入界面文本流，其余静默。
+            node_names: list[str] = []
+            try:
+                from modes import registry as modes
+
+                if modes.is_knowledge_qa_mode():
+                    node_names = ["answer"]
+            except Exception:
+                pass
             try:
                 response = await asyncio.wait_for(
                     astream_graph(
                         st.session_state.agent,
                         {"messages": [HumanMessage(content=query)]},
                         callback=streaming_callback,
+                        node_names=node_names,
                         config=RunnableConfig(
                             recursion_limit=(
                                 recursion_limit
@@ -534,18 +554,31 @@ def auto_export_travel_plan_from_chat(
 
 
 async def _build_agent_from_tools(tools: list) -> None:
-    """用已加载的 MCP 工具列表构建 ReAct Agent。"""
+    """用已加载的 MCP 工具列表构建 Agent。
+
+    按对话模式选择构建方式：
+    - 知识库问答：LangGraph 图内编排（node/edge/state），兼容 process_query 协议
+    - 其他模式：通用 ReAct Agent
+    """
     model = create_chat_model(st.session_state.selected_model)
     prompt_mode = st.session_state.get("app_mode", tm.APP_MODE_GENERAL)
     st.session_state.agent_prompt_mode = prompt_mode
     system_prompt = build_system_prompt(prompt_mode)
-    tool_node = ToolNode(tools, handle_tool_errors=_mcp_tool_error_message)
-    st.session_state.agent = create_react_agent(
-        model,
-        tool_node,
-        checkpointer=MemorySaver(),
-        prompt=system_prompt,
-    )
+
+    from modes.knowledge_qa import mode as knowledge_qa_mode
+
+    if prompt_mode == knowledge_qa_mode.ID:
+        st.session_state.agent = knowledge_qa_mode.build_agent(
+            tools=tools, model=model, system_prompt=system_prompt
+        )
+    else:
+        tool_node = ToolNode(tools, handle_tool_errors=_mcp_tool_error_message)
+        st.session_state.agent = create_react_agent(
+            model,
+            tool_node,
+            checkpointer=MemorySaver(),
+            prompt=system_prompt,
+        )
     st.session_state.session_initialized = True
 
 
