@@ -49,7 +49,7 @@
   - **已完成入库的 collection**（否则检索无内容）；RAG 控制台（`dashboard.py`）可选，用于可视化管理入库。
   - 侧边栏切到「知识库问答」模式提问。
 
-**参考路径**：根 `README.md`、`agents-master/README.md`、`agents-master/config.json`、`agents-master/docs/project-design/MCP设计与管理.md`
+**参考路径**：根 `README.md`、`agents-master/README.md`、`agents-master/config.json`、`wiki/10-host/mcp-client.md`
 
 ---
 
@@ -142,7 +142,7 @@
   | 切换模式 / 应用模型 | ❌ `rebuild_agent_only()` 复用 `mcp_tools` |
 
 
-**参考路径**：`agents-master/docs/project-design/MCP设计与管理.md` §1.4
+**参考路径**：`wiki/10-host/mcp-client.md` §1.4
 
 ---
 
@@ -154,7 +154,7 @@
 
 读 MCP 注册表 → 解析配置（路径绝对化、环境变量注入等）→ 创建 MCP 客户端 → MCP 握手、拉起子进程、拿到工具列表 → 构建 Agent → 对话时调用 MCP 工具。
 
-**参考路径**：`agents-master/docs/project-design/MCP设计与管理.md` §1.2
+**参考路径**：`wiki/10-host/mcp-client.md` §1.2
 
 ---
 

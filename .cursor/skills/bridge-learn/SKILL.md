@@ -74,7 +74,7 @@ description: "ContextBridge Agent 深度学习教练：分 A/B/C 三轨深学，
 1. 根 `README.md`、`agents-master/README.md`
 2. `agents-master/app.py`、`config.json`、`config/mcp_config.py`
 3. `agents-master/modes/` 目录树
-4. `agents-master/docs/project-design/` 文件名列表（按需深读）
+4. `wiki/10-host/` 文件名列表（按需深读）
 
 **B 轨**：按 [knowledge-rag.md](references/knowledge-rag.md)「项目发现清单」执行。
 

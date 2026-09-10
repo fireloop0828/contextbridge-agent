@@ -154,9 +154,9 @@ flowchart LR
 | 3 | 双配置分工 | ★ | Host 对话模型用 `.env`；RAG 的 LLM/Embedding/Rerank 用 `settings.yaml`，Key 可对齐百炼 | 根 `README.md`「两套主配置」 | C1.3 |
 | 4 | config.json 拉起 rag-server | ★ | stdio 子进程：`cwd: ../rag-server`、`python -m src.mcp_server.server`；经 `resolve_mcp_config` 解析 | `config.json`, `config/mcp_config.py` | C1.4 |
 | 5 | 端到端调用链 | ◆ | 用户问 → ReAct（边想边调工具）选 `query_knowledge_hub` → 检索证据进上下文 → **Host LLM 组织成回答** | `agents-master/README.md`「完整 RAG 流程」 | C1.5 |
-| 6 | Host vs Server 边界 | ◆ | **检索在 rag-server，生成在 Host**；Host 禁止直接操作 chromadb（向量库） | `docs/project-design/MCP设计与管理.md` §1.5 | C2.1 |
+| 6 | Host vs Server 边界 | ◆ | **检索在 rag-server，生成在 Host**；Host 禁止直接操作 chromadb（向量库） | `wiki/10-host/mcp-client.md` §1.5 | C2.1 |
 | 7 | 入库/检索/导出三链路 | ◇ | 入库走 `scripts/ingest` 或 Dashboard；检索走 MCP；攻略导出走 `document-export`，不可混用 | `mcp_server_export.py`, `QA/integration-qa.md` | C2.2 |
-| 8 | 三模式 × 工具策略 | ★ | 通用=全工具；知识库=仅 RAG 三工具；旅行=高德+时间+RAG+导出组合 | `docs/project-design/多模式Agent架构选型.md` | C3.1 |
+| 8 | 三模式 × 工具策略 | ★ | 通用=全工具；知识库=仅 RAG 三工具；旅行=高德+时间+RAG+导出组合 | `wiki/10-host/modes.md` | C3.1 |
 
 ### 段末问答 · 1 C 轨串联
 
@@ -196,9 +196,9 @@ flowchart LR
 | 序 | 节点 | 标识 | 一句话 | 关键路径 | 深学 ID |
 |----|------|------|--------|----------|---------|
 | 1 | 主应用定位 | ★ | MCP Host + Streamlit 工作台：ReAct Agent 统一入口，侧边栏管 MCP 与会话 | `README.md`, `app.py` | A1.1 |
-| 2 | 启动链 | ★ | `streamlit run app.py` → 读配置 → 连 MCP → 按当前模式构建 Agent | `app.py`, `docs/project-design/app.py架构说明与拆分建议.md` | A1.2 |
+| 2 | 启动链 | ★ | `streamlit run app.py` → 读配置 → 连 MCP → 按当前模式构建 Agent | `app.py`, `wiki/10-host/architecture.md` | A1.2 |
 | 3 | ReAct 闭环 | ◆ | ReAct（推理+行动循环）：LLM 决定调工具或结束；工具结果追加到 messages，循环直至可回答 | `app.py` | A2.1 |
-| 4 | config.json 四类 MCP | ★ | 预置：时间、导出、rag-server、高德；增删 MCP 不改 Agent 核心 | `config.json`, `MCP设计与管理.md` | A3.1 |
+| 4 | config.json 四类 MCP | ★ | 预置：时间、导出、rag-server、高德；增删 MCP 不改 Agent 核心 | `config.json`, `wiki/10-host/mcp-client.md` | A3.1 |
 | 5 | resolve_mcp_config | ◆ | 相对路径→绝对路径；rag-server 优先 `.venv/bin/python`；`.env` 密钥注入子进程 env | `config/mcp_config.py` | A3.2 |
 | 6 | MCP Session 与重连 | ◇ | 侧边栏改 MCP 后热重连；断线可恢复，保障工具链可用 | `app.py`, `ui/sidebar.py` | A3.3 |
 | 7 | 三模式职责 | ◆ | 通用开放问答；旅行强流程+地图；知识库收窄为三 RAG 工具 | `modes/general/`, `modes/travel/`, `modes/knowledge_qa/` | A4.1 |
@@ -206,7 +206,7 @@ flowchart LR
 | 9 | 知识库 RAG 三工具策略 | ◇ | `system.md` 约束调用顺序：先 `list_collections` → 再 query/summary，防误调与 Token 浪费 | `modes/knowledge_qa/system.md`, `mode.py` | A4.4 |
 | 10 | 旅行五阶段状态机 | ◆ | 状态机（按阶段推进的流程控制）驱动 pipeline，保证「查点→路线→天气→整合→导出」可预期 | `modes/travel/state_machine.py` | A6.1 |
 | 11 | 长期记忆画像 | ◇ | Embedding（把文本变成向量）存用户画像，跨会话召回注入 Prompt；与 RAG 检索是两套系统 | `memory_store.py`, `memory_recall.py` | A7.2 |
-| 12 | 工具结果 Token 分层治理 | ◇ | 当轮 ToolMessage 全量；旅行用 facts 预取结构化 + tool_memory 跨回合摘要 + 换 thread 清 checkpoint（O6 截断未启用） | `modes/travel/tool_memory.py`, `facts.py`, `pipeline.py`, `Token消耗分析与优化.md` | A8.2 |
+| 12 | 工具结果 Token 分层治理 | ◇ | 当轮 ToolMessage 全量；旅行用 facts 预取结构化 + tool_memory 跨回合摘要 + 换 thread 清 checkpoint（O6 截断未启用） | `modes/travel/tool_memory.py`, `facts.py`, `pipeline.py`, `wiki/50-analysis/token-optimization.md` | A8.2 |
 
 ### 段末问答 · 2 A 轨 Host
 
@@ -547,7 +547,7 @@ LLM **仍会在聊天区输出完整攻略**（用户当场阅读）；但若再
 
 #### ④ 读代码
 
-`config/mcp_config.py`、`modes/travel/pipeline.py`、`modes/travel/facts.py`、`modes/travel/tool_memory.py`、`tool_truncation.py`（未启用）、`memory_store.py`、`memory_recall.py`、`docs/test-analysis/Token消耗分析与优化.md`
+`config/mcp_config.py`、`modes/travel/pipeline.py`、`modes/travel/facts.py`、`modes/travel/tool_memory.py`、`tool_truncation.py`（未启用）、`memory_store.py`、`memory_recall.py`、`wiki/50-analysis/token-optimization.md`
 
 **深学 ID**：A3.2、A7.2、A8.2
 

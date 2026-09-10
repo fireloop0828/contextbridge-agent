@@ -101,7 +101,7 @@ docker compose -f docker-compose-mac.yaml up -d   # Apple Silicon
 
 默认注册 **4 个** MCP Server：`get_current_time`、`document-export`、`rag-server`、`amap-maps`（见 `config.json`）。传输方式为 **stdio**，由应用启动时自动拉起子进程并拉取工具列表。
 
-字段含义、`resolve_mcp_config()` 解析规则、重连策略、模式与 MCP 关系、stdio 与 HTTP/SSE 对比等设计说明，见 **[docs/project-design/MCP设计与管理.md](docs/project-design/MCP设计与管理.md)**。
+字段含义、`resolve_mcp_config()` 解析规则、重连策略、模式与 MCP 关系、stdio 与 HTTP/SSE 对比等设计说明，见 **[wiki/10-host/mcp-client.md](wiki/10-host/mcp-client.md)**。
 
 侧边栏可粘贴 Smithery JSON 增删 MCP（立即重连）。切换 LLM 模型时点 **「应用模型」**（不重连 MCP）。
 
@@ -157,7 +157,7 @@ python scripts/ingest.py \
   --force
 ```
 
-成功后会写入 `data/db/chroma/`。新 collection 建议在 `config/collections.yaml` 注册说明，便于 `list_collections` 展示给 Agent。亦可在 RAG 控制台（`streamlit run dashboard.py`）的「文档入库」页面上传。详见 `rag-server/docs/管理面板指南.md`。
+成功后会写入 `data/db/chroma/`。新 collection 建议在 `config/collections.yaml` 注册说明，便于 `list_collections` 展示给 Agent。亦可在 RAG 控制台（`streamlit run dashboard.py`）的「文档入库」页面上传。详见 `wiki/20-rag/observability.md`。
 
 ### 第四步：启动 agents-master 并初始化
 
@@ -200,9 +200,9 @@ streamlit run app.py
 
 ## 开发文档
 
-- [docs/project-design/MCP设计与管理.md](docs/project-design/MCP设计与管理.md) — **MCP 设计、注册表与配置（权威）**
-- `docs/project-design/` — 多模式架构、旅行规划设计、app 拆分建议等
-- `docs/test-analysis/` — Token、记忆、MCP 性能分析与优化记录
+- [wiki/10-host/mcp-client.md](wiki/10-host/mcp-client.md) — **MCP 设计、注册表与配置（权威）**
+- `wiki/10-host/` — 多模式架构、旅行规划设计、app 拆分建议、MCP 客户端等
+- `wiki/50-analysis/` — Token、记忆、MCP 性能分析与优化记录
 - `../rag-server/README.md` — RAG 子项目说明
 
 ## 兼容性说明（重要）

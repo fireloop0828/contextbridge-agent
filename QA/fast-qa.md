@@ -73,7 +73,7 @@
 - 返回的是**中间检索证据**（chunk、Citation 等），不是面向用户的完整自然语言长答案。
 - Host 将 tool result 追加进 ReAct messages，由 **Host LLM** 归纳、组织语言后输出最终回复。
 
-**参考路径**：`agents-master/README.md`「完整 RAG 流程」、`docs/project-design/MCP设计与管理.md` §1.5
+**参考路径**：`agents-master/README.md`「完整 RAG 流程」、`wiki/10-host/mcp-client.md` §1.5
 
 ---
 
@@ -106,7 +106,7 @@
 2. **rag-server**：召回片段 + Citation（引用来源），不生成面向用户的完整长答案。
 3. **Host**：ReAct 编排 + **Host LLM** 读证据后生成自然语言回复。
 
-**参考路径**：`docs/project-design/MCP设计与管理.md` §1.5
+**参考路径**：`wiki/10-host/mcp-client.md` §1.5
 
 ---
 
@@ -121,7 +121,7 @@
 3. **导出**：`document-export` MCP → `data/outputs/*.md`。
 4. **三模式**：通用=全量 MCP；知识库=RAG 三工具 + 专用 Prompt；旅行=高德+时间+RAG+导出 + 状态机强流程。
 
-**参考路径**：`modes/knowledge_qa/system.md`、`docs/project-design/多模式Agent架构选型.md`
+**参考路径**：`modes/knowledge_qa/system.md`、`wiki/10-host/modes.md`
 
 ---
 
@@ -135,7 +135,7 @@
 2. **调用链**：`load_config_from_json()` → `resolve_mcp_config()` → `MultiServerMCPClient` → `await client.get_tools()` 时 spawn 子进程。
 3. **入口**：`app.py` → `initialize_session()`；首次打开页面由 `ensure_session_ready()` 触发。
 
-**参考路径**：`agents-master/config.json`、`config/mcp_config.py`、`docs/project-design/MCP设计与管理.md` §1.2
+**参考路径**：`agents-master/config.json`、`config/mcp_config.py`、`wiki/10-host/mcp-client.md` §1.2
 
 ---
 
@@ -183,7 +183,7 @@
 3. **旅行**：高德+时间+RAG+导出；叠加**五阶段状态机**强流程（查点→路线→天气→整合→导出）。
 4. **切换机制**：`AgentMode` + `registry`；`on_enter`/`on_exit` 触发 Agent 重建。
 
-**参考路径**：`modes/`、`docs/project-design/多模式Agent架构选型.md`
+**参考路径**：`modes/`、`wiki/10-host/modes.md`
 
 ---
 
@@ -339,7 +339,7 @@
 3. **MCP 协议**：跨进程工具标准，stdio 解耦，可独立重启与版本。
 4. **分工与扩展**：monorepo 便于联调，运行时仍两进程，符合微服务/MCP 思想。
 
-**参考路径**：根 `README.md`、`docs/project-design/MCP设计与管理.md` §1.5
+**参考路径**：根 `README.md`、`wiki/10-host/mcp-client.md` §1.5
 
 ---
 
@@ -373,7 +373,7 @@
 2. **实际靠什么优先走 RAG**：靠 `system.md` 的 Prompt 引导 LLM 优先使用 RAG 三工具（列库、检索、摘要），属于软约束，而非硬裁剪工具列表。
 3. **更硬隔离时文档建议**：按模式过滤工具列表，只把 RAG 相关工具传给知识库模式；或升级为多个 Agent，各自绑定不同工具子集。
 
-**参考路径**：`modes/knowledge_qa/system.md`、`docs/project-design/多模式Agent架构选型.md` §工具硬隔离
+**参考路径**：`modes/knowledge_qa/system.md`、`wiki/10-host/modes.md` §工具硬隔离
 
 ---
 
@@ -435,9 +435,9 @@
 
 1. **聊天区看到什么**：用户仍能在聊天区看到 LLM 输出的**完整攻略正文**（可能经 `format_travel_plan_display` 增强展示），不是只看摘要。
 2. **travel_evidence 展示什么**：外置的是**工具依据**——RAG 命中片段、天气、POI 卡片等预取/工具结果，方便用户核对「数据从哪来」，不是把成稿移出聊天。
-3. **export_service 省哪步 Token**：省的是**第二遍输出**——不再让 LLM 通过 MCP `write_markdown_document` 把同样 Markdown 再传一次；写文件由服务端复制 `export_body` 完成（见 `Token消耗分析与优化.md` §2.3 O5）。
+3. **export_service 省哪步 Token**：省的是**第二遍输出**——不再让 LLM 通过 MCP `write_markdown_document` 把同样 Markdown 再传一次；写文件由服务端复制 `export_body` 完成（见 `wiki/50-analysis/token-optimization.md` §2.3 O5）。
 
-**参考路径**：`agents-master/README.md`（旅行导出）、`docs/test-analysis/Token消耗分析与优化.md` §2.3、`modes/travel/handler.py`（`export_body`）、`ui/travel_evidence.py`
+**参考路径**：`agents-master/README.md`（旅行导出）、`wiki/50-analysis/token-optimization.md` §2.3、`modes/travel/handler.py`（`export_body`）、`ui/travel_evidence.py`
 
 ---
 
@@ -454,7 +454,7 @@
 1. `**resolve_mcp_config` 解决什么**：`config.json` 只写声明式「意图」（相对路径、通用 `python` 命令、`${ENV}` 占位符），换机器或 monorepo 布局一变就容易 spawn 失败，密钥也不宜明文进 Git。解析层 `resolve_mcp_config()`（`config/mcp_config.py`）在运行时把配置变成可执行形态：相对 `cwd` → 基于 Host 目录的绝对路径；`python` 命令 → 当前解释器或 rag-server 子项目 `.venv` 里的 Python；`env` / `args` 里的 `${VAR}` → 从 `.env`/环境变量注入真实 Key——一层解析即可稳定拉起各 MCP 子进程。
 2. **工具结果 Token 如何治理（当前落地）**：地图、RAG 等一次返回可达上万字，ReAct 每轮把 tool result 塞进 checkpoint messages，上下文迅速膨胀；各 MCP 自行控长难以统一，治理应在 **Host 侧**做，但不等于「统一硬截断」。
   - **O6 未启用**：`tool_truncation.py` 的 `wrap_tools_with_output_limit()` **保留代码、未接入** `app.py`（`_build_agent_from_tools` 直接把原始 MCP 工具交给 `ToolNode`）。当轮硬截断易丢尾部关键字段，影响同轮推理。
-  - **旅行模式分层做法**（见 `docs/test-analysis/Token消耗分析与优化.md`）：
+  - **旅行模式分层做法**（见 `wiki/50-analysis/token-optimization.md`）：
     - **当轮 ReAct**：ToolMessage **全量**保留，保证本轮工具链推理完整。
     - **编排层预取**（`pipeline.py` + `facts.py`）：POI/生成阶段在调 LangGraph **之前**由 Host 调 MCP，解析为结构化 `travel_facts`（如 RAG excerpt≤400 字、POI 关键字段），注入 `[TRAVEL_FACTS]`，并配合 checklist 约束 Agent 少重复调工具。
     - **跨回合 O7**（`tool_memory.py`）：回合结束 `ingest_tool_round_memory()` 写工具结论摘要 → `trim_checkpoint_after_tool_ingest()` **换 `thread_id` 清 checkpoint**；下轮靠 `[TRAVEL_CONTEXT]` 注入摘要，而非 L1 扛全量 ToolMessage 历史。
@@ -462,7 +462,7 @@
   - **原则**：优先**结构化提取 + 跨回合摘要 + checkpoint 重置**；`tool_truncation` 是可复用的备选方案，非当前主路径。
 3. **用户记忆与文档检索为何分源**：「用户喜欢川菜」是**主观画像**，「公司年假制度」是**客观文档知识**——语义、更新频率、权限模型都不同。实现上用户记忆走 Host 本地 `memory_store.py` + `memory_recall.py`（embedding 画像，对话前召回）；公司文档走 rag-server 的 chromadb，经 MCP `query_knowledge_hub` 按需检索。存储、触发点、数据源三者分离，避免混库、也便于面试讲清边界。
 
-**参考路径**：`config/mcp_config.py`、`modes/travel/pipeline.py`、`modes/travel/facts.py`、`modes/travel/tool_memory.py`、`tool_truncation.py`（未启用）、`memory_store.py`、`memory_recall.py`、`docs/test-analysis/Token消耗分析与优化.md`
+**参考路径**：`config/mcp_config.py`、`modes/travel/pipeline.py`、`modes/travel/facts.py`、`modes/travel/tool_memory.py`、`tool_truncation.py`（未启用）、`memory_store.py`、`memory_recall.py`、`wiki/50-analysis/token-optimization.md`
 
 ---
 

@@ -128,7 +128,7 @@ python main.py
 # 或安装后：mcp-server
 ```
 
-更多面板说明见 [docs/管理面板指南.md](docs/管理面板指南.md)；Skills 用法见 [skills/README.md](skills/README.md)。
+更多面板说明见 [wiki/20-rag/observability.md](wiki/20-rag/observability.md)；Skills 用法见 [skills/README.md](skills/README.md)。
 
 ---
 
