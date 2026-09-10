@@ -1,0 +1,115 @@
+---
+id: rag/flow
+title: 整体设计与流程
+tags: [rag, flow]
+sources:
+  - rag-server/src/
+  - rag-server/scripts/
+related: [rag/architecture, rag/observability, integration/end-to-end]
+updated: 2026-09-10
+---
+
+# **整体设计和流程**
+
+> **TL;DR**：两条主链路（入库、检索）+ 三类关键存储（向量库 / BM25 索引 / 入库历史）+ Trace 可观测，构成 rag-server 的全局视图；最快上手顺序是先跑通 ingest 再跑 query。
+
+目标：用**最少概念**，最快建立对 rag-server 的正确心智模型（看懂整体设计与数据/流程如何流动）。
+
+> **技术 vs 本项目**：RAG 行业里常见的 **Indexing / Retrieval / Generation** 三段式、**Dense + BM25 + RRF**、**Rerank**、**MCP 协议** 属于通用技术；**自研 BM25 文件索引**、**Trace stage 划分**、**citation 格式**、**MCP Tool 名**、**Golden Set JSON 结构** 等为本项目实现，换框架不一定相同。
+
+---
+
+## 一张图看全流程（最重要）
+
+```mermaid
+flowchart LR
+  subgraph Indexing[入库（Indexing）]
+    A[文档/网页/PDF] --> B[加载与解析]
+    B --> C[分块 chunk]
+    C --> D{可选：LLM 增强<br/>标题/摘要/标签/图片描述}
+    D --> E[Embedding 向量化]
+    E --> F[(ChromaDB 向量库)]
+    C --> G[(本项目 BM25 文件索引)]
+    B --> H[(入库历史/图片索引)]
+  end
+
+  subgraph Retrieval[检索（Retrieval）]
+    Q[用户问题 Query] --> P[Query 处理/关键词]
+    P --> R1[稠密检索 Dense]
+    P --> R2[稀疏检索 Sparse(BM25)]
+    R1 --> M[融合 RRF]
+    R2 --> M
+    M --> S{可选：重排 Rerank}
+    S --> K[Top-K chunks]
+  end
+
+  K --> UP[上层 Agent/客户端 生成回答（Generation）]
+```
+
+> **rag-server 覆盖前两段（入库与检索）**；Generation 通常在上层 Agent/客户端完成。图中 Dense/RRF/Rerank 为通用 RAG 范式；BM25 落盘与编排由本项目 `BM25Indexer` / `HybridSearch` 实现。
+
+---
+
+## 你只需要记住 4 个点
+
+### 1）两条主链路（系统真正做的事）
+
+| 链路 | 做什么 | 你要看什么结果 |
+|------|--------|----------------|
+| **入库（Indexing）** | 把文档变成可检索的 chunk 并写入存储 | 「入库记录」里每阶段是否成功、向量数是否 > 0 |
+| **检索（Retrieval）** | 给定 Query，返回最相关的 Top-K chunks | 「检索记录」里 Dense/Sparse 是否有结果、融合/重排是否启用 |
+
+### 2）三类关键存储（决定“数据在哪 & 怎么查”）
+
+| 存储 | 技术性质 | 解决什么 | 典型现象（坏了会怎样） |
+|------|----------|----------|------------------------|
+| **ChromaDB（Dense）** | 第三方向量库（当前默认选型） | 语义相似检索 | 稠密命中为 0、或只剩 BM25 有结果 |
+| **BM25 文件索引（Sparse）** | **本项目自研**（jieba + `BM25Indexer`，非 Chroma/ES 内置） | 专名/关键词精确匹配 | 稀疏命中为 0、专有名词搜不到 |
+| **入库历史/图片索引** | **本项目** SQLite + 文件目录 | 文档管理 + 多模态 | 文档列表异常、图片缺失、删除不彻底 |
+
+经验判断：召回不稳定时，先看 **BM25 目录是否建好**、**Chroma 是否有数据**（其次才看 RRF/Rerank 策略）。
+
+---
+
+### 3）可观测性的核心：Trace（最快排障捷径）
+
+rag-server 用**本项目定义的 Trace schema**（非 OpenTelemetry 等行业标准）把每次 **入库** 和 **检索** 的关键阶段写成结构化记录，落在：
+
+- `logs/traces.jsonl`
+
+检索侧典型 stage（本项目约定）：**Dense → Sparse → Fusion(RRF) → Rerank（可选）**。
+
+RAG 控制台（Streamlit Dashboard）里：
+
+- **入库记录**：回放一次入库每阶段耗时/数据
+- **检索记录**：回放一次检索的稠密/稀疏/融合/重排效果
+
+当你觉得“怎么不对劲”时，**不要猜**，直接看 Trace，通常 30 秒内能定位到：
+
+- 没入库 / 入库到了别的知识库（`collection` 不一致）
+- 稀疏索引为空（本项目 BM25 目录）
+- 向量库为空（Chroma Dense）
+- 融合/重排没启用或被跳过
+
+---
+
+### 4）最快上手顺序（照做就能跑通）
+
+1. 打开 `config/settings.yaml`：看向量库目录、是否启用重排/增强（以及默认 `collection_name`）
+2. 控制台：**文档入库** → **入库记录**（确认向量数 > 0）
+3. 控制台：**知识浏览**（抽查分块/元数据/图片）
+4. 发起一次**检索**（MCP Tool 或 `scripts/query.py`）→ 控制台看 **检索记录**（Dense/Sparse/Fusion/Rerank）
+
+---
+
+## 一句话总结（背这个就够）
+
+rag-server 的核心是：**用 Chroma（Dense）+ 本项目 BM25 文件索引（Sparse）建双路检索，以 RRF（及可选 Rerank）编排召回，并用本项目 Trace 把每次入库/检索白盒化，方便调优与排障；最终回答由上层 Agent 生成。**
+
+---
+
+## 关联
+
+- 相关：[[rag/architecture]]
+- 相关：[[rag/observability]]
+- 相关：[[integration/end-to-end]]
