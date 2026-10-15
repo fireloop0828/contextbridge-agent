@@ -1,6 +1,6 @@
 ---
 id: analysis/tool-failures
-title: 工具调用失败案例与处理准则
+title: 工具调用失败与降级准则
 tags: [analysis, tools, failure]
 sources:
   - agents-master/modes/travel/pipeline.py
@@ -9,7 +9,7 @@ sources:
 related: [host/mcp-client, analysis/mcp-init-performance, integration/troubleshooting]
 updated: 2026-09-10
 ---
-# Agent 工具调用失败：典型案例、常见原因与处理准则
+# 工具调用失败与降级准则
 
 > **TL;DR**：工具调用失败分参数、超时、限流、权限、数据等类型；本项目典型案例是高德地理编码并发超限（CUQPS），对策是降级 + 节制调用 + 编排层预取，而非让 LLM 反复重试。
 

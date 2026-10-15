@@ -1,6 +1,6 @@
 ---
 id: integration/index
-title: 跨子系统集成（域索引）
+title: 跨子系统集成 · 域索引
 tags: [index]
 sources: []
 related: []
@@ -15,7 +15,7 @@ updated: 2026-09-10
 
 | 页面 | 主题 |
 | --- | --- |
-| [[integration/end-to-end]] | 端到端主链路（检索在 RAG、生成在 Host） |
+| [[integration/end-to-end]] | 端到端请求链路（检索在 RAG、生成在 Host） |
 | [[integration/config-and-keys]] | 双配置与密钥分工（.env / settings.yaml） |
 | [[integration/mcp-lifecycle]] | MCP 子进程生命周期与重连策略 |
-| [[integration/troubleshooting]] | 常见故障排查（联调检查清单） |
+| [[integration/troubleshooting]] | 故障排查手册（联调检查清单） |

@@ -1,7 +1,7 @@
 ---
 id: rag/architecture
 title: RAG 系统架构与模块选型
-tags: [rag, architecture]
+tags: [rag, architecture, must-read]
 sources:
   - rag-server/src/core/query_engine/
   - rag-server/src/ingestion/
@@ -10,7 +10,7 @@ related: [rag/requirements, rag/flow, rag/mcp-server]
 updated: 2026-09-10
 ---
 
-# rag-server 系统架构与模块选型
+# RAG 系统架构与模块选型
 
 > **TL;DR**：rag-server 按「入库 / 检索 / 可观测 / 评估 / MCP 对外」五条链路分别选型，并以 Factory + YAML 实现全链路可插拔：入库为 Loader→检查→切分→增强→向量化→BM25→Upsert，检索为预处理→Dense+Sparse→RRF→Rerank。
 

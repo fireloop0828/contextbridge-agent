@@ -15,48 +15,48 @@
 - [仓库结构与模块地图](wiki/00-overview/repo-map.md): id=overview/repo-map
 
 ## Host (agents-master)
-- [Host 域索引（agents-master）](wiki/10-host/index.md): id=host/index
-- [Host 架构与 app.py 拆分](wiki/10-host/architecture.md): id=host/architecture
-- [MCP 客户端与配置管理](wiki/10-host/mcp-client.md): id=host/mcp-client
-- [对话记忆系统](wiki/10-host/memory.md): id=host/memory
-- [中间件化改造方案](wiki/10-host/middleware.md): id=host/middleware
-- [多模式 Agent 架构选型](wiki/10-host/modes.md): id=host/modes
-- [Prompt 分层](wiki/10-host/prompts.md): id=host/prompts
-- [ReAct Agent 与运行方式](wiki/10-host/react-agent.md): id=host/react-agent
-- [旅行规划 · 职责分层与步骤依据（实现）](wiki/10-host/travel-impl.md): id=host/travel-impl
-- [旅行规划 · 需求与架构（产品）](wiki/10-host/travel-product.md): id=host/travel-product
+- [Host 域索引 · 主应用](wiki/10-host/index.md): id=host/index
+- [主应用架构与启动入口](wiki/10-host/architecture.md): id=host/architecture
+- [MCP 客户端与配置解析](wiki/10-host/mcp-client.md): id=host/mcp-client
+- [长短期记忆设计](wiki/10-host/memory.md): id=host/memory
+- [中间件化改造（TurnMiddleware）](wiki/10-host/middleware.md): id=host/middleware
+- [多模式调度与注册表选型](wiki/10-host/modes.md): id=host/modes
+- [Prompt 分层与动态上下文](wiki/10-host/prompts.md): id=host/prompts
+- [ReAct Agent 执行循环](wiki/10-host/react-agent.md): id=host/react-agent
+- [职责分层与步骤依据](wiki/10-host/travel-impl.md): id=host/travel-impl
+- [需求与架构（智能行程规划）](wiki/10-host/travel-product.md): id=host/travel-product
 
 ## RAG (rag-server)
-- [RAG 域索引（rag-server）](wiki/20-rag/index.md): id=rag/index
+- [RAG 域索引 · 检索服务](wiki/20-rag/index.md): id=rag/index
 - [RAG 系统架构与模块选型](wiki/20-rag/architecture.md): id=rag/architecture
-- [评估体系设计](wiki/20-rag/evaluation.md): id=rag/evaluation
-- [整体设计与流程](wiki/20-rag/flow.md): id=rag/flow
-- [外接集成与 MCP Server](wiki/20-rag/mcp-server.md): id=rag/mcp-server
-- [RAG 控制台（Dashboard）指南](wiki/20-rag/observability.md): id=rag/observability
+- [RAG 评估体系与回归验证](wiki/20-rag/evaluation.md): id=rag/evaluation
+- [RAG 检索流程与数据流](wiki/20-rag/flow.md): id=rag/flow
+- [RAG MCP Server 与外接集成](wiki/20-rag/mcp-server.md): id=rag/mcp-server
+- [RAG 控制台 Dashboard 指南](wiki/20-rag/observability.md): id=rag/observability
 - [RAG 需求目标与模块设计](wiki/20-rag/requirements.md): id=rag/requirements
 
 ## Integration 跨子系统
-- [跨子系统集成（域索引）](wiki/30-integration/index.md): id=integration/index
-- [配置与密钥分工](wiki/30-integration/config-and-keys.md): id=integration/config-and-keys
-- [端到端主链路](wiki/30-integration/end-to-end.md): id=integration/end-to-end
-- [MCP 子进程生命周期与重连](wiki/30-integration/mcp-lifecycle.md): id=integration/mcp-lifecycle
-- [常见故障排查](wiki/30-integration/troubleshooting.md): id=integration/troubleshooting
+- [跨子系统集成 · 域索引](wiki/30-integration/index.md): id=integration/index
+- [配置与密钥边界](wiki/30-integration/config-and-keys.md): id=integration/config-and-keys
+- [端到端请求链路](wiki/30-integration/end-to-end.md): id=integration/end-to-end
+- [MCP 子进程生命周期与热重连](wiki/30-integration/mcp-lifecycle.md): id=integration/mcp-lifecycle
+- [故障排查手册](wiki/30-integration/troubleshooting.md): id=integration/troubleshooting
 
 ## Decisions 架构决策
-- [架构决策记录（域索引）](wiki/40-decisions/index.md): id=decisions/index
-- [ADR-0001 monorepo 双项目不合并](wiki/40-decisions/0001-monorepo-split.md): id=decisions/0001-monorepo-split
+- [ADR 索引](wiki/40-decisions/index.md): id=decisions/index
+- [ADR-0001 双项目不合并](wiki/40-decisions/0001-monorepo-split.md): id=decisions/0001-monorepo-split
 - [ADR-0002 双 venv 隔离依赖](wiki/40-decisions/0002-dual-venv.md): id=decisions/0002-dual-venv
-- [ADR-0003 MCP 选 stdio 而非 HTTP](wiki/40-decisions/0003-mcp-stdio.md): id=decisions/0003-mcp-stdio
-- [ADR-0004 旅行状态机放在 LangGraph 之外](wiki/40-decisions/0004-state-machine-outside-graph.md): id=decisions/0004-state-machine-outside-graph
+- [ADR-0003 传输层选 stdio](wiki/40-decisions/0003-mcp-stdio.md): id=decisions/0003-mcp-stdio
+- [ADR-0004 状态机置于图外](wiki/40-decisions/0004-state-machine-outside-graph.md): id=decisions/0004-state-machine-outside-graph
 
 ## Analysis 测试与优化
-- [测试与优化分析（域索引）](wiki/50-analysis/index.md): id=analysis/index
-- [旅行模式 MCP 与 RAG 能力展示优化建议](wiki/50-analysis/display-optimization.md): id=analysis/display-optimization
-- [GitHub 推送模式目标分析](wiki/50-analysis/github-push-mode.md): id=analysis/github-push-mode
-- [MCP 初始化性能分析与优化](wiki/50-analysis/mcp-init-performance.md): id=analysis/mcp-init-performance
+- [测试与优化 · 域索引](wiki/50-analysis/index.md): id=analysis/index
+- [能力展示优化建议](wiki/50-analysis/display-optimization.md): id=analysis/display-optimization
+- [推送模式目标分析](wiki/50-analysis/github-push-mode.md): id=analysis/github-push-mode
+- [MCP 初始化性能分析](wiki/50-analysis/mcp-init-performance.md): id=analysis/mcp-init-performance
 - [RAG 端到端性能测试](wiki/50-analysis/rag-e2e-performance.md): id=analysis/rag-e2e-performance
 - [RAG 评估调优专题](wiki/50-analysis/rag-evaluation-tuning.md): id=analysis/rag-evaluation-tuning
 - [RAG 测试问题与优化记录](wiki/50-analysis/rag-issues.md): id=analysis/rag-issues
-- [旅行模式测试问题与优化总结（2026-06）](wiki/50-analysis/test-summary.md): id=analysis/test-summary
-- [旅行模式 Token 消耗分析与优化](wiki/50-analysis/token-optimization.md): id=analysis/token-optimization
-- [工具调用失败案例与处理准则](wiki/50-analysis/tool-failures.md): id=analysis/tool-failures
+- [测试问题与优化总结（2026-06）](wiki/50-analysis/test-summary.md): id=analysis/test-summary
+- [Token 消耗分析与优化](wiki/50-analysis/token-optimization.md): id=analysis/token-optimization
+- [工具调用失败与降级准则](wiki/50-analysis/tool-failures.md): id=analysis/tool-failures

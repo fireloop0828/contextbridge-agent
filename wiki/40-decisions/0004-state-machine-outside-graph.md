@@ -1,6 +1,6 @@
 ---
 id: decisions/0004-state-machine-outside-graph
-title: ADR-0004 旅行状态机放在 LangGraph 之外
+title: ADR-0004 状态机置于图外
 tags: [adr, travel, state-machine, langgraph]
 sources:
   - agents-master/modes/travel/state_machine.py

@@ -9,7 +9,7 @@ related: [rag/architecture, rag/flow, overview/project]
 updated: 2026-09-10
 ---
 
-# rag-server 需求目标与模块设计
+# RAG 需求目标与模块设计
 
 > **TL;DR**：rag-server 定位为可独立运行的 RAG 项目，同时作为 ContextBridge 的知识检索子系统；围绕入库、检索、评估、MCP 对外四类模块定义目标与可观测性要求。
 

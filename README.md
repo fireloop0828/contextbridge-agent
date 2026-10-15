@@ -47,11 +47,17 @@
 | RAG 集成 | `rag-server` 采用 Factory + YAML 驱动，实现可插拔检索与评估组件、外部 MCP 暴露 | 灵活配置检索后端、快速切换模型、可扩展数据源 |
 | 评估与监控 | 支持回归测试、Ragas 评估与效果监控，提供持续迭代能力 | 可量化质量变化、提升改动可控性、保障迭代效果 |
 
-![功能演示 1](rag-server/assets/image-1.png)
-![功能演示 5](rag-server/assets/image-5.png)
-![功能演示 2](rag-server/assets/image-2.png)
-![功能演示 3](rag-server/assets/image-3.png)
-![功能演示 4](rag-server/assets/image-4.png)
+### 功能演示
+
+| 演示 | 截图 |
+| --- | --- |
+| 界面演示 1 | ![功能演示 1](rag-server/assets/image-1.png) |
+| 界面演示 2 | ![功能演示 2](rag-server/assets/image-6x.png) |
+| 入库演示 | ![功能演示 3](rag-server/assets/image-2.png) |
+| 评测演示 | ![功能演示 4](rag-server/assets/image-3.png) |
+| trace可视化 | ![功能演示 5](rag-server/assets/image-4.png) |
+| 导出文件 | ![功能演示 6](rag-server/assets/image-5a.png) |
+
 ## 仓库结构 📁
 
 ```
@@ -176,54 +182,103 @@ npm install
 > 项目知识库已重构为 **wiki**（一页一主题、可交叉链接、可溯源到代码）。
 > 人类入口 [`wiki/README.md`](wiki/README.md) · LLM 入口 [`wiki/llms.txt`](wiki/llms.txt) · 可视化站点 `wiki/index.html`（浏览器打开，含侧栏与搜索）。
 >
-> 下方清单由 `python3 wiki/scripts/build_index.py` 自动生成，**请勿手动编辑本区块**。
+> 下方内容由 `python3 wiki/scripts/build_index.py` 自动生成，**请勿手动编辑本区块**。
+> 想加/删必读页：在对应 `wiki/**/*.md` 的 frontmatter `tags` 里加 `must-read` 再跑脚本。
 
-- **00-overview · Overview 全局**（项目定位、术语表、仓库地图）
-  - [`wiki/00-overview/glossary.md`](wiki/00-overview/glossary.md) — 术语表
-  - [`wiki/00-overview/project.md`](wiki/00-overview/project.md) — 项目定位与架构总览
-  - [`wiki/00-overview/repo-map.md`](wiki/00-overview/repo-map.md) — 仓库结构与模块地图
-- **10-host · Host (agents-master)**（Host 域：架构 / 中间件 / ReAct / MCP / 模式 / Prompt / 记忆 / 旅行）
-  - [`wiki/10-host/index.md`](wiki/10-host/index.md) — Host 域索引（agents-master）
-  - [`wiki/10-host/architecture.md`](wiki/10-host/architecture.md) — Host 架构与 app.py 拆分
-  - [`wiki/10-host/mcp-client.md`](wiki/10-host/mcp-client.md) — MCP 客户端与配置管理
-  - [`wiki/10-host/memory.md`](wiki/10-host/memory.md) — 对话记忆系统
-  - [`wiki/10-host/middleware.md`](wiki/10-host/middleware.md) — 中间件化改造方案
-  - [`wiki/10-host/modes.md`](wiki/10-host/modes.md) — 多模式 Agent 架构选型
-  - [`wiki/10-host/prompts.md`](wiki/10-host/prompts.md) — Prompt 分层
-  - [`wiki/10-host/react-agent.md`](wiki/10-host/react-agent.md) — ReAct Agent 与运行方式
-  - [`wiki/10-host/travel-impl.md`](wiki/10-host/travel-impl.md) — 旅行规划 · 职责分层与步骤依据（实现）
-  - [`wiki/10-host/travel-product.md`](wiki/10-host/travel-product.md) — 旅行规划 · 需求与架构（产品）
-- **20-rag · RAG (rag-server)**（RAG 域：架构 / 需求 / 流程 / MCP Server / 评估 / 控制台）
-  - [`wiki/20-rag/index.md`](wiki/20-rag/index.md) — RAG 域索引（rag-server）
-  - [`wiki/20-rag/architecture.md`](wiki/20-rag/architecture.md) — RAG 系统架构与模块选型
-  - [`wiki/20-rag/evaluation.md`](wiki/20-rag/evaluation.md) — 评估体系设计
-  - [`wiki/20-rag/flow.md`](wiki/20-rag/flow.md) — 整体设计与流程
-  - [`wiki/20-rag/mcp-server.md`](wiki/20-rag/mcp-server.md) — 外接集成与 MCP Server
-  - [`wiki/20-rag/observability.md`](wiki/20-rag/observability.md) — RAG 控制台（Dashboard）指南
-  - [`wiki/20-rag/requirements.md`](wiki/20-rag/requirements.md) — RAG 需求目标与模块设计
-- **30-integration · Integration 跨子系统**（跨子系统：端到端链路、配置密钥、生命周期、排障）
-  - [`wiki/30-integration/index.md`](wiki/30-integration/index.md) — 跨子系统集成（域索引）
-  - [`wiki/30-integration/config-and-keys.md`](wiki/30-integration/config-and-keys.md) — 配置与密钥分工
-  - [`wiki/30-integration/end-to-end.md`](wiki/30-integration/end-to-end.md) — 端到端主链路
-  - [`wiki/30-integration/mcp-lifecycle.md`](wiki/30-integration/mcp-lifecycle.md) — MCP 子进程生命周期与重连
-  - [`wiki/30-integration/troubleshooting.md`](wiki/30-integration/troubleshooting.md) — 常见故障排查
-- **40-decisions · Decisions 架构决策**（ADR 架构决策记录）
-  - [`wiki/40-decisions/index.md`](wiki/40-decisions/index.md) — 架构决策记录（域索引）
-  - [`wiki/40-decisions/0001-monorepo-split.md`](wiki/40-decisions/0001-monorepo-split.md) — ADR-0001 monorepo 双项目不合并
-  - [`wiki/40-decisions/0002-dual-venv.md`](wiki/40-decisions/0002-dual-venv.md) — ADR-0002 双 venv 隔离依赖
-  - [`wiki/40-decisions/0003-mcp-stdio.md`](wiki/40-decisions/0003-mcp-stdio.md) — ADR-0003 MCP 选 stdio 而非 HTTP
-  - [`wiki/40-decisions/0004-state-machine-outside-graph.md`](wiki/40-decisions/0004-state-machine-outside-graph.md) — ADR-0004 旅行状态机放在 LangGraph 之外
-- **50-analysis · Analysis 测试与优化**（测试与优化分析）
-  - [`wiki/50-analysis/index.md`](wiki/50-analysis/index.md) — 测试与优化分析（域索引）
-  - [`wiki/50-analysis/display-optimization.md`](wiki/50-analysis/display-optimization.md) — 旅行模式 MCP 与 RAG 能力展示优化建议
-  - [`wiki/50-analysis/github-push-mode.md`](wiki/50-analysis/github-push-mode.md) — GitHub 推送模式目标分析
-  - [`wiki/50-analysis/mcp-init-performance.md`](wiki/50-analysis/mcp-init-performance.md) — MCP 初始化性能分析与优化
-  - [`wiki/50-analysis/rag-e2e-performance.md`](wiki/50-analysis/rag-e2e-performance.md) — RAG 端到端性能测试
-  - [`wiki/50-analysis/rag-evaluation-tuning.md`](wiki/50-analysis/rag-evaluation-tuning.md) — RAG 评估调优专题
-  - [`wiki/50-analysis/rag-issues.md`](wiki/50-analysis/rag-issues.md) — RAG 测试问题与优化记录
-  - [`wiki/50-analysis/test-summary.md`](wiki/50-analysis/test-summary.md) — 旅行模式测试问题与优化总结（2026-06）
-  - [`wiki/50-analysis/token-optimization.md`](wiki/50-analysis/token-optimization.md) — 旅行模式 Token 消耗分析与优化
-  - [`wiki/50-analysis/tool-failures.md`](wiki/50-analysis/tool-failures.md) — 工具调用失败案例与处理准则
+### 先看这 5 篇 · 3 分钟建立全局认知
+
+| # | 必读页 | 你会得到什么 |
+| --- | --- | --- |
+| 1 | [项目定位与架构总览](wiki/00-overview/project.md) | 项目定位与两个子系统的分工 |
+| 2 | [长短期记忆设计](wiki/10-host/memory.md) | 短期状态 / 长期记忆如何协同 |
+| 3 | [RAG 系统架构与模块选型](wiki/20-rag/architecture.md) | 分层结构与检索后端的选型依据 |
+| 4 | [RAG 评估体系与回归验证](wiki/20-rag/evaluation.md) | 回归验证与 Ragas 评估怎么落地 |
+| 5 | [Token 消耗分析与优化](wiki/50-analysis/token-optimization.md) | Token 消耗打点与优化手法 |
+
+<details><summary><b>知识域地图</b>（点开看域关系与规模）</summary>
+
+```mermaid
+graph LR
+  O["Overview"] --> H["Host"]
+  O --> R["RAG"]
+  H --> I["Integration"]
+  R --> I
+  H --> D["Decisions"]
+  R --> A["Analysis"]
+```
+
+| 域 | 范围 | 页数 |
+| --- | --- | --- |
+| Overview | 项目定位、术语表、仓库地图 | 3 |
+| Host | Host 域：架构 / 中间件 / ReAct / MCP / 模式 / Prompt / 记忆 / 旅行 | 10 |
+| RAG | RAG 域：架构 / 需求 / 流程 / MCP Server / 评估 / 控制台 | 7 |
+| Integration | 跨子系统：端到端链路、配置密钥、生命周期、排障 | 5 |
+| Decisions | ADR 架构决策记录 | 5 |
+| Analysis | 测试与优化分析 | 10 |
+
+</details>
+
+<details><summary><b>完整清单</b>（全部 40 页，按域折叠）</summary>
+
+**Overview** · 3 页
+
+- [术语表](wiki/00-overview/glossary.md) `overview` `glossary`
+- [项目定位与架构总览](wiki/00-overview/project.md) `overview` `architecture` `monorepo` `must-read`
+- [仓库结构与模块地图](wiki/00-overview/repo-map.md) `overview` `structure` `monorepo`
+
+**Host** · 10 页
+
+- [Host 域索引 · 主应用](wiki/10-host/index.md)
+- [主应用架构与启动入口](wiki/10-host/architecture.md) `host` `architecture` `app`
+- [MCP 客户端与配置解析](wiki/10-host/mcp-client.md) `host` `mcp` `config`
+- [长短期记忆设计](wiki/10-host/memory.md) `host` `memory` `must-read`
+- [中间件化改造（TurnMiddleware）](wiki/10-host/middleware.md) `host` `middleware` `architecture`
+- [多模式调度与注册表选型](wiki/10-host/modes.md) `host` `modes` `registry`
+- [Prompt 分层与动态上下文](wiki/10-host/prompts.md) `host` `prompt`
+- [ReAct Agent 执行循环](wiki/10-host/react-agent.md) `host` `react` `langgraph` `run`
+- [职责分层与步骤依据](wiki/10-host/travel-impl.md) `host` `travel` `impl`
+- [需求与架构（智能行程规划）](wiki/10-host/travel-product.md) `host` `travel` `product`
+
+**RAG** · 7 页
+
+- [RAG 域索引 · 检索服务](wiki/20-rag/index.md)
+- [RAG 系统架构与模块选型](wiki/20-rag/architecture.md) `rag` `architecture` `must-read`
+- [RAG 评估体系与回归验证](wiki/20-rag/evaluation.md) `rag` `evaluation` `must-read`
+- [RAG 检索流程与数据流](wiki/20-rag/flow.md) `rag` `flow`
+- [RAG MCP Server 与外接集成](wiki/20-rag/mcp-server.md) `rag` `mcp` `integration`
+- [RAG 控制台 Dashboard 指南](wiki/20-rag/observability.md) `rag` `observability` `dashboard`
+- [RAG 需求目标与模块设计](wiki/20-rag/requirements.md) `rag` `requirements`
+
+**Integration** · 5 页
+
+- [跨子系统集成 · 域索引](wiki/30-integration/index.md)
+- [配置与密钥边界](wiki/30-integration/config-and-keys.md) `integration` `config` `security`
+- [端到端请求链路](wiki/30-integration/end-to-end.md) `integration` `end-to-end` `rag`
+- [MCP 子进程生命周期与热重连](wiki/30-integration/mcp-lifecycle.md) `integration` `mcp` `lifecycle`
+- [故障排查手册](wiki/30-integration/troubleshooting.md) `integration` `troubleshooting` `ops`
+
+**Decisions** · 5 页
+
+- [ADR 索引](wiki/40-decisions/index.md)
+- [ADR-0001 双项目不合并](wiki/40-decisions/0001-monorepo-split.md) `adr` `monorepo` `architecture`
+- [ADR-0002 双 venv 隔离依赖](wiki/40-decisions/0002-dual-venv.md) `adr` `venv` `dependencies` `monorepo`
+- [ADR-0003 传输层选 stdio](wiki/40-decisions/0003-mcp-stdio.md) `adr` `mcp` `stdio` `transport`
+- [ADR-0004 状态机置于图外](wiki/40-decisions/0004-state-machine-outside-graph.md) `adr` `travel` `state-machine` `langgraph`
+
+**Analysis** · 10 页
+
+- [测试与优化 · 域索引](wiki/50-analysis/index.md)
+- [能力展示优化建议](wiki/50-analysis/display-optimization.md) `analysis` `travel` `product` `roadmap`
+- [推送模式目标分析](wiki/50-analysis/github-push-mode.md) `analysis` `tooling` `git`
+- [MCP 初始化性能分析](wiki/50-analysis/mcp-init-performance.md) `analysis` `mcp` `performance`
+- [RAG 端到端性能测试](wiki/50-analysis/rag-e2e-performance.md) `analysis` `rag` `performance`
+- [RAG 评估调优专题](wiki/50-analysis/rag-evaluation-tuning.md) `analysis` `rag` `evaluation`
+- [RAG 测试问题与优化记录](wiki/50-analysis/rag-issues.md) `analysis` `rag` `retrieval` `troubleshooting`
+- [测试问题与优化总结（2026-06）](wiki/50-analysis/test-summary.md) `analysis` `travel` `test`
+- [Token 消耗分析与优化](wiki/50-analysis/token-optimization.md) `analysis` `token` `travel` `performance` `must-read`
+- [工具调用失败与降级准则](wiki/50-analysis/tool-failures.md) `analysis` `tools` `failure`
+
+</details>
 <!-- WIKI-DOC-LIST:END -->
 
 - `.cursor/skills/` 项目级 Skills（Agent 对话中自然语言触发）：

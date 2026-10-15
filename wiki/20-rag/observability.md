@@ -1,6 +1,6 @@
 ---
 id: rag/observability
-title: RAG 控制台（Dashboard）指南
+title: RAG 控制台 Dashboard 指南
 tags: [rag, observability, dashboard]
 sources:
   - rag-server/dashboard.py
@@ -10,7 +10,7 @@ related: [rag/flow, rag/evaluation, rag/architecture]
 updated: 2026-09-10
 ---
 
-# RAG 控制台使用指南
+# RAG 控制台 Dashboard 指南
 
 > **TL;DR**：RAG 控制台是 rag-server 的可视化管理台（`dashboard.py`），含运行概览、知识浏览、文档入库、入库记录、检索记录、效果评测六个页面，把入库、检索、评估三条链路的 Trace 集中呈现。
 

@@ -1,6 +1,6 @@
 ---
 id: rag/mcp-server
-title: 外接集成与 MCP Server
+title: RAG MCP Server 与外接集成
 tags: [rag, mcp, integration]
 sources:
   - rag-server/src/mcp_server/
@@ -9,7 +9,7 @@ related: [integration/end-to-end, rag/architecture, host/mcp-client]
 updated: 2026-09-10
 ---
 
-# rag-server 外接集成设计
+# RAG MCP Server 与外接集成
 
 > **TL;DR**：rag-server 对外提供两种接入方式——MCP（`list_collections` / `query_knowledge_hub` / `get_document_summary` 三件套）与 CLI 脚本；MCP 工具返回带 Citation 的**证据**而非成品答案，且只读不写库。
 

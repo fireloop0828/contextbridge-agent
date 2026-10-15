@@ -1,7 +1,7 @@
 ---
 id: rag/evaluation
-title: 评估体系设计
-tags: [rag, evaluation]
+title: RAG 评估体系与回归验证
+tags: [rag, evaluation, must-read]
 sources:
   - rag-server/src/libs/evaluator/
   - rag-server/scripts/evaluate.py
@@ -9,7 +9,7 @@ related: [rag/observability, rag/architecture, analysis/rag-evaluation-tuning]
 updated: 2026-09-10
 ---
 
-# rag-server 评估体系设计
+# RAG 评估体系与回归验证
 
 > **TL;DR**：评估体系用三种 Evaluator（Custom 精确指标 / Ragas LLM 评判 / Composite 组合）配合 Golden Test Set，实现可量化的检索质量回归与迭代。
 

@@ -1,6 +1,6 @@
 ---
 id: decisions/index
-title: 架构决策记录（域索引）
+title: ADR 索引
 tags: [index]
 sources: []
 related: []

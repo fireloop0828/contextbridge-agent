@@ -1,6 +1,6 @@
 ---
 id: integration/mcp-lifecycle
-title: MCP 子进程生命周期与重连
+title: MCP 子进程生命周期与热重连
 tags: [integration, mcp, lifecycle]
 sources:
   - wiki/10-host/mcp-client.md
@@ -9,7 +9,7 @@ related: [host/mcp-client, integration/end-to-end, decisions/0003-mcp-stdio]
 updated: 2026-09-10
 ---
 
-# MCP 子进程生命周期与重连
+# MCP 子进程生命周期与热重连
 
 > **TL;DR**：MCP 服务由 Host 在初始化时**按需 spawn 子进程**（stdio），生命周期与会话绑定；**改 MCP 配置才全量重连**（`reconnect_agent()`），**切模式/换模型只重建 Agent**（`rebuild_agent_only()`，复用已缓存的 `mcp_tools`）。
 

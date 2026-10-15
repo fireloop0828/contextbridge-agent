@@ -1,7 +1,7 @@
 ---
 id: analysis/token-optimization
-title: 旅行模式 Token 消耗分析与优化
-tags: [analysis, token, travel, performance]
+title: Token 消耗分析与优化
+tags: [analysis, token, travel, performance, must-read]
 sources:
   - agents-master/modes/travel/tool_memory.py
   - agents-master/modes/travel/pipeline.py
@@ -11,7 +11,7 @@ sources:
 related: [analysis/mcp-init-performance, host/travel-impl, host/memory]
 updated: 2026-09-10
 ---
-# 旅行模式 Token 消耗分析与优化
+# Token 消耗分析与优化
 
 > **TL;DR**：旅行模式 Token 消耗高，根因是 Prompt 冗余、checkpoint 历史累积、导出双份全文、工具返回过长与改稿上下文重复；本文给出 O1–O13 优化项、瓶颈排序与回归测试建议。
 

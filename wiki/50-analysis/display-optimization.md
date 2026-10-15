@@ -1,6 +1,6 @@
 ---
 id: analysis/display-optimization
-title: 旅行模式 MCP 与 RAG 能力展示优化建议
+title: 能力展示优化建议
 tags: [analysis, travel, product, roadmap]
 sources:
   - agents-master/ui/travel_evidence.py
@@ -9,7 +9,7 @@ sources:
 related: [host/travel-product, host/travel-impl, rag/observability]
 updated: 2026-09-10
 ---
-# 旅行模式 MCP 与 RAG 能力展示优化建议
+# 能力展示优化建议
 
 > **TL;DR**：旅行模式「能力在、展示不在」——RAG 证据与 MCP 工具结果对用户不可见；本文给出证据层、工具卡片、数据管道 + 写作 Agent、交互式 RAG、可信度 UI 等 P0–P3 建议与落地顺序。
 

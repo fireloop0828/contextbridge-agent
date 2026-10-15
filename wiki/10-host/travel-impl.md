@@ -1,6 +1,6 @@
 ---
 id: host/travel-impl
-title: 旅行规划 · 职责分层与步骤依据（实现）
+title: 职责分层与步骤依据
 tags: [host, travel, impl]
 sources:
   - agents-master/modes/travel/handler.py
@@ -10,7 +10,7 @@ related: [host/travel-product, host/architecture, host/modes]
 updated: 2026-09-10
 ---
 
-# 旅行规划：职责分层与步骤依据
+# 职责分层与步骤依据
 
 > **TL;DR**：旅行模式由三方分工：Python 编排层预取 RAG/高德事实并写入 `[TRAVEL_CONTEXT]`，Agent 在状态机约束下撰写正文与补调工具，Prompt 约束工具顺序与可信度规则。
 

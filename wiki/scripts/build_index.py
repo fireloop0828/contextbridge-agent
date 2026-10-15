@@ -54,6 +54,23 @@ DOMAIN_READMES = {
     "50-analysis": "测试与优化分析",
 }
 
+MUST_READ_TAG = "must-read"
+MUST_READ_FALLBACK = [
+    "overview/project",
+    "host/memory",
+    "rag/architecture",
+    "rag/evaluation",
+    "analysis/token-optimization",
+]
+DOMAIN_SHORT = {
+    "00-overview": "Overview",
+    "10-host": "Host",
+    "20-rag": "RAG",
+    "30-integration": "Integration",
+    "40-decisions": "Decisions",
+    "50-analysis": "Analysis",
+}
+
 FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
 LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 REL_LINK_RE = re.compile(r"\]\(([^)\s#]+\.md)(?:#[^)]*)?\)")
@@ -120,6 +137,7 @@ def collect_pages() -> list[dict]:
                 "title": fm.get("title") or path.stem,
                 "path": f"wiki/{rel}",
                 "domain": rel.parts[0] if len(rel.parts) > 1 else "",
+                "tags": fm.get("tags", []) or [],
                 "updated": fm.get("updated", ""),
                 "body": FRONTMATTER_RE.sub("", text, count=1),
             }
@@ -164,19 +182,79 @@ def build_llms_txt(pages: list[dict]) -> str:
 # --------------------------------------------------------------------------- #
 # README 文档清单（标记区块自动同步）
 # --------------------------------------------------------------------------- #
+MUST_READ_WHY = {
+    "overview/project": "项目定位与两个子系统的分工",
+    "host/memory": "短期状态 / 长期记忆如何协同",
+    "rag/architecture": "分层结构与检索后端的选型依据",
+    "rag/evaluation": "回归验证与 Ragas 评估怎么落地",
+    "analysis/token-optimization": "Token 消耗打点与优化手法",
+}
+
+
+def _must_read_lines(pages: list[dict]) -> list[str]:
+    marked = [p for p in pages if MUST_READ_TAG in p["tags"]]
+    by_id = {p["id"]: p for p in pages}
+    picked = marked or [by_id[i] for i in MUST_READ_FALLBACK if i in by_id]
+    lines = ["### 先看这 5 篇 · 3 分钟建立全局认知", ""]
+    lines.append("| # | 必读页 | 你会得到什么 |")
+    lines.append("| --- | --- | --- |")
+    for n, p in enumerate(picked, 1):
+        why = MUST_READ_WHY.get(p["id"], p["title"])
+        lines.append(f"| {n} | [{p['title']}]({p['path']}) | {why} |")
+    lines.append("")
+    return lines
+
+
+def _map_lines(pages: list[dict]) -> list[str]:
+    lines = ["<details><summary><b>知识域地图</b>（点开看域关系与规模）</summary>", ""]
+    lines.append("```mermaid")
+    lines.append("graph LR")
+    lines.append('  O["Overview"] --> H["Host"]')
+    lines.append('  O --> R["RAG"]')
+    lines.append('  H --> I["Integration"]')
+    lines.append('  R --> I')
+    lines.append('  H --> D["Decisions"]')
+    lines.append('  R --> A["Analysis"]')
+    lines.append("```")
+    lines.append("")
+    lines.append("| 域 | 范围 | 页数 |")
+    lines.append("| --- | --- | --- |")
+    for domain, title, group in group_by_domain(pages):
+        lines.append(f"| {DOMAIN_SHORT.get(domain, title)} | {DOMAIN_READMES.get(domain, '')} | {len(group)} |")
+    lines.append("")
+    lines.append("</details>")
+    lines.append("")
+    return lines
+
+
+def _details_lines(pages: list[dict]) -> list[str]:
+    head = "<details><summary><b>完整清单</b>（全部 %d 页，按域折叠）</summary>" % len(pages)
+    lines = [head, ""]
+    for domain, title, group in group_by_domain(pages):
+        lines.append(f"**{DOMAIN_SHORT.get(domain, title)}** · {len(group)} 页")
+        lines.append("")
+        for p in group:
+            tags = " ".join(f"`{t}`" for t in p["tags"] if t != "index")
+            suffix = f" {tags}" if tags else ""
+            lines.append(f"- [{p['title']}]({p['path']}){suffix}")
+        lines.append("")
+    lines.append("</details>")
+    return lines
+
+
 def build_doc_list(pages: list[dict]) -> str:
     lines = [
         "> 项目知识库已重构为 **wiki**（一页一主题、可交叉链接、可溯源到代码）。",
         "> 人类入口 [`wiki/README.md`](wiki/README.md) · LLM 入口 [`wiki/llms.txt`](wiki/llms.txt) · 可视化站点 `wiki/index.html`（浏览器打开，含侧栏与搜索）。",
         ">",
-        "> 下方清单由 `python3 wiki/scripts/build_index.py` 自动生成，**请勿手动编辑本区块**。",
+        "> 下方内容由 `python3 wiki/scripts/build_index.py` 自动生成，**请勿手动编辑本区块**。",
+        "> 想加/删必读页：在对应 `wiki/**/*.md` 的 frontmatter `tags` 里加 `must-read` 再跑脚本。",
         "",
     ]
-    for domain, title, group in group_by_domain(pages):
-        lines.append(f"- **{domain} · {title}**（{DOMAIN_READMES.get(domain, '')}）")
-        for page in group:
-            lines.append(f"  - [`{page['path']}`]({page['path']}) — {page['title']}")
-    return "\n".join(lines)
+    lines += _must_read_lines(pages)
+    lines += _map_lines(pages)
+    lines += _details_lines(pages)
+    return "\n".join(lines).rstrip()
 
 
 def sync_readme(pages: list[dict]) -> str | None:

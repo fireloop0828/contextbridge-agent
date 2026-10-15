@@ -1,6 +1,6 @@
 ---
 id: host/prompts
-title: Prompt 分层
+title: Prompt 分层与动态上下文
 tags: [host, prompt]
 sources:
   - agents-master/prompts/general_system.md
@@ -12,7 +12,7 @@ related: [host/modes, host/architecture, host/travel-impl]
 updated: 2026-09-10
 ---
 
-# Prompt 分层
+# Prompt 分层与动态上下文
 
 > **TL;DR**：Prompt 分三层——**通用 System**（`prompts/general_system.md`）、**各模式 System**（`modes/knowledge_qa/system.md`、`modes/travel/*.md`）、**动态回合上下文**（`state_machine` 生成的 `[TRAVEL_CONTEXT]`）；前两者在创建 Agent 时固定，后者每轮注入用户消息前。
 

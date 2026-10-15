@@ -1,6 +1,6 @@
 ---
 id: host/architecture
-title: Host 架构与 app.py 拆分
+title: 主应用架构与启动入口
 tags: [host, architecture, app]
 sources:
   - agents-master/app.py
@@ -10,7 +10,7 @@ related: [host/middleware, host/prompts, host/mcp-client]
 updated: 2026-09-10
 ---
 
-# app.py 架构说明与拆分建议
+# 主应用架构与启动入口
 
 > **TL;DR**：`app.py` 是 Host 主入口，只保留「Agent 与 MCP 生命周期、旅行导出写盘、Streamlit 装配」三类职责；UI、旅行编排与 Prompt 已分别外迁到 `ui/`、`modes/travel/`、`prompts/`，文件从约 1675 行瘦身到约 668 行。
 

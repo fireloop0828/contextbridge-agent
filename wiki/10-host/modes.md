@@ -1,6 +1,6 @@
 ---
 id: host/modes
-title: 多模式 Agent 架构选型
+title: 多模式调度与注册表选型
 tags: [host, modes, registry]
 sources:
   - agents-master/modes/registry.py
@@ -10,7 +10,7 @@ related: [host/mcp-client, host/travel-impl, host/prompts]
 updated: 2026-09-10
 ---
 
-# 多模式 Agent 架构选型
+# 多模式调度与注册表选型
 
 > **TL;DR**：三种模式（通用 / 知识库问答 / 旅行）共用**同一个单 Agent 与同一套 MCP 工具**，通过「模式包 + registry」替换系统提示词与处理逻辑；旅行模式额外叠加强流程状态机。
 

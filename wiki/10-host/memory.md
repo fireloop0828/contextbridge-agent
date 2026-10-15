@@ -1,7 +1,7 @@
 ---
 id: host/memory
-title: 对话记忆系统
-tags: [host, memory]
+title: 长短期记忆设计
+tags: [host, memory, must-read]
 sources:
   - agents-master/memory_store.py
   - agents-master/memory_recall.py
@@ -11,7 +11,7 @@ related: [host/architecture, host/middleware, analysis/token-optimization]
 updated: 2026-09-10
 ---
 
-# Agent 对话记忆系统
+# 长短期记忆设计
 
 > **TL;DR**：记忆分四层——L1 会话历史（LangGraph MemorySaver）、L2 会话归档、L3 结构化事实、L4 向量长期记忆；各层独立写入与读出，L4 用 Embedding 做跨会话画像召回。
 

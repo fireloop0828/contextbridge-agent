@@ -1,6 +1,6 @@
 ---
 id: analysis/test-summary
-title: 旅行模式测试问题与优化总结（2026-06）
+title: 测试问题与优化总结（2026-06）
 tags: [analysis, travel, test]
 sources:
   - agents-master/modes/travel/
@@ -8,7 +8,7 @@ sources:
 related: [host/travel-impl, host/travel-product, analysis/token-optimization]
 updated: 2026-09-10
 ---
-# 旅行模式测试问题与优化总结（2026-06）
+# 测试问题与优化总结（2026-06）
 
 > **TL;DR**：2026-06 旅行模式测试沉淀 6 类问题——归档卡顿、导出时机、可信度三色标、RAG 展示空结果、地图动线顺序、emoji 与祝福重复，每类都记录了问题、修复路线与技术要点。
 

@@ -1,6 +1,6 @@
 ---
 id: host/mcp-client
-title: MCP 客户端与配置管理
+title: MCP 客户端与配置解析
 tags: [host, mcp, config]
 sources:
   - agents-master/config.json
@@ -10,7 +10,7 @@ related: [integration/mcp-lifecycle, host/modes, rag/mcp-server]
 updated: 2026-09-10
 ---
 
-# MCP 设计与管理
+# MCP 客户端与配置解析
 
 > **TL;DR**：Host 用 `MultiServerMCPClient` 按 `config.json` 同时连接多个 MCP Server（默认 4 个：时间 / 文档导出 / rag-server / 高德），`resolve_mcp_config()` 在启动前把路径、venv 与密钥解析为可执行配置；**改 MCP 配置才重连，切模式或换模型只重建 Agent**。
 

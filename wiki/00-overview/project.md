@@ -1,7 +1,7 @@
 ---
 id: overview/project
 title: 项目定位与架构总览
-tags: [overview, architecture, monorepo]
+tags: [overview, architecture, monorepo, must-read]
 sources:
   - README.md
   - agents-master/README.md

@@ -1,6 +1,6 @@
 ---
 id: integration/config-and-keys
-title: 配置与密钥分工
+title: 配置与密钥边界
 tags: [integration, config, security]
 sources:
   - README.md
@@ -10,7 +10,7 @@ related: [integration/end-to-end, host/mcp-client, rag/architecture]
 updated: 2026-09-10
 ---
 
-# 配置与密钥分工
+# 配置与密钥边界
 
 > **TL;DR**：项目有**两套配置**——`agents-master/.env`（LLM Key、高德 Key、记忆 Embedding）与 `rag-server/config/settings.yaml`（RAG 的 LLM 与 Embedding 模型）；密钥一律不入 Git，由启动时解析注入子进程。
 

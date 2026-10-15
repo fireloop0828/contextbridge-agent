@@ -1,6 +1,6 @@
 ---
 id: host/react-agent
-title: ReAct Agent 与运行方式
+title: ReAct Agent 执行循环
 tags: [host, react, langgraph, run]
 sources:
   - agents-master/app.py
@@ -10,7 +10,7 @@ related: [host/architecture, host/mcp-client, host/prompts]
 updated: 2026-09-10
 ---
 
-# ReAct Agent 与运行方式
+# ReAct Agent 执行循环
 
 > **TL;DR**：Host 用 LangGraph 的 `create_react_agent` 构建一个「推理 → 调工具 → 再推理」的 ReAct 智能体，把 MCP 拉取到的工具列表作为可用工具；本地运行只需 `streamlit run app.py`，首次打开页面会自动连接 MCP 并创建 Agent。
 

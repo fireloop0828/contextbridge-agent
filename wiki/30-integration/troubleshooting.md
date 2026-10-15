@@ -1,6 +1,6 @@
 ---
 id: integration/troubleshooting
-title: 常见故障排查
+title: 故障排查手册
 tags: [integration, troubleshooting, ops]
 sources:
   - agents-master/README.md
@@ -10,7 +10,7 @@ related: [integration/config-and-keys, integration/mcp-lifecycle, analysis/tool-
 updated: 2026-09-10
 ---
 
-# 常见故障排查
+# 故障排查手册
 
 > **TL;DR**：联调故障优先按「Key → 双 venv → 是否入库 → collection 名称 → embedding 一致 → MCP 子进程」的顺序排查；多数问题落在配置与依赖，而非代码逻辑。
 

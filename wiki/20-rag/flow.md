@@ -1,6 +1,6 @@
 ---
 id: rag/flow
-title: 整体设计与流程
+title: RAG 检索流程与数据流
 tags: [rag, flow]
 sources:
   - rag-server/src/
@@ -9,7 +9,7 @@ related: [rag/architecture, rag/observability, integration/end-to-end]
 updated: 2026-09-10
 ---
 
-# **整体设计和流程**
+# RAG 检索流程与数据流
 
 > **TL;DR**：两条主链路（入库、检索）+ 三类关键存储（向量库 / BM25 索引 / 入库历史）+ Trace 可观测，构成 rag-server 的全局视图；最快上手顺序是先跑通 ingest 再跑 query。
 

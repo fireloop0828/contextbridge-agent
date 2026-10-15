@@ -1,6 +1,6 @@
 ---
 id: integration/end-to-end
-title: 端到端主链路
+title: 端到端请求链路
 tags: [integration, end-to-end, rag]
 sources:
   - README.md
@@ -10,7 +10,7 @@ related: [overview/project, integration/config-and-keys, rag/mcp-server]
 updated: 2026-09-10
 ---
 
-# 端到端主链路
+# 端到端请求链路
 
 > **TL;DR**：用户提问后，由 Host 的 LangGraph ReAct Agent 决策并调用 MCP 工具；**检索发生在 rag-server**（返回带 Citation 的证据片段），**最终自然语言回答由 Host 的 LLM 生成**——rag-server 不生成面向用户的完整长答案。
 

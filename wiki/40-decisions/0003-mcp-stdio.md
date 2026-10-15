@@ -1,6 +1,6 @@
 ---
 id: decisions/0003-mcp-stdio
-title: ADR-0003 MCP 选 stdio 而非 HTTP
+title: ADR-0003 传输层选 stdio
 tags: [adr, mcp, stdio, transport]
 sources:
   - wiki/10-host/mcp-client.md

@@ -1,6 +1,6 @@
 ---
 id: host/middleware
-title: 中间件化改造方案
+title: 中间件化改造（TurnMiddleware）
 tags: [host, middleware, architecture]
 sources:
   - agents-master/ui/chat.py

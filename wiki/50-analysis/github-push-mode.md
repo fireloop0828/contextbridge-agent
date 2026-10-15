@@ -1,6 +1,6 @@
 ---
 id: analysis/github-push-mode
-title: GitHub 推送模式目标分析
+title: 推送模式目标分析
 tags: [analysis, tooling, git]
 sources:
   - .cursor/rules
@@ -8,7 +8,7 @@ sources:
 related: []
 updated: 2026-09-10
 ---
-# GitHub 推送模式目标分析
+# 推送模式目标分析
 
 > **TL;DR**：把「提交并 push」做成可复用工作流的目标分析：两条触发路径（指令触发 / 功能点完成提醒）、分批 commit 划分原则、安全约束与明确不做的事。
 

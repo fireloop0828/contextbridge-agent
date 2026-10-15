@@ -1,6 +1,6 @@
 ---
 id: decisions/0001-monorepo-split
-title: ADR-0001 monorepo 双项目不合并
+title: ADR-0001 双项目不合并
 tags: [adr, monorepo, architecture]
 sources:
   - README.md

@@ -1,6 +1,6 @@
 ---
 id: analysis/mcp-init-performance
-title: MCP 初始化性能分析与优化
+title: MCP 初始化性能分析
 tags: [analysis, mcp, performance]
 sources:
   - agents-master/config/mcp_config.py
@@ -9,7 +9,7 @@ sources:
 related: [host/mcp-client, integration/mcp-lifecycle, analysis/token-optimization]
 updated: 2026-09-10
 ---
-# MCP 初始化性能分析与优化
+# MCP 初始化性能分析
 
 > **TL;DR**：Host 首次打开页面要 spawn 4 个 MCP 子进程，`npx` 冷启动是主要耗时；已用「解析本地 mcp-amap + 切模式只重建 Agent 不重连 MCP」把初始化压下来，`get_tools()` 握手仍有固有开销。
 

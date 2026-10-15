@@ -1,6 +1,6 @@
 ---
 id: rag/index
-title: RAG 域索引（rag-server）
+title: RAG 域索引 · 检索服务
 tags: [index]
 sources: []
 related: []
@@ -17,10 +17,10 @@ updated: 2026-09-10
 | --- | --- |
 | [[rag/architecture]] | 系统架构与模块选型（含入库 / 检索 / 重排选型） |
 | [[rag/requirements]] | 需求目标与模块设计 |
-| [[rag/flow]] | 整体设计与流程（两条链路 + 三类存储） |
-| [[rag/mcp-server]] | 外接集成与 MCP Server（三件套 + CLI） |
-| [[rag/evaluation]] | 评估体系设计（Custom / Ragas / Composite） |
-| [[rag/observability]] | RAG 控制台（Dashboard）指南 |
+| [[rag/flow]] | RAG 检索流程与数据流（两条链路 + 三类存储） |
+| [[rag/mcp-server]] | RAG MCP Server 与外接集成（三件套 + CLI） |
+| [[rag/evaluation]] | RAG 评估体系与回归验证（Custom / Ragas / Composite） |
+| [[rag/observability]] | RAG 控制台 Dashboard 指南 |
 
 ## 存档
 

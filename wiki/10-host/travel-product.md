@@ -1,6 +1,6 @@
 ---
 id: host/travel-product
-title: 旅行规划 · 需求与架构（产品）
+title: 需求与架构（智能行程规划）
 tags: [host, travel, product]
 sources:
   - agents-master/modes/travel/state_machine.py
@@ -9,7 +9,7 @@ related: [host/travel-impl, host/modes, host/mcp-client]
 updated: 2026-09-10
 ---
 
-# 旅行规划模式 — 需求与架构设计
+# 智能行程规划 — 需求与架构设计
 
 > **TL;DR**：旅行模式是「强流程」样板：先做信息收集（Intake 九字段），再经五阶段状态机产出可下载攻略，并以「查不到就标待核实」保证内容可信度。
 
