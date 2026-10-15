@@ -10,6 +10,7 @@ MCP_SERVER_LABELS: dict[str, str] = {
     "github": "GitHub 仓库",
     "weather": "天气查询",
     "brave-search": "网页搜索",
+    "web-search": "联网搜索",
     "filesystem": "本地文件",
 }
 
@@ -28,4 +29,6 @@ def format_mcp_server_label(server_id: str) -> str:
         return "时间服务"
     if "weather" in lowered:
         return "天气查询"
+    if "search" in lowered or "web" in lowered:
+        return "联网搜索"
     return server_id.replace("-", " ").replace("_", " ")

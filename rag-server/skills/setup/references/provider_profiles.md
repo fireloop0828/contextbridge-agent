@@ -92,7 +92,7 @@ embedding:
 ```yaml
 llm:
   provider: "qwen"
-  model: "qwen-turbo"         # or qwen-plus, qwen-max
+  model: "qwen-turbo"         # or qwen-plus, qwen3.8-flash
   api_key: "<DASHSCOPE_API_KEY>"
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
   temperature: 0.0

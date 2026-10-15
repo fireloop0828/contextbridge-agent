@@ -166,6 +166,7 @@ npm install
 | 长期记忆 Embedding | `agents-master/.env`（`DASHSCOPE_*`） |
 | 知识库检索 | `rag-server/config/settings.yaml` |
 | 旅行 POI / 地图 | `agents-master/.env`（`AMAP_MAPS_API_KEY`） |
+| 联网搜索 | `agents-master/.env`（`BOCHA_API_KEY`） |
 
 > 注意：请勿将真实密钥提交到 Git。
 

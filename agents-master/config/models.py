@@ -17,9 +17,9 @@ ANTHROPIC_MODELS = [
 ]
 OPENAI_MODELS = ["gpt-4o", "gpt-4o-mini"]
 DASHSCOPE_MODELS = [
-    "qwen-plus-2025-07-28",
-    "qwen-max",
-    "qwen-vl-plus",
+    "qwen3.8-27b",
+    "qwen3.8-flash",
+    "kimi-k3",
 ]
 
 OUTPUT_TOKEN_INFO = {
@@ -28,9 +28,9 @@ OUTPUT_TOKEN_INFO = {
     "claude-3-7-sonnet-latest": {"max_tokens": 64000},
     "gpt-4o": {"max_tokens": 16000},
     "gpt-4o-mini": {"max_tokens": 16000},
-    "qwen-plus-2025-07-28": {"max_tokens": 8192},
-    "qwen-max": {"max_tokens": 8192},
-    "qwen-vl-plus": {"max_tokens": 8192},
+    "qwen3.8-27b": {"max_tokens": 8192},
+    "qwen3.8-flash": {"max_tokens": 8192},
+    "kimi-k3": {"max_tokens": 8192},
 }
 
 DASHSCOPE_BASE_URL_DEFAULT = "https://dashscope.aliyuncs.com/compatible-mode/v1"

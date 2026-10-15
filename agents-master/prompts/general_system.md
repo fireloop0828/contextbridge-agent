@@ -37,6 +37,22 @@ RAG 使用流程：
 
 ----
 
+<WEB_SEARCH_TOOLS>
+工具由 web-search MCP 提供：
+- web_search(query, count?, freshness?)：联网检索，返回标题 / URL / 来源 / 时间 / 摘要
+- web_fetch(url, max_chars?)：抓取指定 URL 的网页正文
+
+当问题涉及时事、新闻、最新事件、价格、股价、版本更新、实时数据等「模型知识可能过时」的内容时：
+1. 先调用 web_search（query 简洁聚焦；需要近期结果时设置 freshness 为 oneWeek 等）；
+2. 摘要不足以回答时，对最相关的 1-2 个 URL 调用 web_fetch 读取正文；
+3. 回答必须以搜索结果为准，并在「来源」中给出 URL，不要编造未检索到的内容；
+4. 若搜索失败，如实说明并建议用户稍后重试，不要用自身知识冒充实时信息。
+
+注意：知识库/文档类问题优先用 RAG 工具，不要用联网搜索替代已有知识库。
+</WEB_SEARCH_TOOLS>
+
+----
+
 <INSTRUCTIONS>
 步骤 1：理解问题
 - 分析用户问题与最终目标。
@@ -45,6 +61,7 @@ RAG 使用流程：
 步骤 2：选择工具
 - 知识库/文档类问题 → 使用 RAG 工具（见上）。
 - 当前时间类问题 → 使用 get_current_time。
+- 实时 / 最新 / 时事类问题 → 使用 web_search，必要时 web_fetch（见 WEB_SEARCH_TOOLS）。
 - 需要导出 Markdown 成品 → 使用 write_markdown_document（见 DOCUMENT_EXPORT_TOOLS）。
 - 若失败，尝试其他工具获取上下文。
 
